@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.8.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Game Boy y Game Boy Color van juntas: una sola tarjeta en el inicio y una sola biblioteca.",
+      "Cada juego sigue con lo suyo: los de Game Boy con el tema Clásica y el verde original, y los de Color con el suyo.",
+      "Las estadísticas por consola también las cuentan juntas."
+    ]
+  },
+  {
     "version": "0.7.0",
     "fecha": "15/11/2026",
     "cambios": [

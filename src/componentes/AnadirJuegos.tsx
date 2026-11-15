@@ -8,10 +8,10 @@ import { anadirFichero } from '../lib/biblioteca'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
-import { SISTEMAS, type Sistema } from '../lib/sistemas'
+import { CONSOLAS_APP, consolaDe, type Consola } from '../lib/sistemas'
 import { useInterfaz } from './Interfaz'
 
-export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: Sistema) {
+export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: Consola) {
   const { avisar } = useInterfaz()
   const selector = useRef<HTMLInputElement>(null)
   const [anadiendo, setAnadiendo] = useState<string | null>(null)
@@ -21,14 +21,14 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
     let nuevos = 0
     let repetidos = 0
     const fallidos: string[] = []
-    const consolas = new Set<Sistema>()
+    const consolas = new Set<Consola>()
     for (const [i, f] of Array.from(ficheros).entries()) {
       setAnadiendo(ficheros.length > 1 ? `Añadiendo ${i + 1} de ${ficheros.length}…` : 'Añadiendo…')
       try {
         const r = await anadirFichero(f.name, await f.arrayBuffer())
         if (r.tipo === 'nuevo') {
           nuevos++
-          consolas.add(r.juego.sistema)
+          consolas.add(consolaDe(r.juego.sistema))
         } else if (r.tipo === 'repetido') repetidos++
         else fallidos.push(f.name)
       } catch (e) {
@@ -44,7 +44,7 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
     if (nuevos) {
       // Se dice a qué consola han ido si no es la que se está viendo
       const otra = consolas.size === 1 ? [...consolas][0] : null
-      const destino = otra && otra !== desde ? ` a ${SISTEMAS[otra].nombre}` : consolas.size > 1 ? ' a sus consolas' : ''
+      const destino = otra && otra !== desde ? ` a ${CONSOLAS_APP[otra].nombre}` : consolas.size > 1 ? ' a sus consolas' : ''
       partes.push((nuevos === 1 ? 'Juego añadido' : plural(nuevos, 'juego añadido', 'juegos añadidos')) + destino)
     }
     if (repetidos) partes.push(repetidos === 1 ? 'uno ya estaba en la biblioteca' : `${repetidos} ya estaban en la biblioteca`)

@@ -16,9 +16,9 @@ import { Estadisticas } from './pantallas/Estadisticas'
 import { Inicio } from './pantallas/Inicio'
 import { Juego } from './pantallas/Juego'
 import type { Juego as TipoJuego } from './lib/almacen'
-import type { Sistema } from './lib/sistemas'
+import { consolaDe, type Consola } from './lib/sistemas'
 
-type Pantalla = { tipo: 'inicio' } | { tipo: 'estadisticas' } | { tipo: 'biblioteca'; sistema: Sistema } | { tipo: 'ajustes' } | { tipo: 'juego'; id: string; reanudar: boolean; sistema: Sistema }
+type Pantalla = { tipo: 'inicio' } | { tipo: 'estadisticas' } | { tipo: 'biblioteca'; consola: Consola } | { tipo: 'ajustes' } | { tipo: 'juego'; id: string; reanudar: boolean; consola: Consola }
 
 const DOS_HORAS = 2 * 60 * 60 * 1000
 
@@ -135,17 +135,17 @@ function Pantallas() {
     return () => document.removeEventListener('visibilitychange', alCambiar)
   }, [])
 
-  const jugar = (j: TipoJuego, reanudar: boolean) => setPantalla({ tipo: 'juego', id: j.id, reanudar, sistema: j.sistema })
+  const jugar = (j: TipoJuego, reanudar: boolean) => setPantalla({ tipo: 'juego', id: j.id, reanudar, consola: consolaDe(j.sistema) })
 
   return (
     <>
       {pantalla.tipo === 'inicio' && (
-        <Inicio alEstadisticas={() => setPantalla({ tipo: 'estadisticas' })} alAbrirConsola={(sistema) => setPantalla({ tipo: 'biblioteca', sistema })} alJugar={jugar} alAjustes={() => setPantalla({ tipo: 'ajustes' })} />
+        <Inicio alEstadisticas={() => setPantalla({ tipo: 'estadisticas' })} alAbrirConsola={(consola) => setPantalla({ tipo: 'biblioteca', consola })} alJugar={jugar} alAjustes={() => setPantalla({ tipo: 'ajustes' })} />
       )}
-      {pantalla.tipo === 'biblioteca' && <Biblioteca sistema={pantalla.sistema} alJugar={jugar} alVolver={() => setPantalla({ tipo: 'inicio' })} />}
+      {pantalla.tipo === 'biblioteca' && <Biblioteca consola={pantalla.consola} alJugar={jugar} alVolver={() => setPantalla({ tipo: 'inicio' })} />}
       {pantalla.tipo === 'estadisticas' && <Estadisticas alVolver={() => setPantalla({ tipo: 'inicio' })} />}
       {pantalla.tipo === 'ajustes' && <Ajustes alVolver={() => setPantalla({ tipo: 'inicio' })} />}
-      {pantalla.tipo === 'juego' && <Juego id={pantalla.id} reanudar={pantalla.reanudar} alSalir={() => setPantalla({ tipo: 'biblioteca', sistema: pantalla.sistema })} />}
+      {pantalla.tipo === 'juego' && <Juego id={pantalla.id} reanudar={pantalla.reanudar} alSalir={() => setPantalla({ tipo: 'biblioteca', consola: pantalla.consola })} />}
       <AvisoVersion visible={pantalla.tipo !== 'juego'} />
       {pantalla.tipo === 'inicio' && <Bienvenida />}
     </>

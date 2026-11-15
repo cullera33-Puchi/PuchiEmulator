@@ -38,6 +38,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 
 ## Cómo funciona
 
+- **Consolas de la app** (v0.8.0): Game Boy y Game Boy Color van juntas (`Consola`, `CONSOLAS_APP` y `consolaDe` en `src/lib/sistemas.ts`; decisión del usuario del 15/11/2026). El inicio, las bibliotecas, los avisos y las estadísticas trabajan con la consola; el núcleo, los temas y la paleta, con el sistema (`gb` o `gbc`).
 - **Inicio** (v0.3.0, `src/pantallas/Inicio.tsx`): «Seguir jugando» con el último juego y una tarjeta por consola con su dibujo propio (`src/componentes/Consolas.tsx`) o una foto del usuario (almacén `caratulas`, clave `consola-<sistema>`). Tocar una consola abre su biblioteca, que es una pantalla apilada. Al salir de un juego se vuelve a la biblioteca de su consola.
 - **Biblioteca** (`src/pantallas/Biblioteca.tsx`, una por consola): «+» (aquí o en el inicio, `useAnadirJuegos`) abre Archivos (varios ficheros a la vez, `.gb`, `.gbc`, `.gba`, `.sfc`, `.smc` o `.zip`). Sin filtro de tipo en el selector, porque Archivos no deja elegir extensiones que no conoce. La consola se reconoce por la cabecera y, si no, por la extensión (`src/lib/sistemas.ts`). La ROM se copia en IndexedDB; el identificador del juego es el SHA-1 de la ROM, así que una partida encuentra su juego aunque se quite y se vuelva a añadir.
 - **Almacenamiento** (`src/lib/almacen.ts`): colecciones `juegos`, `roms`, `partidas`, `estados`, `caratulas` (v2) y `sesiones` (v3). Las partidas van por juego; los estados, por juego y ranura (`auto`, `1`, `2` y `3`).
@@ -92,6 +93,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; PCSX R
 
 ## Estado
 
+- v0.8.0 (15/11/2026): Game Boy y Game Boy Color juntas en una sola consola de la app, pedido por el usuario. 70 pruebas unitarias y 22 de navegador.
 - v0.7.0 (15/11/2026): Super Nintendo con Snes9x, pedida por el usuario (fase 2 de la hoja de ruta). Probada con una ROM propia: imagen, botones, partida guardada; todo lo demás (estados, rebobinar, carátulas, estadísticas, temas, una mano) es común. 70 pruebas unitarias y 21 de navegador. Pendiente de probar con juegos reales, sobre todo los que llevan chips especiales (Super FX, SA-1), que exigen más al iPhone.
 - v0.6.0 (15/11/2026): tiempo jugado por juego y pantalla de estadísticas, pedidos por el usuario. 67 pruebas unitarias y 20 de navegador.
 - v0.5.0 (15/11/2026): a partir de una captura del usuario con un juego real de GBA: pantalla de borde a borde en vertical y a toda la altura en horizontal, modo una mano en horizontal (pantalla a la izquierda con la mano derecha, que es la que usa el usuario) y arreglo de la franja negra de abajo en la app instalada (sin poder comprobarlo en el dispositivo). 55 pruebas unitarias y 19 de navegador.

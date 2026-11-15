@@ -35,10 +35,10 @@ import { duracion, porJuego } from '../lib/estadisticas'
 import { cuando, cuandoCorto, plural, tamano } from '../lib/formato'
 import { vibrar } from '../lib/vibracion'
 import { registrar } from '../lib/registro'
-import { SISTEMAS, type Sistema } from '../lib/sistemas'
+import { CONSOLAS_APP, SISTEMAS, type Consola } from '../lib/sistemas'
 
 interface Props {
-  sistema: Sistema
+  consola: Consola
   alJugar: (juego: Juego, reanudar: boolean) => void
   alVolver: () => void
 }
@@ -125,7 +125,7 @@ function Ficha({ juego, caratula, tiempo, alJugar, alOpciones }: { juego: Juego;
   )
 }
 
-export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
+export function Biblioteca({ consola, alJugar, alVolver }: Props) {
   const { avisar } = useInterfaz()
   const [juegos, setJuegos] = useState<Juego[] | null>(null)
   const [conEstado, setConEstado] = useState<Set<string>>(new Set())
@@ -134,11 +134,11 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
   const [detalle, setDetalle] = useState<Detalle | null>(null)
   const [eligiendoCaratula, setEligiendoCaratula] = useState<Juego | null>(null)
   const pantalla = useRef<HTMLDivElement>(null)
-  const info = SISTEMAS[sistema]
+  const info = CONSOLAS_APP[consola]
   useVolverDeslizando(pantalla, alVolver)
 
   const recargar = useCallback(async () => {
-    const lista = ordenarJuegos((await listarJuegos()).filter((j) => j.sistema === sistema))
+    const lista = ordenarJuegos((await listarJuegos()).filter((j) => info.sistemas.includes(j.sistema)))
     const [estados, imagenes, sesiones] = await Promise.all([Promise.all(lista.map((j) => leerEstado(j.id, 'auto'))), listarCaratulas(), listarSesiones()])
     setTiempos(new Map(porJuego(sesiones).map((f) => [f.juegoId, { ms: f.ms, sesiones: f.sesiones }])))
     setConEstado(new Set(lista.filter((_, i) => estados[i]).map((j) => j.id)))
@@ -147,13 +147,13 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
       return new Map(imagenes.map((c) => [c.id, URL.createObjectURL(new Blob([c.datos], { type: 'image/jpeg' }))]))
     })
     setJuegos(lista)
-  }, [sistema])
+  }, [info])
 
   useEffect(() => {
     void recargar()
   }, [recargar])
 
-  const anadir = useAnadirJuegos(recargar, sistema)
+  const anadir = useAnadirJuegos(recargar, consola)
 
   const jugar = (j: Juego, reanudar: boolean) => {
     // El sonido de Safari se desbloquea en este mismo toque
@@ -215,7 +215,7 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
         <button className="boton-texto flex items-center justify-self-start" onClick={alVolver}>
           <ChevronLeft size={26} /> Consolas
         </button>
-        <h1 className="truncate text-[17px] font-semibold">{info.nombre}</h1>
+        <h1 className="truncate text-[17px] font-semibold">{info.titulo}</h1>
         <button className="boton-icono justify-self-end" aria-label="Añadir juegos" onClick={anadir.abrir}>
           <Plus size={24} />
         </button>
@@ -226,7 +226,7 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
         <div className="mt-16 flex flex-col items-center px-6 text-center">
           <Gamepad2 size={56} strokeWidth={1.25} className="text-zinc-400" />
           <p className="mt-4 text-[20px] font-semibold">Aún no hay juegos de {info.nombre}</p>
-          <p className="mt-2 text-[15px] text-zinc-500">Elige tus juegos en Archivos ({sistema === 'snes' ? '.sfc, .smc' : '.gb, .gbc, .gba'} o .zip). La app guarda una copia y el fichero original se queda donde está.</p>
+          <p className="mt-2 text-[15px] text-zinc-500">Elige tus juegos en Archivos ({info.extensiones} o .zip). La app guarda una copia y el fichero original se queda donde está.</p>
           <button className="boton-lleno mt-6" onClick={anadir.abrir}>
             <Plus size={20} /> Añadir juegos
           </button>

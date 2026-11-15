@@ -2,7 +2,7 @@
  * Dibujos propios de las consolas para la pantalla de inicio: formas genéricas inspiradas en cada
  * una, sin logotipos ni textos. El usuario puede sustituirlos por una foto suya.
  */
-import type { Sistema } from '../lib/sistemas'
+import type { Consola } from '../lib/sistemas'
 
 function Cruz({ x, y, t, color }: { x: number; y: number; t: number; color: string }) {
   return (
@@ -111,9 +111,22 @@ function SuperNintendo() {
   )
 }
 
-export function DibujoConsola({ sistema }: { sistema: Sistema }) {
-  if (sistema === 'snes') return <SuperNintendo />
-  if (sistema === 'gb') return <GameBoy />
-  if (sistema === 'gbc') return <GameBoyColor />
+/** Game Boy y Game Boy Color juntas: la Color, más pequeña, delante a la derecha */
+function GameBoys() {
+  return (
+    <span className="flex h-full items-end">
+      <span className="h-full">
+        <GameBoy />
+      </span>
+      <span className="-ml-7 h-[80%]">
+        <GameBoyColor />
+      </span>
+    </span>
+  )
+}
+
+export function DibujoConsola({ consola }: { consola: Consola }) {
+  if (consola === 'snes') return <SuperNintendo />
+  if (consola === 'gb') return <GameBoys />
   return <GameBoyAdvance />
 }

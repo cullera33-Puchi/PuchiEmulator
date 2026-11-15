@@ -15,23 +15,23 @@ import { reducirImagen } from '../lib/caratulas'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { cuando, plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
-import { CONSOLAS, SISTEMAS, type Sistema } from '../lib/sistemas'
+import { CONSOLAS, CONSOLAS_APP, SISTEMAS, type Consola } from '../lib/sistemas'
 
 interface Props {
   alEstadisticas: () => void
-  alAbrirConsola: (s: Sistema) => void
+  alAbrirConsola: (c: Consola) => void
   alJugar: (juego: Juego, reanudar: boolean) => void
   alAjustes: () => void
 }
 
-export const claveFotoConsola = (s: Sistema) => `consola-${s}`
+export const claveFotoConsola = (c: Consola) => `consola-${c}`
 
 export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: Props) {
   const { avisar } = useInterfaz()
   const [juegos, setJuegos] = useState<Juego[] | null>(null)
   const [ultimo, setUltimo] = useState<{ juego: Juego; caratula?: string; reanudar: boolean } | null>(null)
   const [fotos, setFotos] = useState<Map<string, string>>(new Map())
-  const [opciones, setOpciones] = useState<Sistema | null>(null)
+  const [opciones, setOpciones] = useState<Consola | null>(null)
   const [sesiones, setSesiones] = useState<SesionJuego[]>([])
   const selectorFoto = useRef<HTMLInputElement>(null)
 
@@ -65,7 +65,7 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
 
   const tiempoDe = (id: string) => sesiones.filter((x) => x.juegoId === id).reduce((a, x) => a + x.ms, 0)
 
-  const cuantos = (s: Sistema) => juegos?.filter((j) => j.sistema === s).length ?? 0
+  const cuantos = (c: Consola) => juegos?.filter((j) => CONSOLAS_APP[c].sistemas.includes(j.sistema)).length ?? 0
 
   const ponerFoto = async (f: File | undefined) => {
     if (selectorFoto.current) selectorFoto.current.value = ''
@@ -83,7 +83,7 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
     }
   }
 
-  const quitarFoto = async (s: Sistema) => {
+  const quitarFoto = async (s: Consola) => {
     setOpciones(null)
     const anterior = await leerCaratula(claveFotoConsola(s))
     await borrarCaratula(claveFotoConsola(s))
@@ -149,7 +149,7 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
 
       <div className="flex flex-col gap-3" data-testid="consolas">
         {CONSOLAS.map((s) => {
-          const info = SISTEMAS[s]
+          const info = CONSOLAS_APP[s]
           const n = cuantos(s)
           const foto = fotos.get(claveFotoConsola(s))
           return (
@@ -170,7 +170,7 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
                   </span>
                 </span>
                 <span className="relative z-[1] flex w-[48%] items-center justify-center py-4 pr-4">
-                  {foto ? <img src={foto} alt="" className="h-full w-full rounded-xl object-cover" /> : <DibujoConsola sistema={s} />}
+                  {foto ? <img src={foto} alt="" className="h-full w-full rounded-xl object-cover" /> : <DibujoConsola consola={s} />}
                 </span>
               </button>
               <button className="absolute top-2 right-2 z-[2] grid size-9 place-items-center rounded-full bg-black/5 text-zinc-600 active:opacity-50 dark:bg-white/10 dark:text-zinc-300" aria-label={`Opciones de ${info.nombre}`} onClick={() => setOpciones(s)}>
@@ -182,7 +182,7 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
       </div>
       {juegos && juegos.length === 0 && <p className="pie-grupo mt-3 text-center">Añade tus juegos con «+». Cada uno va solo a su consola.</p>}
 
-      <Hoja abierta={!!opciones} alCerrar={() => setOpciones(null)} titulo={opciones ? SISTEMAS[opciones].nombre : undefined}>
+      <Hoja abierta={!!opciones} alCerrar={() => setOpciones(null)} titulo={opciones ? CONSOLAS_APP[opciones].nombre : undefined}>
         {opciones && (
           <>
             <div className="lista">

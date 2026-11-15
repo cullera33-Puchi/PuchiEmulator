@@ -25,7 +25,7 @@ import {
   type SesionJuego,
 } from '../lib/estadisticas'
 import { cuandoCorto, plural } from '../lib/formato'
-import { CONSOLAS, SISTEMAS } from '../lib/sistemas'
+import { CONSOLAS, CONSOLAS_APP, consolaDe, SISTEMAS, type Consola } from '../lib/sistemas'
 
 const PERIODOS: [Periodo, string][] = [
   ['semana', 'Semana'],
@@ -155,7 +155,9 @@ export function Estadisticas({ alVolver }: { alVolver: () => void }) {
     if (!sesiones) return null
     const del = delPeriodo(sesiones, periodo, ahora)
     const juegos = porJuego(del)
-    const consolas = porConsola(del)
+    // Game Boy y Game Boy Color cuentan juntas, como en el resto de la app
+    const consolas = new Map<Consola, number>()
+    for (const [s, ms] of porConsola(del)) consolas.set(consolaDe(s), (consolas.get(consolaDe(s)) ?? 0) + ms)
     const horas = porHora(del)
     const cols = columnas(sesiones, periodo, ahora)
     const t = total(del)
@@ -261,7 +263,7 @@ export function Estadisticas({ alVolver }: { alVolver: () => void }) {
                   .sort((a, b) => (d.consolas.get(b) ?? 0) - (d.consolas.get(a) ?? 0))
                   .map((s) => {
                     const ms = d.consolas.get(s) ?? 0
-                    return <FilaBarra key={s} titulo={SISTEMAS[s].nombre} valor={duracion(ms)} subtitulo={`${Math.round((ms / Math.max(d.total, 1)) * 100)} % del tiempo`} proporcion={ms / maxConsola} />
+                    return <FilaBarra key={s} titulo={CONSOLAS_APP[s].nombre} valor={duracion(ms)} subtitulo={`${Math.round((ms / Math.max(d.total, 1)) * 100)} % del tiempo`} proporcion={ms / maxConsola} />
                   })}
               </Tarjeta>
             )}

@@ -24,7 +24,7 @@ async function colorCentral(page: Page): Promise<[number, number, number]> {
   })
 }
 
-const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy', 'prueba.sfc': 'Super Nintendo' }
+const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo' }
 
 /** Abre la biblioteca de una consola desde el inicio. */
 async function entrar(page: Page, consola: string) {
@@ -48,7 +48,7 @@ async function pulsar(page: Page, etiqueta: string, ms = 300) {
 test('inicio sin juegos, añadir un juego de GBA y jugar con los botones', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText(/Añade tus juegos con/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(4)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(3)
 
   await anadir(page, 'prueba.gba')
   await expect(page.getByRole('button', { name: /prueba.*Game Boy Advance/i })).toBeVisible()
@@ -133,7 +133,7 @@ test('un fichero que no es un juego se rechaza', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('selector').setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
   await expect(page.getByText(/no es un juego/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(4)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(3)
 })
 
 test.describe('en horizontal', () => {
@@ -353,12 +353,11 @@ test('inicio: cada juego va a su consola, recuentos, seguir jugando y foto de la
   await page.getByRole('button', { name: 'Consolas' }).click()
 
   const consolas = page.getByTestId('consolas')
-  await expect(consolas.getByRole('button', { name: 'Game Boy, 1 juego', exact: true })).toBeVisible()
-  await expect(consolas.getByRole('button', { name: 'Game Boy Color, sin juegos' })).toBeVisible()
+  await expect(consolas.getByRole('button', { name: 'Game Boy y Game Boy Color, 1 juego', exact: true })).toBeVisible()
   await expect(consolas.getByRole('button', { name: 'Game Boy Advance, 1 juego' })).toBeVisible()
 
   // Foto propia de una consola y vuelta al dibujo con Deshacer
-  await consolas.getByRole('button', { name: 'Opciones de Game Boy', exact: true }).click()
+  await consolas.getByRole('button', { name: 'Opciones de Game Boy y Game Boy Color', exact: true }).click()
   await page.getByTestId('selector-foto-consola').setInputFiles(rom('../../public/icono-512.png'))
   await expect(page.getByText('Foto puesta')).toBeVisible()
   await expect(consolas.locator('img')).toHaveCount(1)
@@ -471,7 +470,7 @@ test('carátulas automáticas: se ponen al añadir, no vuelven si se quitan y se
   await page.getByRole('button', { name: 'Buscar ahora las que faltan' }).click()
   await expect(page.getByText('2 carátulas puestas')).toBeVisible()
   await page.getByRole('button', { name: 'Consolas' }).click()
-  await entrar(page, 'Game Boy')
+  await entrar(page, 'Game Boy y Game Boy Color')
   await expect(page.getByTestId('biblioteca').locator('img')).toHaveCount(1)
 })
 
@@ -591,4 +590,37 @@ test('Super Nintendo: cuatro botones, tema Super, botones que responden y partid
   await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
   await expect(page.getByText('Cargando…')).toBeHidden()
   await expect.poll(() => colorCentral(page)).toEqual([255, 0, 0])
+})
+
+test('Game Boy y Game Boy Color comparten consola y biblioteca, y cada juego conserva su tema', async ({ page }) => {
+  const gb = readFileSync(rom('prueba.gb'))
+  const gbc = Buffer.from(gb)
+  gbc[0x143] = 0x80 // indicador de Game Boy Color
+  gbc[0x134] = 0x51 // otra ROM distinta
+  await page.goto('/')
+  await page.getByTestId('selector').setInputFiles([
+    { name: 'Clasico.gb', mimeType: 'application/octet-stream', buffer: gb },
+    { name: 'En color.gbc', mimeType: 'application/octet-stream', buffer: gbc },
+  ])
+  await expect(page.getByText('2 juegos añadidos')).toBeVisible()
+  const consolas = page.getByTestId('consolas')
+  await expect(consolas.getByRole('button')).toHaveCount(6) // tres tarjetas con su botón de opciones
+  await expect(consolas.getByRole('button', { name: 'Game Boy y Game Boy Color, 2 juegos', exact: true })).toBeVisible()
+
+  await entrar(page, 'Game Boy y Game Boy Color')
+  await expect(page.getByRole('heading', { name: 'Game Boy y Color' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Clasico, Game Boy', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'En color, Game Boy Color', exact: true })).toBeVisible()
+
+  // El de Color se juega con su tema y, al salir, se vuelve a la biblioteca conjunta
+  await page.getByRole('button', { name: 'En color, Game Boy Color', exact: true }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByTestId('juego')).toHaveAttribute('data-tema', 'uva')
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await expect(page.getByRole('heading', { name: 'Game Boy y Color' })).toBeVisible()
+
+  // Añadir uno de GBA desde aquí avisa de que va a su consola
+  await page.getByTestId('selector').setInputFiles(rom('prueba.gba'))
+  await expect(page.getByText('Juego añadido a Game Boy Advance')).toBeVisible()
 })
