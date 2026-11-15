@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.12.1 (15/11/2026)
+
+- Nintendo DS en español, pedido por el usuario: sin firmware, melonDS crea uno con el idioma de `melonds_language`, que ahora es `Spanish`. Los juegos multilingües (casi todos los europeos) arrancan en español; los que solo traen inglés siguen igual.
+- GBA, Super Nintendo y Game Boy no tienen idioma de consola: el idioma va en la propia ROM (versión española o europea multilingüe).
+- La ROM de prueba de DS lee el idioma de la consola y pinta la pantalla de rojo si no es el español; la prueba de navegador lo comprueba.
+
 ## 0.12.0 (15/11/2026)
 
 - Sonido metálico (informado con Nintendo DS, también en GBA y Super Nintendo): la interpolación lineal de `Remuestreador` dejaba pasar imágenes del sonido por encima de la mitad de la frecuencia del núcleo (16 kHz en DS y Super Nintendo), que a 48 kHz se oyen como un brillo metálico. Ahora es un filtro sinc con ventana de Kaiser (16 coeficientes, 256 fases interpoladas, corte al 92 % y más bajo en avance rápido). Error frente al tono ideal: menos de -60 dB a 1 kHz y de -50 dB a 8 kHz. Retraso añadido: 8 muestras de entrada (0,25 ms).

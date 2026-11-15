@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.12.1",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Nintendo DS en español: los juegos que traen varios idiomas arrancan en español.",
+      "En las demás consolas el idioma va en el propio juego: usa la versión española o la europea."
+    ]
+  },
+  {
     "version": "0.12.0",
     "fecha": "15/11/2026",
     "cambios": [

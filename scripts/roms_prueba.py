@@ -164,30 +164,38 @@ def snes() -> bytes:
 
 
 # Nintendo DS. ARM9 (ensamblado con llvm-mc, armv5te): pantalla de arriba en modo VRAM (banco A) y,
-# sin parar, toda la pantalla de azul, o de verde con A pulsado. El bucle mantiene el procesador
-# ocupado, como un juego, para medir la velocidad. El ARM7 se queda en un bucle vacío.
+# sin parar, toda la pantalla de verde con A pulsado; si no, de azul si el idioma de la consola es el
+# español (byte 0x64 de los datos del usuario, que melonDS deja en 0x027FFC80) o de rojo si es otro.
+# El bucle mantiene el procesador ocupado, como un juego, para medir la velocidad. El ARM7 se queda
+# en un bucle vacío.
 NDS_ARM9 = bytes.fromhex(
-    '48009fe5'  # ldr   r0, =0x04000304      POWCNT1
-    '48109fe5'  # ldr   r1, =0x8003          motores encendidos; el A en la pantalla de arriba
+    '60009fe5'  # ldr   r0, =0x04000304      POWCNT1
+    '60109fe5'  # ldr   r1, =0x8003          motores encendidos; el A en la pantalla de arriba
     'b010c0e1'  # strh  r1, [r0]
-    '44009fe5'  # ldr   r0, =0x04000240      VRAMCNT_A
+    '5c009fe5'  # ldr   r0, =0x04000240      VRAMCNT_A
     '8010a0e3'  # mov   r1, #0x80            banco A para la pantalla
     '0010c0e5'  # strb  r1, [r0]
     '0103a0e3'  # mov   r0, #0x04000000      DISPCNT del motor A
     '0218a0e3'  # mov   r1, #0x00020000      modo VRAM con el banco A
     '001080e5'  # str   r1, [r0]
-    '30309fe5'  # ldr   r3, =0x04000130      KEYINPUT
+    '48309fe5'  # ldr   r3, =0x04000130      KEYINPUT
+    '48809fe5'  # ldr   r8, =0x027FFCE4      idioma de la consola
     'b040d3e1'  # bucle: ldrh r4, [r3]
     '010014e3'  # tst   r4, #1               bit 0 = A (0 si está pulsado)
-    '28509f05'  # ldreq r5, =0x03E003E0      verde
-    '28509f15'  # ldrne r5, =0x7C007C00      azul
-    '1a65a0e3'  # mov   r6, #0x06800000      VRAM del banco A
+    '40509f05'  # ldreq r5, =0x03E003E0      verde
+    '0400000a'  # beq   pintar
+    '0090d8e5'  # ldrb  r9, [r8]
+    '079009e2'  # and   r9, r9, #7
+    '050059e3'  # cmp   r9, #5               5 = español
+    '30509f05'  # ldreq r5, =0x7C007C00      azul
+    '30509f15'  # ldrne r5, =0x001F001F      rojo
+    '1a65a0e3'  # pintar: mov r6, #0x06800000  VRAM del banco A
     '067aa0e3'  # mov   r7, #0x6000          256 x 192 / 2 palabras
     '045086e4'  # relleno: str r5, [r6], #4
     '017057e2'  # subs  r7, r7, #1
     'fcffff1a'  # bne   relleno
-    'f5ffffea'  # b     bucle
-    '04030004' '03800000' '40020004' '30010004' 'e003e003' '007c007c'  # constantes
+    'f0ffffea'  # b     bucle
+    '04030004' '03800000' '40020004' '30010004' 'e4fc7f02' 'e003e003' '007c007c' '1f001f00'  # constantes
 )
 NDS_ARM7 = bytes.fromhex('feffffea')  # b .
 

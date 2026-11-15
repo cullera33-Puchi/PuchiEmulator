@@ -79,6 +79,8 @@ const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     // Sonido: interpolación cúbica y 16 bits (por defecto, sin interpolar y a 10 bits: suena áspero)
     melonds_audio_interpolation: 'Cubic',
     melonds_audio_bitrate: '16-bit',
+    // Sin firmware, melonDS crea uno con este idioma: los juegos multilingües salen en español
+    melonds_language: 'Spanish',
   },
 }
 
