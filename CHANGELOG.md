@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.13.0 (15/11/2026)
+
+- Mando para juegos de rol, por juego (petición del usuario; elegida la disposición «A grande» y «correr fijo con B o con Y»). Interruptor en Menú, Mando, «Este juego» (`ajustes.mandos`, por identificador del juego; `src/lib/mandoJuego.ts`).
+  - A al 50 % del área de botones, donde descansa el pulgar; B abajo a su izquierda; el botón de menú del juego encima, con la leyenda «Menú» y su letra; X e Y que no hacen de menú, más pequeños a la izquierda (`.botones-accion.jrpg`). Las posiciones son proporcionales: valen en vertical, en horizontal, con una mano y en DS.
+  - Botón de menú: X, Y, Start o Select en Super Nintendo y DS (X por defecto, como en Final Fantasy y Chrono Trigger); Start o Select en GBA y Game Boy (Start por defecto).
+  - Correr fijo: herramienta con huellas que deja pulsado B o Y (Y solo en Super Nintendo y DS) y otro toque lo suelta. Si se toca el botón fijo, se suelta tres fotogramas para que el juego vea una pulsación nueva (`mascaraConCorrer`). En DS va con guardar y cargar; en horizontal, en una segunda fila.
+- Pruebas: 90 unitarias y 26 de navegador.
+
 ## 0.12.1 (15/11/2026)
 
 - Nintendo DS en español, pedido por el usuario: sin firmware, melonDS crea uno con el idioma de `melonds_language`, que ahora es `Spanish`. Los juegos multilingües (casi todos los europeos) arrancan en español; los que solo traen inglés siguen igual.

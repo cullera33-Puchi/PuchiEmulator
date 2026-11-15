@@ -3,7 +3,7 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { FastForward, FolderOpen, Gamepad2, Menu, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
+import { FastForward, FolderOpen, Footprints, Gamepad2, Menu, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
@@ -18,6 +18,7 @@ import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { paletaPara, temaPara } from '../lib/temas'
 import { SelectorTema } from '../componentes/SelectorTema'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
+import { bitCorrer, extrasJrpg, mandoDe, NOMBRE_BOTON } from '../lib/mandoJuego'
 
 interface Props {
   id: string
@@ -52,6 +53,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [verTemas, setVerTemas] = useState(false)
   const [verMando, setVerMando] = useState(false)
   const tema = temaPara(sistema, ajustes.temas[sistema])
+  // Mando de este juego (modo JRPG) y correr fijo
+  const mando = mandoDe(ajustes.mandos, id, sistema)
+  const [corriendo, setCorriendo] = useState(false)
   const ajustesRef = useRef(ajustes)
   ajustesRef.current = ajustes
 
@@ -219,6 +223,18 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     avisar('Guardado rápido cargado', { fn: () => s.deshacerCarga() })
   }
 
+  // Al cambiar el modo o el botón de correr, se suelta
+  useEffect(() => {
+    setCorriendo(false)
+    sesion.current?.ponerCorrer(0)
+  }, [mando.jrpg, mando.correr])
+
+  const cambiarCorrer = () => {
+    const activo = !corriendo
+    setCorriendo(activo)
+    sesion.current?.ponerCorrer(activo ? bitCorrer(mando.correr) : 0)
+  }
+
   const cambiarVelocidad = () => {
     const siguiente = velocidad === 1 ? 2 : velocidad === 2 ? 4 : 1
     setVelocidad(siguiente)
@@ -266,9 +282,21 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     return () => ro.disconnect()
   }, [aspecto])
 
+  // En DS no hay rebobinado y la fila de abajo va justa: correr va con guardar y cargar
+  const botonCorrer = mando.jrpg && (
+    <button
+      className={`herramienta correr ${corriendo ? 'activa' : ''}`}
+      aria-label={`Correr con ${NOMBRE_BOTON[mando.correr]} fijo`}
+      aria-pressed={corriendo}
+      onClick={cambiarCorrer}
+    >
+      <Footprints size={20} />
+    </button>
+  )
+
   return (
     <div
-      className={`juego ${ajustes.nitido ? '' : 'suave'} ${ajustes.modoMando === 'una-mano' ? 'una-mano' : ''} ${ajustes.pantallaGrande ? 'grande' : ''}`}
+      className={`juego ${ajustes.nitido ? '' : 'suave'} ${ajustes.modoMando === 'una-mano' ? 'una-mano' : ''} ${ajustes.pantallaGrande ? 'grande' : ''} ${mando.jrpg ? 'jrpg' : ''}`}
       data-tema={tema.id}
       data-mano={ajustes.mano}
       data-sistema={sistema}
@@ -282,6 +310,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       <Mando
         hombros={hombros}
         cuatro={cuatro}
+        jrpg={mando.jrpg ? { menu: mando.menu, extras: extrasJrpg(sistema, mando.menu) } : undefined}
         tactil={esTactil ? { lienzo, alTocar: (x, y) => sesion.current?.ponerPuntero(x, y) } : undefined}
         alCambiar={(m) => sesion.current?.ponerBotonesTactil(m)} alToque={() => {
         // Safari solo deja sonar después de un toque: se reintenta en cada uno hasta que suena
@@ -295,11 +324,13 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         <button className="herramienta" aria-label="Cargar rápido" disabled={!hayRapido} onClick={() => void cargarRapido()}>
           <FolderOpen size={20} />
         </button>
+        {sistema === 'nds' && botonCorrer}
       </div>
       <button className="boton-menu herramienta" aria-label="Menú" onClick={abrirMenu}>
         <Menu size={22} />
       </button>
       <div className="herramientas derecha">
+        {sistema !== 'nds' && botonCorrer}
         {conRebobinado && (
         <button
           className={`herramienta ${rebobinando ? 'activa' : ''}`}
@@ -355,7 +386,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       {menu && verTemas && <SelectorTema oscura sistema={sistema} alCerrar={() => setVerTemas(false)} />}
 
       <Hoja oscura abierta={menu && verMando} alCerrar={() => setVerMando(false)} titulo="Mando">
-        <AjustesMando />
+        <AjustesMando juego={{ id, sistema }} />
         <button className="boton-texto mt-4 w-full py-2" onClick={() => setVerMando(false)}>
           Volver al menú
         </button>

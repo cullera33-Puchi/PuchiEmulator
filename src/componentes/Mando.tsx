@@ -7,6 +7,7 @@
 import { useEffect, useRef, type PointerEvent as EventoPuntero, type RefObject } from 'react'
 import { bit, direccionCruceta, type NombreBoton } from '../emulador/botones'
 import { leerAjustes } from '../lib/ajustes'
+import { NOMBRE_BOTON, type BotonMenu } from '../lib/mandoJuego'
 import { vibrar } from '../lib/vibracion'
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
   /** Cada toque que termina: sirve para activar el sonido en Safari */
   alToque?: () => void
   tactil?: Tactil
+  /** Mando para juegos de rol: A grande, B, el botón de menú del juego y los X e Y que sobren */
+  jrpg?: { menu: BotonMenu; extras: ('X' | 'Y')[] }
 }
 
 interface Dedo {
@@ -39,7 +42,7 @@ const BRAZOS: [NombreBoton, string][] = [
   ['DERECHA', 'derecha'],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque, tactil }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg }: Props) {
   const raiz = useRef<HTMLDivElement>(null)
   const cruceta = useRef<HTMLDivElement>(null)
   const dedos = useRef(new Map<number, Dedo>())
@@ -162,6 +165,25 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil }: Props) {
         <span className="centro" />
       </div>
 
+      {jrpg ? (
+        <div className="botones-accion jrpg">
+          {jrpg.extras.map((b) => (
+            <span key={b} data-boton={b} className={`control ${b.toLowerCase()}`} role="button" aria-label={b}>
+              {b}
+            </span>
+          ))}
+          <span data-boton={jrpg.menu} className="control menu" role="button" aria-label={`Menú del juego (${NOMBRE_BOTON[jrpg.menu]})`}>
+            <span className="leyenda">Menú</span>
+            <span className="letra">{NOMBRE_BOTON[jrpg.menu]}</span>
+          </span>
+          <span data-boton="B" className="control b" role="button" aria-label="B">
+            B
+          </span>
+          <span data-boton="A" className="control a" role="button" aria-label="A">
+            A
+          </span>
+        </div>
+      ) : (
       <div className={`botones-accion ${cuatro ? 'cuatro' : ''}`}>
         {cuatro && (
           <>
@@ -180,6 +202,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil }: Props) {
           A
         </span>
       </div>
+      )}
 
       {hombros && (
         <>

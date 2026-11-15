@@ -721,3 +721,53 @@ test('Nintendo DS (en pruebas): arranca sin BIOS, dos pantallas, botones, tácti
   await expect(page.getByTestId('mando').getByRole('button', { name: 'X', exact: true })).toBeVisible()
   expect(errores).toEqual([])
 })
+
+test('mando para juegos de rol: por juego, A grande, botón de menú elegido y correr fijo', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.sfc')
+  await page.getByRole('button', { name: /prueba, Super Nintendo/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  const mando = page.getByTestId('mando')
+  await expect(page.getByRole('button', { name: /^Correr/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: /^Mando/ }).click()
+  await page.getByRole('switch', { name: 'Mando para juegos de rol' }).click()
+  // Super Nintendo: menú en X por defecto; se cambia a Start y se corre con Y
+  await expect(page.getByRole('radiogroup', { name: 'Botón de menú' }).getByRole('radio', { name: 'X' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('radiogroup', { name: 'Botón de menú' }).getByRole('radio', { name: 'Start' }).click()
+  await page.getByRole('radiogroup', { name: 'Correr con' }).getByRole('radio', { name: 'Y' }).click()
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+
+  // A más grande que B; el menú del juego encima de A; X e Y siguen a la vista
+  const caja = async (n: string | RegExp) => (await mando.getByRole('button', { name: n, exact: typeof n === 'string' }).boundingBox())!
+  const [a, b, menu] = [await caja('A'), await caja('B'), await caja(/^Menú del juego \(Start\)$/)]
+  expect(a.width).toBeGreaterThan(b.width * 1.4)
+  expect(menu.y + menu.height).toBeLessThanOrEqual(a.y + 4)
+  await expect(mando.getByRole('button', { name: 'X', exact: true })).toBeVisible()
+  await expect(mando.getByRole('button', { name: 'Y', exact: true })).toBeVisible()
+  // A responde igual que siempre
+  await expect.poll(() => colorCentral(page)).toEqual([0, 0, 255])
+  await pulsar(page, 'A')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 255, 0])
+  await page.mouse.up()
+
+  // Correr fijo con Y: se activa y se suelta con un toque
+  const correr = page.getByRole('button', { name: 'Correr con Y fijo' })
+  await correr.click()
+  await expect(correr).toHaveAttribute('aria-pressed', 'true')
+  await correr.click()
+  await expect(correr).toHaveAttribute('aria-pressed', 'false')
+
+  // Es solo de este juego: un juego de GBA sigue con el mando normal
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await expect(page.getByTestId('juego')).toHaveCount(0)
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByRole('button', { name: /^Correr/ })).toHaveCount(0)
+  await expect(mando.getByRole('button', { name: /^Menú del juego/ })).toHaveCount(0)
+})

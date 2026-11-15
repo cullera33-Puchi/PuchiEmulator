@@ -5,6 +5,7 @@
 import { useSyncExternalStore } from 'react'
 import type { Sistema } from './sistemas'
 import type { IdTema, PaletaGb } from './temas'
+import type { MandoJuego } from './mandoJuego'
 
 export interface Ajustes {
   sonido: boolean
@@ -35,6 +36,8 @@ export interface Ajustes {
   pantallaGrande: boolean
   /** Imagen de Super Nintendo: como en la televisión (4:3) o píxel exacto (8:7) */
   snesAspecto: 'tv' | 'pixel'
+  /** Mando de cada juego (modo JRPG, botón de menú y con qué se corre), por identificador del juego */
+  mandos: Record<string, Partial<MandoJuego>>
 }
 
 export const POR_DEFECTO: Ajustes = {
@@ -53,6 +56,7 @@ export const POR_DEFECTO: Ajustes = {
   caratulasAuto: true,
   pantallaGrande: true,
   snesAspecto: 'tv',
+  mandos: {},
 }
 
 const CLAVE = 'puchiemulator-ajustes'

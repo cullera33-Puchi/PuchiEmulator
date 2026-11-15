@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.13.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Mando para juegos de rol: actívalo en Menú, Mando, solo en los juegos que quieras.",
+      "A más grande donde descansa el pulgar, con B y el botón de menú del juego al lado (elige cuál es en cada juego).",
+      "Botón con huellas para correr: deja B (o Y en Super Nintendo y DS) pulsado hasta que lo vuelvas a tocar."
+    ]
+  },
+  {
     "version": "0.12.1",
     "fecha": "15/11/2026",
     "cambios": [

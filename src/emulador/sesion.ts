@@ -15,6 +15,7 @@ import { botonesDeMando } from './botones'
 import { Nucleo } from './nucleo'
 import { Historial } from './historial'
 import { planRitmo, Refresco, refrescosPasados } from './ritmo'
+import { mascaraConCorrer } from '../lib/mandoJuego'
 
 const MAX_FOTOGRAMAS_SEGUIDOS = 4
 /** Cada cuántos fotogramas se guarda un estado para rebobinar (unos 6 por segundo) */
@@ -57,6 +58,11 @@ export class Sesion {
   private frecuencia = 32768
   private botonesTactil = 0
   private botonesTeclado = 0
+  // Correr fijo (modo JRPG): el botón que se mantiene pulsado, y fotogramas en que se suelta para que
+  // el juego vea una pulsación nueva cuando el usuario lo toca
+  private correr = 0
+  private huecoCorrer = 0
+  private basePrevia = 0
   private ultimaPartida: Uint8Array | null = null
   private temporizadorGuardado = 0
   private guardando: Promise<void> = Promise.resolve()
@@ -233,16 +239,20 @@ export class Sesion {
       this.acumulado = toca === MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad ? 0 : this.acumulado - toca * this.paso
     }
 
+    if (this.correr && mascara & this.correr && !(this.basePrevia & this.correr)) this.huecoCorrer = 3
+    this.basePrevia = mascara
     let hayImagen = false
     for (let i = 0; i < toca; i++) {
-      this.nucleo.botones(mascara)
+      const enviada = mascaraConCorrer(mascara, this.correr, this.huecoCorrer > 0)
+      if (this.huecoCorrer > 0) this.huecoCorrer--
+      this.nucleo.botones(enviada)
       if (this.nucleo.fotograma()) hayImagen = true
       // En avance rápido el sonido se acelera (más agudo) en lugar de cortarse
       this.altavoz.enviar(this.nucleo.audio(), this.frecuencia * this.velocidad * ritmoReal)
       if (this.conRebobinado && ++this.fotogramas % FOTOGRAMAS_POR_ESTADO === 0) {
         // Solo se copia el estado; compararlo y comprimirlo lo hace otro hilo
         const estado = this.nucleo.guardarEstado()
-        if (estado) this.historial.guardar(estado, mascara)
+        if (estado) this.historial.guardar(estado, enviada)
       }
     }
     if (this.nucleo.avCambiado()) this.leerTiempos()
@@ -340,6 +350,12 @@ export class Sesion {
   /** Toque en la imagen, de 0 a 1 sobre el fotograma (o null al soltar). */
   ponerPuntero(x: number | null, y = 0): void {
     this.nucleo?.puntero(x, y)
+  }
+
+  /** Correr fijo: máscara del botón que queda pulsado (0, ninguno). */
+  ponerCorrer(mascara: number): void {
+    this.correr = mascara
+    this.huecoCorrer = 0
   }
 
   ponerBotonesTactil(mascara: number): void {
