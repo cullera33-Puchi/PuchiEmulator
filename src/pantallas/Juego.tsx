@@ -36,6 +36,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [nombre, setNombre] = useState('')
   const [hombros, setHombros] = useState(false)
   const [cuatro, setCuatro] = useState(false)
+  const [conRebobinado, setConRebobinado] = useState(true)
+  const [esTactil, setEsTactil] = useState(false)
   const [nativo, setNativo] = useState({ ancho: 240, alto: 160 })
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -73,6 +75,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         setSistema(juego.sistema)
         setHombros(SISTEMAS[juego.sistema].hombros)
         setCuatro(SISTEMAS[juego.sistema].cuatroBotones)
+        setConRebobinado(SISTEMAS[juego.sistema].rebobinado)
+        setEsTactil(SISTEMAS[juego.sistema].tactil)
         const temaJuego = temaPara(juego.sistema, ajustesRef.current.temas[juego.sistema])
         creada = await Sesion.iniciar({
           juego,
@@ -274,7 +278,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         <canvas ref={lienzo} width={240} height={160} aria-label="Pantalla del juego" data-testid="pantalla" />
       </div>
 
-      <Mando hombros={hombros} cuatro={cuatro} alCambiar={(m) => sesion.current?.ponerBotonesTactil(m)} alToque={() => {
+      <Mando
+        hombros={hombros}
+        cuatro={cuatro}
+        tactil={esTactil ? { lienzo, alTocar: (x, y) => sesion.current?.ponerPuntero(x, y) } : undefined}
+        alCambiar={(m) => sesion.current?.ponerBotonesTactil(m)} alToque={() => {
         // Safari solo deja sonar después de un toque: se reintenta en cada uno hasta que suena
         if (!sesion.current?.altavoz.activo) void sesion.current?.altavoz.activar(ajustesRef.current.sonarEnSilencio)
       }} />
@@ -291,6 +299,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         <Menu size={22} />
       </button>
       <div className="herramientas derecha">
+        {conRebobinado && (
         <button
           className={`herramienta ${rebobinando ? 'activa' : ''}`}
           aria-label="Rebobinar (mantén pulsado)"
@@ -308,6 +317,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         >
           <Rewind size={20} />
         </button>
+        )}
         <button className={`herramienta ${velocidad > 1 ? 'activa' : ''}`} aria-label={`Avance rápido (${velocidad > 1 ? `x${velocidad}` : 'desactivado'})`} onClick={cambiarVelocidad}>
           {velocidad > 1 ? <span className="text-[14px] font-bold">x{velocidad}</span> : <FastForward size={20} />}
         </button>

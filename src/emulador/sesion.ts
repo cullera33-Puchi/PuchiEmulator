@@ -66,6 +66,8 @@ export class Sesion {
   private acumuladoAtras = 0
   private fotogramas = 0
   private readonly historial = new Historial()
+  /** Nintendo DS no tiene rebobinado (decisión del usuario): sus estados pesan varios megas */
+  private conRebobinado = true
   /** Hay una petición de estado anterior en marcha (rebobinar va al ritmo al que responde el hilo) */
   private pidiendoAnterior = false
   private readonly refresco = new Refresco()
@@ -103,13 +105,13 @@ export class Sesion {
     const { juego, rom, lienzo } = this.o
     const info = SISTEMAS[juego.sistema]
     this.nucleo = await Nucleo.cargar(info.nucleo, this.o.opciones)
-    if (!this.nucleo.cargarJuego(new Uint8Array(rom), info.extension)) {
+    const partida = await leerPartida(juego.id)
+    const datosPartida = partida ? { datos: new Uint8Array(partida.datos), rtc: partida.rtc ? new Uint8Array(partida.rtc) : undefined } : undefined
+    if (!this.nucleo.cargarJuego(new Uint8Array(rom), info.extension, datosPartida)) {
       throw new Error('El núcleo no ha podido abrir el juego.')
     }
-    const partida = await leerPartida(juego.id)
-    if (partida) {
-      this.nucleo.escribirPartida(new Uint8Array(partida.datos), partida.rtc ? new Uint8Array(partida.rtc) : undefined)
-    }
+    if (datosPartida) this.nucleo.escribirPartida(datosPartida.datos, datosPartida.rtc)
+    this.conRebobinado = info.rebobinado
     this.leerTiempos()
     const ctx = lienzo.getContext('2d', { alpha: false })
     if (!ctx) throw new Error('Sin lienzo para la imagen.')
@@ -229,7 +231,7 @@ export class Sesion {
       if (this.nucleo.fotograma()) hayImagen = true
       // En avance rápido el sonido se acelera (más agudo) en lugar de cortarse
       this.altavoz.enviar(this.nucleo.audio(), this.frecuencia * this.velocidad)
-      if (++this.fotogramas % FOTOGRAMAS_POR_ESTADO === 0) {
+      if (this.conRebobinado && ++this.fotogramas % FOTOGRAMAS_POR_ESTADO === 0) {
         // Solo se copia el estado; compararlo y comprimirlo lo hace otro hilo
         const estado = this.nucleo.guardarEstado()
         if (estado) this.historial.guardar(estado, mascara)
@@ -317,6 +319,11 @@ export class Sesion {
     }
     this.imagen.data.set(v.datos)
     this.contexto.putImageData(this.imagen, 0, 0)
+  }
+
+  /** Toque en la imagen, de 0 a 1 sobre el fotograma (o null al soltar). */
+  ponerPuntero(x: number | null, y = 0): void {
+    this.nucleo?.puntero(x, y)
   }
 
   ponerBotonesTactil(mascara: number): void {

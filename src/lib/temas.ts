@@ -130,7 +130,7 @@ export const TEMAS: Tema[] = [
 ]
 
 /** Tema que se usa con «Según la consola». */
-export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', snes: 'super' }
+export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', snes: 'super', nds: 'oscuro' }
 
 export function temaPorId(id: IdTema): Tema {
   return TEMAS.find((t) => t.id === id) ?? TEMAS[0]

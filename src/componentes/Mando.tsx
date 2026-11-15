@@ -4,7 +4,7 @@
  * ángulo respecto al centro (ocho direcciones). Para no redibujar React a cada movimiento, el
  * aspecto de pulsado se cambia directamente en los elementos.
  */
-import { useEffect, useRef, type PointerEvent as EventoPuntero } from 'react'
+import { useEffect, useRef, type PointerEvent as EventoPuntero, type RefObject } from 'react'
 import { bit, direccionCruceta, type NombreBoton } from '../emulador/botones'
 import { leerAjustes } from '../lib/ajustes'
 import { vibrar } from '../lib/vibracion'
@@ -16,11 +16,20 @@ interface Props {
   alCambiar: (mascara: number) => void
   /** Cada toque que termina: sirve para activar el sonido en Safari */
   alToque?: () => void
+  tactil?: Tactil
 }
 
 interface Dedo {
   cruceta: boolean
   mascara: number
+  /** El dedo empezó en la imagen de una consola táctil: hace de lápiz */
+  tactil?: boolean
+}
+
+/** Pantalla táctil (Nintendo DS): el lienzo y a quién avisar del toque (0 a 1 sobre la imagen, o null) */
+export interface Tactil {
+  lienzo: RefObject<HTMLCanvasElement | null>
+  alTocar: (x: number | null, y?: number) => void
 }
 
 const BRAZOS: [NombreBoton, string][] = [
@@ -30,7 +39,7 @@ const BRAZOS: [NombreBoton, string][] = [
   ['DERECHA', 'derecha'],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil }: Props) {
   const raiz = useRef<HTMLDivElement>(null)
   const cruceta = useRef<HTMLDivElement>(null)
   const dedos = useRef(new Map<number, Dedo>())
@@ -66,17 +75,33 @@ export function Mando({ hombros, cuatro, alCambiar, alToque }: Props) {
     return direccionCruceta((x - (r.left + radio)) / radio, (y - (r.top + r.height / 2)) / radio)
   }
 
-  const bajoElDedo = (x: number, y: number): { cruceta: boolean; mascara: number } => {
+  const enLaImagen = (x: number, y: number): [number, number] | null => {
+    const r = tactil?.lienzo.current?.getBoundingClientRect()
+    if (!r || x < r.left || x > r.right || y < r.top || y > r.bottom) return null
+    return [(x - r.left) / r.width, (y - r.top) / r.height]
+  }
+
+  const bajoElDedo = (x: number, y: number): Dedo => {
     const el = document.elementFromPoint(x, y)
     if (!el || !raiz.current?.contains(el)) return { cruceta: false, mascara: 0 }
     if (cruceta.current?.contains(el)) return { cruceta: true, mascara: desdeCruceta(x, y) }
     const boton = (el as HTMLElement).closest<HTMLElement>('[data-boton]')
-    return { cruceta: false, mascara: boton ? bit(boton.dataset.boton as NombreBoton) : 0 }
+    if (boton) return { cruceta: false, mascara: bit(boton.dataset.boton as NombreBoton) }
+    return { cruceta: false, mascara: 0, tactil: !!enLaImagen(x, y) }
+  }
+
+  /** Posición del lápiz, limitada a la imagen aunque el dedo se salga */
+  const tocar = (x: number, y: number) => {
+    const r = tactil?.lienzo.current?.getBoundingClientRect()
+    if (!r) return
+    tactil?.alTocar(Math.min(1, Math.max(0, (x - r.left) / r.width)), Math.min(1, Math.max(0, (y - r.top) / r.height)))
   }
 
   const alBajar = (e: EventoPuntero) => {
     e.preventDefault()
-    dedos.current.set(e.pointerId, bajoElDedo(e.clientX, e.clientY))
+    const d = bajoElDedo(e.clientX, e.clientY)
+    dedos.current.set(e.pointerId, d)
+    if (d.tactil) tocar(e.clientX, e.clientY)
     recalcular()
   }
 
@@ -84,6 +109,10 @@ export function Mando({ hombros, cuatro, alCambiar, alToque }: Props) {
     const d = dedos.current.get(e.pointerId)
     if (!d) return
     e.preventDefault()
+    if (d.tactil) {
+      tocar(e.clientX, e.clientY)
+      return
+    }
     if (d.cruceta) d.mascara = desdeCruceta(e.clientX, e.clientY)
     else {
       const nuevo = bajoElDedo(e.clientX, e.clientY)
@@ -94,7 +123,9 @@ export function Mando({ hombros, cuatro, alCambiar, alToque }: Props) {
   }
 
   const alSubir = (e: EventoPuntero) => {
+    const d = dedos.current.get(e.pointerId)
     if (!dedos.current.delete(e.pointerId)) return
+    if (d?.tactil) tactil?.alTocar(null)
     recalcular()
     alToque?.()
   }

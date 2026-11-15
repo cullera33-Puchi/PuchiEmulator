@@ -4,7 +4,7 @@ Versión del 15 de noviembre de 2026 (revisada en la v0.2.0).
 
 ## Qué es
 
-App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Color, Game Boy Advance y Super Nintendo. Un único usuario. Los juegos están en una carpeta de Archivos; las partidas se guardan en el propio iPhone. Se juega en vertical y en horizontal.
+App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Color, Game Boy Advance, Super Nintendo y, en pruebas, Nintendo DS. Un único usuario. Los juegos están en una carpeta de Archivos; las partidas se guardan en el propio iPhone. Se juega en vertical y en horizontal.
 
 ## Stack
 
@@ -12,6 +12,8 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 - Núcleos de emulación existentes compilados a WebAssembly con Emscripten, en un solo hilo (sin SharedArrayBuffer, que GitHub Pages no permite):
   - mGBA (MPL 2.0) para Game Boy, Game Boy Color y Game Boy Advance.
   - Snes9x para Super Nintendo (v0.7.0). Su licencia solo permite uso no comercial: la app es y seguirá siendo gratuita. Es C++: se enlaza con `em++` y necesita zlib y piezas de libretro-common, que `nucleos/compilar.sh` compila aparte.
+  - melonDS (GPLv3) para Nintendo DS (v0.11.0, en pruebas): sin hilos ni OpenGL, con su BIOS libre; guarda la partida en un fichero del módulo (`PARTIDA_EN_FICHERO` en `src/emulador/nucleo.ts`).
+- Licencia del repositorio: GPLv3 (decisión del usuario del 15/11/2026); cada núcleo conserva la suya.
 - Puente propio entre el núcleo y la app: `nucleos/puente.c` implementa la parte de libretro que necesitamos y expone funciones `pf_*`. Es el mismo para todos los núcleos.
 - Datos: solo en el iPhone (IndexedDB). Sin servidor, cuentas ni bases de datos externas.
 - Despliegue: GitHub Pages, publicado por `.github/workflows/publicar.yml` en cada envío a `main` (tests, build, pruebas de navegador y publicación).
@@ -47,6 +49,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 - **Almacenamiento** (`src/lib/almacen.ts`): colecciones `juegos`, `roms`, `partidas`, `estados`, `caratulas` (v2) y `sesiones` (v3). Las partidas van por juego; los estados, por juego y ranura (`auto`, `1`, `2` y `3`).
 - **Guardado**: la partida del juego (SRAM, Flash o EEPROM y el reloj del cartucho) se guarda en cuanto cambia (se comprueba cada segundo), al abrir el menú, al pasar a segundo plano y al salir. Al pasar a segundo plano y al salir se guarda además el estado `auto`, que permite seguir donde se dejó.
 - **Juego** (`src/pantallas/Juego.tsx`, `src/emulador/sesion.ts`): ritmo por tiempo (el iPhone puede ir a 60, 120 o 30 Hz), como mucho 4 fotogramas seguidos para recuperar. La distribución en vertical y en horizontal la decide el CSS (`.juego` en `src/index.css`) con la orientación.
+- **Nintendo DS** (v0.11.0, en pruebas): sistema y consola `nds`, `rebobinado: false` y `tactil: true` en `SISTEMAS`. La imagen son las dos pantallas apiladas que da el núcleo (256 x 384); tocarla hace de lápiz (`Tactil` en `Mando`, `pf_puntero` en el puente).
 - **Super Nintendo** (v0.7.0): sistema `snes` en `src/lib/sistemas.ts` (orden de las consolas en `CONSOLAS`), núcleo `snes9x`, mando con X e Y en rombo (`cuatroBotones`, `.botones-accion.cuatro`) y tema Super con los botones de colores. La imagen se ve a 4:3 por defecto (v0.9.0).
 - **Mando táctil** (`src/componentes/Mando.tsx`): tamaño de los botones con `--escala` (0,8, 1, 1,15 y 1,3) y modo una mano para la derecha o la izquierda (`.juego.una-mano[data-mano]` en `src/index.css`): en vertical todo abajo (v0.3.0) y en horizontal la pantalla pegada al lado contrario a la mano con una columna de controles (v0.5.0). «Pantalla lo más grande posible» (`.juego.grande`, v0.5.0) quita margen y marco. Varios dedos, deslizar entre botones, la cruceta es del dedo que empieza en ella y da ocho direcciones por ángulo (`direccionCruceta`). También teclado y mandos físicos (Gamepad API, distribución de Nintendo).
 - **Sonido** (`src/emulador/audio.ts`, `public/procesador-audio.js`): AudioWorklet con cola de unos 70 ms y remuestreo lineal con ajuste de ritmo de hasta un 0,5 % según la cola (`src/emulador/remuestreo.ts`). El altavoz es único y se activa en el toque que abre el juego (Safari lo exige). «Sonar con el iPhone en silencio» usa `navigator.audioSession`.
@@ -89,13 +92,14 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 | 2 (v0.7.0) | Super Nintendo con Snes9x (no comercial) y su disposición de botones (X, Y, L y R) | Hecha, pendiente de probar con juegos reales |
 | 3 | Mega Drive con Genesis Plus GX (no comercial). Esfuerzo bajo | Pendiente, no empezar sin indicación del usuario |
 | 4 | PlayStation con PCSX ReARMed (GPL). Esfuerzo alto: imágenes de CD de 300 a 700 MB que hay que guardar y leer sin cargarlas enteras en memoria; BIOS opcional | Pendiente, no empezar sin indicación del usuario |
-| 5 | Nintendo DS con melonDS o DeSmuME. Esfuerzo muy alto y sin garantía de velocidad completa en el iPhone sin hilos; dos pantallas, la de abajo táctil | En definición (15/11/2026): propuesta enviada al usuario (núcleo, prueba de viabilidad, disposiciones de las dos pantallas móviles, una mano, táctil, BIOS opcional, memoria). No construir sin su validación |
+| 5 | Nintendo DS con melonDS. Plan aprobado (15/11/2026): 1) viabilidad; 2) base (dos pantallas, táctil, guardado, carátulas, estadísticas); 3) disposiciones móviles (una encima de otra, lado a lado, grande y pequeña arrastrable y redimensionable, solo una con intercambio, por juego) y una mano; 4) micrófono y ajustes finos. Sin rebobinado en DS. Sin BIOS (el usuario no tiene) | Paso 1 hecho (v0.11.0), con la base mínima para probar en el iPhone 17 del usuario; pendiente de sus medidas antes del paso 2 |
 | Mejoras | Filtros de imagen, configuración de los mandos físicos, más ranuras de estado | Pendiente |
 
 Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; PCSX ReARMed es GPL. Encajan con una app personal, gratuita y de código público. Cada núcleo va en su propio módulo WebAssembly.
 
 ## Estado
 
+- v0.11.0 (15/11/2026): Nintendo DS en pruebas (melonDS, sin BIOS): dos pantallas apiladas, táctil, guardado y sin rebobinado. 7,6 ms por fotograma de media en el navegador de este servidor con una ROM propia que mantiene el procesador al 100 %. Licencia GPLv3. Pendiente: que el usuario pruebe un juego real en su iPhone 17 y pase el registro (línea «Rendimiento»). 76 pruebas unitarias y 25 de navegador.
 - v0.10.0 (15/11/2026): lag en Super Mario World (rebobinado en un hilo aparte y ritmo sincronizado con la pantalla, pendiente de confirmar en el iPhone), transiciones al estilo iOS y GBA otra vez aparte. 75 pruebas unitarias y 24 de navegador.
 - v0.9.0 (15/11/2026): a partir de una captura del usuario con un juego real de Super Nintendo (va bien): imagen a 4:3 (más grande en horizontal), menú fuera del centro de la imagen y Game Boy Advance junto a Game Boy y Color. 70 pruebas unitarias y 23 de navegador.
 - v0.8.0 (15/11/2026): Game Boy y Game Boy Color juntas en una sola consola de la app, pedido por el usuario. 70 pruebas unitarias y 22 de navegador.
@@ -112,5 +116,4 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; PCSX R
 
 ## Pendiente de confirmar
 
-- Licencia del propio repositorio (hoy sin licencia declarada).
 - Si el sonido debe sonar por defecto con el interruptor de silencio (hoy no, como el resto de juegos del iPhone).

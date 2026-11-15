@@ -32,12 +32,25 @@ interface Modulo {
   _pf_guardar_estado(destino: number, tam: number): number
   _pf_cargar_estado(origen: number, tam: number): number
   _pf_opcion(clave: number, valor: number): void
+  _pf_puntero(x: number, y: number, pulsado: number): void
+  FS?: {
+    mkdirTree(ruta: string): void
+    writeFile(ruta: string, datos: Uint8Array): void
+    readFile(ruta: string): Uint8Array
+    analyzePath(ruta: string): { exists: boolean }
+  }
 }
 
 type Fabrica = (opciones: { locateFile: (ruta: string) => string; print?: (t: string) => void; printErr?: (t: string) => void }) => Promise<Modulo>
 
 const MEMORIA_PARTIDA = 0
 const MEMORIA_RELOJ = 1
+
+/**
+ * Núcleos que guardan la partida en un fichero en lugar de en memoria (melonDS): la app lo deja ahí
+ * antes de arrancar y lo lee después. El nombre sale de la ruta que el puente da al juego.
+ */
+const PARTIDA_EN_FICHERO: Partial<Record<NombreNucleo, string>> = { melonds: '/sistema/juego.sav' }
 
 /** Opciones fijas de cada núcleo. */
 const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
@@ -52,6 +65,14 @@ const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
   snes9x: {
     snes9x_region: 'auto',
     snes9x_overscan: 'enabled',
+  },
+  melonds: {
+    melonds_console_mode: 'DS',
+    melonds_boot_directly: 'enabled',
+    melonds_threaded_renderer: 'disabled',
+    melonds_touch_mode: 'Touch',
+    melonds_screen_layout: 'Top/Bottom',
+    melonds_screen_gap: '0',
   },
 }
 
@@ -90,7 +111,13 @@ export class Nucleo {
     this.m._free(v)
   }
 
-  cargarJuego(rom: Uint8Array, extension: string): boolean {
+  /** Carga el juego. La partida se pasa aquí porque algunos núcleos la leen de un fichero al cargar. */
+  cargarJuego(rom: Uint8Array, extension: string, partida?: { datos: Uint8Array; rtc?: Uint8Array }): boolean {
+    const fichero = PARTIDA_EN_FICHERO[this.nombre]
+    if (fichero && this.m.FS) {
+      this.m.FS.mkdirTree(fichero.slice(0, fichero.lastIndexOf('/')))
+      if (partida) this.m.FS.writeFile(fichero, partida.datos)
+    }
     const p = this.m._malloc(rom.byteLength)
     this.m.HEAPU8.set(rom, p)
     const ext = this.texto(extension)
@@ -110,6 +137,16 @@ export class Nucleo {
 
   botones(mascara: number): void {
     this.m._pf_botones(mascara)
+  }
+
+  /** Toque en la imagen (Nintendo DS): x e y de 0 a 1 sobre todo el fotograma, o null al soltar. */
+  puntero(x: number | null, y = 0): void {
+    if (x === null) {
+      this.m._pf_puntero(0, 0, 0)
+      return
+    }
+    const a = (v: number) => Math.max(-0x8000, Math.min(0x7fff, Math.round(v * 0x10000 - 0x8000)))
+    this.m._pf_puntero(a(x), a(y), 1)
   }
 
   /** Ejecuta un fotograma; true si hay imagen nueva. */
@@ -159,6 +196,15 @@ export class Nucleo {
 
   /** Copia de la partida guardada (y del reloj del cartucho, si lo tiene). */
   leerPartida(): { datos: Uint8Array; rtc?: Uint8Array } | null {
+    const fichero = PARTIDA_EN_FICHERO[this.nombre]
+    if (fichero) {
+      try {
+        if (!this.m.FS?.analyzePath(fichero).exists) return null
+        return { datos: this.m.FS.readFile(fichero).slice() }
+      } catch {
+        return null
+      }
+    }
     const datos = this.memoria(MEMORIA_PARTIDA)
     if (!datos) return null
     const rtc = this.memoria(MEMORIA_RELOJ)
@@ -167,6 +213,7 @@ export class Nucleo {
 
   /** Escribe la partida guardada. Hay que llamarlo después de cargar el juego y antes del primer fotograma. */
   escribirPartida(datos: Uint8Array, rtc?: Uint8Array): void {
+    if (PARTIDA_EN_FICHERO[this.nombre]) return // ya se dejó en el fichero al cargar
     const destino = this.memoria(MEMORIA_PARTIDA)
     if (destino) destino.set(datos.subarray(0, destino.length))
     const reloj = this.memoria(MEMORIA_RELOJ)

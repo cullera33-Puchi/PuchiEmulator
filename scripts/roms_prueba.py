@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc y prueba.zip).
+"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds y prueba.zip).
 
 Son programas propios y mínimos, sin código ni gráficos de Nintendo: pintan la pantalla de un
 color y cambian de color mientras se pulsa A. Sirven para comprobar imagen, botones y partida guardada
@@ -163,11 +163,70 @@ def snes() -> bytes:
     return bytes(rom)
 
 
+# Nintendo DS. ARM9 (ensamblado con llvm-mc, armv5te): pantalla de arriba en modo VRAM (banco A) y,
+# sin parar, toda la pantalla de azul, o de verde con A pulsado. El bucle mantiene el procesador
+# ocupado, como un juego, para medir la velocidad. El ARM7 se queda en un bucle vacío.
+NDS_ARM9 = bytes.fromhex(
+    '48009fe5'  # ldr   r0, =0x04000304      POWCNT1
+    '48109fe5'  # ldr   r1, =0x8003          motores encendidos; el A en la pantalla de arriba
+    'b010c0e1'  # strh  r1, [r0]
+    '44009fe5'  # ldr   r0, =0x04000240      VRAMCNT_A
+    '8010a0e3'  # mov   r1, #0x80            banco A para la pantalla
+    '0010c0e5'  # strb  r1, [r0]
+    '0103a0e3'  # mov   r0, #0x04000000      DISPCNT del motor A
+    '0218a0e3'  # mov   r1, #0x00020000      modo VRAM con el banco A
+    '001080e5'  # str   r1, [r0]
+    '30309fe5'  # ldr   r3, =0x04000130      KEYINPUT
+    'b040d3e1'  # bucle: ldrh r4, [r3]
+    '010014e3'  # tst   r4, #1               bit 0 = A (0 si está pulsado)
+    '28509f05'  # ldreq r5, =0x03E003E0      verde
+    '28509f15'  # ldrne r5, =0x7C007C00      azul
+    '1a65a0e3'  # mov   r6, #0x06800000      VRAM del banco A
+    '067aa0e3'  # mov   r7, #0x6000          256 x 192 / 2 palabras
+    '045086e4'  # relleno: str r5, [r6], #4
+    '017057e2'  # subs  r7, r7, #1
+    'fcffff1a'  # bne   relleno
+    'f5ffffea'  # b     bucle
+    '04030004' '03800000' '40020004' '30010004' 'e003e003' '007c007c'  # constantes
+)
+NDS_ARM7 = bytes.fromhex('feffffea')  # b .
+
+
+def _crc16(datos: bytes) -> int:
+    crc = 0xFFFF
+    for b in datos:
+        crc ^= b
+        for _ in range(8):
+            crc = (crc >> 1) ^ 0xA001 if crc & 1 else crc >> 1
+    return crc
+
+
+def nds() -> bytes:
+    rom = bytearray(0x20000)  # 128 KB
+    rom[0x000:0x00C] = b'PUCHIPRUEBA '
+    rom[0x00C:0x010] = b'PPRU'
+    rom[0x010:0x012] = b'00'
+    rom[0x014] = 0x00  # capacidad: 128 KB
+    arm9_off, arm7_off = 0x200, 0x400
+    rom[arm9_off:arm9_off + len(NDS_ARM9)] = NDS_ARM9
+    rom[arm7_off:arm7_off + len(NDS_ARM7)] = NDS_ARM7
+    cabecera = [
+        (0x020, arm9_off), (0x024, 0x02000000), (0x028, 0x02000000), (0x02C, 0x200),
+        (0x030, arm7_off), (0x034, 0x037F8000), (0x038, 0x037F8000), (0x03C, 0x200),
+        (0x080, 0x600), (0x084, 0x200),
+    ]
+    for o, v in cabecera:
+        rom[o:o + 4] = v.to_bytes(4, 'little')
+    rom[0x15E:0x160] = _crc16(bytes(rom[0:0x15E])).to_bytes(2, 'little')
+    return bytes(rom)
+
+
 def main() -> None:
     SALIDA.mkdir(parents=True, exist_ok=True)
     (SALIDA / 'prueba.gba').write_bytes(gba())
     (SALIDA / 'prueba.gb').write_bytes(gb())
     (SALIDA / 'prueba.sfc').write_bytes(snes())
+    (SALIDA / 'prueba.nds').write_bytes(nds())
     with zipfile.ZipFile(SALIDA / 'prueba.zip', 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('LEEME.txt', 'ROM de prueba comprimida')
         z.writestr('Prueba comprimida.gba', gba())

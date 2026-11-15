@@ -29,6 +29,11 @@ describe('detectarSistema', () => {
     expect(detectarSistema(fixture('prueba.sfc'), 'juego.SMC')).toBe('snes')
   })
 
+  it('reconoce la Nintendo DS por la extensión y lee su título', () => {
+    expect(detectarSistema(fixture('prueba.nds'), 'Juego (Europe).nds')).toBe('nds')
+    expect(tituloInterno(fixture('prueba.nds'), 'nds')).toBe('PUCHIPRUEBA')
+  })
+
   it('no reconoce otros ficheros', () => {
     expect(detectarSistema(new Uint8Array(512), 'foto.jpg')).toBeNull()
   })

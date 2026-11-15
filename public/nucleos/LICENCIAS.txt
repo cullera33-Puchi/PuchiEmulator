@@ -17,3 +17,11 @@ snes9x.js y snes9x.wasm
   Incluye zlib 1.3.1 (licencia zlib, https://github.com/madler/zlib) y partes de
   libretro-common (licencia MIT).
   Compilado sin cambios con Emscripten 4.0.10 junto con el puente de nucleos/puente.c.
+
+melonds.js y melonds.wasm
+  melonDS, Copyright (c) 2016-2026 Arisotura y colaboradores.
+  Licencia: GNU General Public License v3 (https://www.gnu.org/licenses/gpl-3.0.html).
+  Código fuente: https://github.com/libretro/melonDS
+  Commit: 4081e8358e66f1ea11879560be6b813dfeaab75a
+  Incluye su BIOS libre (FreeBIOS). Compilado sin cambios con Emscripten 4.0.10, sin hilos ni
+  OpenGL, junto con el puente de nucleos/puente.c.

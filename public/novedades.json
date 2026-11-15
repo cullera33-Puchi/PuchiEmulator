@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.11.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Nintendo DS en pruebas: añade un juego .nds y pruébalo; no necesita BIOS.",
+      "Las dos pantallas se ven una encima de otra y la de abajo funciona con el dedo.",
+      "Juega unos minutos y pásame el registro de Ajustes: así sabremos si va a velocidad completa.",
+      "Pronto: mover y cambiar de tamaño las pantallas, y el modo una mano para DS."
+    ]
+  },
+  {
     "version": "0.10.0",
     "fecha": "15/11/2026",
     "cambios": [

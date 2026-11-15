@@ -125,7 +125,39 @@ function GameBoys() {
   )
 }
 
+function NintendoDS() {
+  return (
+    <svg viewBox="0 0 130 180" className="h-full w-auto drop-shadow-md" aria-hidden>
+      {/* Portátil plegable abierta: tapa con la pantalla de arriba, bisagra y base con la táctil */}
+      <rect x="10" y="4" width="110" height="82" rx="10" fill="#3a3a44" />
+      <rect x="27" y="14" width="76" height="58" rx="3" fill="#121216" />
+      <rect x="31" y="18" width="68" height="50" rx="1" fill="url(#ds-arriba)" />
+      <rect x="14" y="84" width="102" height="8" rx="4" fill="#2a2a32" />
+      <rect x="10" y="92" width="110" height="84" rx="10" fill="#45454f" />
+      <rect x="35" y="100" width="60" height="46" rx="2" fill="#1a1a20" />
+      <rect x="38" y="103" width="54" height="40" rx="1" fill="url(#ds-abajo)" />
+      <Cruz x={21} y={118} t={6} color="#1e1e24" />
+      <circle cx="109" cy="110" r="3.6" fill="#d6d6de" />
+      <circle cx="116" cy="118" r="3.6" fill="#d6d6de" />
+      <circle cx="109" cy="126" r="3.6" fill="#d6d6de" />
+      <circle cx="102" cy="118" r="3.6" fill="#d6d6de" />
+      <rect x="55" y="155" width="20" height="4" rx="2" fill="#2a2a32" />
+      <defs>
+        <linearGradient id="ds-arriba" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#5ac8fa" />
+          <stop offset="1" stopColor="#5856d6" />
+        </linearGradient>
+        <linearGradient id="ds-abajo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#a2e3b4" />
+          <stop offset="1" stopColor="#34c759" />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
 export function DibujoConsola({ consola }: { consola: Consola }) {
+  if (consola === 'nds') return <NintendoDS />
   if (consola === 'snes') return <SuperNintendo />
   if (consola === 'gba') return <GameBoyAdvance />
   return <GameBoys />

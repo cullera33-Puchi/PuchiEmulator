@@ -4,8 +4,8 @@
  */
 import { unzipSync } from 'fflate'
 
-export type Sistema = 'gb' | 'gbc' | 'gba' | 'snes'
-export type NombreNucleo = 'mgba' | 'snes9x'
+export type Sistema = 'gb' | 'gbc' | 'gba' | 'snes' | 'nds'
+export type NombreNucleo = 'mgba' | 'snes9x' | 'melonds'
 
 export interface InfoSistema {
   nombre: string
@@ -14,16 +14,21 @@ export interface InfoSistema {
   extension: string
   /** Botones que tiene la consola, para dibujar el mando */
   hombros: boolean
-  /** A, B, X e Y en rombo (Super Nintendo) en lugar de solo A y B */
+  /** A, B, X e Y en rombo (Super Nintendo y DS) en lugar de solo A y B */
   cuatroBotones: boolean
+  /** Rebobinar disponible (no en DS: sus estados pesan varios megas) */
+  rebobinado: boolean
+  /** Pantalla táctil: tocar la imagen hace de lápiz */
+  tactil: boolean
   color: string
 }
 
 export const SISTEMAS: Record<Sistema, InfoSistema> = {
-  gb: { nombre: 'Game Boy', corto: 'GB', nucleo: 'mgba', extension: 'gb', hombros: false, cuatroBotones: false, color: '#8E8E93' },
-  gbc: { nombre: 'Game Boy Color', corto: 'GBC', nucleo: 'mgba', extension: 'gbc', hombros: false, cuatroBotones: false, color: '#AF52DE' },
-  gba: { nombre: 'Game Boy Advance', corto: 'GBA', nucleo: 'mgba', extension: 'gba', hombros: true, cuatroBotones: false, color: '#5856D6' },
-  snes: { nombre: 'Super Nintendo', corto: 'SNES', nucleo: 'snes9x', extension: 'sfc', hombros: true, cuatroBotones: true, color: '#6E6E80' },
+  gb: { nombre: 'Game Boy', corto: 'GB', nucleo: 'mgba', extension: 'gb', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#8E8E93' },
+  gbc: { nombre: 'Game Boy Color', corto: 'GBC', nucleo: 'mgba', extension: 'gbc', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#AF52DE' },
+  gba: { nombre: 'Game Boy Advance', corto: 'GBA', nucleo: 'mgba', extension: 'gba', hombros: true, cuatroBotones: false, rebobinado: true, tactil: false, color: '#5856D6' },
+  snes: { nombre: 'Super Nintendo', corto: 'SNES', nucleo: 'snes9x', extension: 'sfc', hombros: true, cuatroBotones: true, rebobinado: true, tactil: false, color: '#6E6E80' },
+  nds: { nombre: 'Nintendo DS', corto: 'DS', nucleo: 'melonds', extension: 'nds', hombros: true, cuatroBotones: true, rebobinado: false, tactil: true, color: '#34343C' },
 }
 
 /**
@@ -31,7 +36,7 @@ export const SISTEMAS: Record<Sistema, InfoSistema> = {
  * Color van juntas; por dentro siguen siendo dos sistemas, cada uno con su tema y sus opciones.
  * Game Boy Advance va aparte (decisión del usuario).
  */
-export type Consola = 'gb' | 'gba' | 'snes'
+export type Consola = 'gb' | 'gba' | 'snes' | 'nds'
 
 export interface InfoConsola {
   nombre: string
@@ -48,14 +53,15 @@ export const CONSOLAS_APP: Record<Consola, InfoConsola> = {
   gb: { nombre: 'Game Boy y Game Boy Color', titulo: 'Game Boy y Color', sistemas: ['gb', 'gbc'], color: '#AF52DE', extensiones: '.gb, .gbc' },
   gba: { nombre: 'Game Boy Advance', titulo: 'Game Boy Advance', sistemas: ['gba'], color: '#5856D6', extensiones: '.gba' },
   snes: { nombre: 'Super Nintendo', titulo: 'Super Nintendo', sistemas: ['snes'], color: '#6E6E80', extensiones: '.sfc, .smc' },
+  nds: { nombre: 'Nintendo DS', titulo: 'Nintendo DS', descripcion: 'En pruebas', sistemas: ['nds'], color: '#34343C', extensiones: '.nds' },
 }
 
 /** Orden en el que se enseñan las consolas */
-export const CONSOLAS: Consola[] = ['gb', 'gba', 'snes']
+export const CONSOLAS: Consola[] = ['gb', 'gba', 'snes', 'nds']
 
 export const consolaDe = (s: Sistema): Consola => (s === 'gbc' ? 'gb' : s)
 
-const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba', sfc: 'snes', smc: 'snes', swc: 'snes', fig: 'snes' }
+const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba', sfc: 'snes', smc: 'snes', swc: 'snes', fig: 'snes', nds: 'nds' }
 
 export function extensionDe(nombre: string): string {
   const i = nombre.lastIndexOf('.')
@@ -111,6 +117,7 @@ export function tituloInterno(bytes: Uint8Array, sistema: Sistema): string {
     const o = cabeceraSnes(bytes)
     return o === null ? '' : texto(bytes, o, o + 21)
   }
+  if (sistema === 'nds') return texto(bytes, 0, 12)
   if (sistema === 'gba') return texto(bytes, 0xa0, 0xac)
   // En Game Boy Color el título ocupa menos: los últimos bytes son el código y el indicador de color
   return texto(bytes, 0x134, sistema === 'gbc' ? 0x143 : 0x144)
@@ -146,7 +153,7 @@ export function leerRom(bytes: Uint8Array, nombreFichero: string): RomLeida | nu
   if (extensionDe(nombreFichero) === 'zip' || (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04)) {
     let ficheros: Record<string, Uint8Array>
     try {
-      ficheros = unzipSync(bytes, { filter: (f) => !f.name.endsWith('/') && f.originalSize <= 64 * 1024 * 1024 })
+      ficheros = unzipSync(bytes, { filter: (f) => !f.name.endsWith('/') && f.originalSize <= 512 * 1024 * 1024 })
     } catch {
       return null
     }

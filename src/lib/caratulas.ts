@@ -120,7 +120,7 @@ function cargarIndice(sistema: Sistema): Promise<Indice> {
 
 export async function buscarCaratulas(sistema: Sistema, consulta: string): Promise<{ repo: string; candidatos: Candidato[] }> {
   // Un juego de Game Boy puede tener la carátula en la carpeta de Game Boy Color y al revés
-  const sistemas: Sistema[] = sistema === 'gba' || sistema === 'snes' ? [sistema] : sistema === 'gbc' ? ['gbc', 'gb'] : ['gb', 'gbc']
+  const sistemas: Sistema[] = sistema === 'gba' || sistema === 'snes' || sistema === 'nds' ? [sistema] : sistema === 'gbc' ? ['gbc', 'gb'] : ['gb', 'gbc']
   const principal = await cargarIndice(sistemas[0])
   let candidatos = buscarEn(principal.nombres, principal.normalizados, consulta)
   if (sistemas[1] && (!candidatos.length || candidatos[0].puntos < 0.8)) {

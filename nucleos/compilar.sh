@@ -6,7 +6,7 @@
 #   ./emsdk/emsdk install 4.0.10 && ./emsdk/emsdk activate 4.0.10
 #   source ./emsdk/emsdk_env.sh
 #
-# Uso: nucleos/compilar.sh [mgba] [snes9x]
+# Uso: nucleos/compilar.sh [mgba] [snes9x] [melonds]
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,10 +21,12 @@ SNES9X_REPO="https://github.com/libretro/snes9x.git"
 SNES9X_COMMIT="fae2fea08f74180759ef540ee94259213f503480"
 # zlib para las piezas de libretro-common que necesita Snes9x (sin el puerto de Emscripten, que
 # se descarga aparte y puede no estar disponible)
+MELONDS_REPO="https://github.com/libretro/melonDS.git"
+MELONDS_COMMIT="4081e8358e66f1ea11879560be6b813dfeaab75a"
 ZLIB_REPO="https://github.com/madler/zlib.git"
 ZLIB_COMMIT="51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"
 
-EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion"]'
+EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion","_pf_puntero"]'
 
 traer() { # repo commit carpeta
 	if [ ! -d "$3/.git" ]; then
@@ -46,7 +48,7 @@ enlazar() { # nombre enlazador (emcc, o em++ si el núcleo es C++) bibliotecas..
 		-sENVIRONMENT=web,worker -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864 \
 		-sSTACK_SIZE=1048576 -sFILESYSTEM=1 -sINVOKE_RUN=0 \
 		-sEXPORTED_FUNCTIONS="$EXPORTADAS" \
-		-sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAP16","HEAPU32","stringToNewUTF8"]'
+		-sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAP16","HEAPU32","stringToNewUTF8","FS"]'
 	echo "Listo: public/nucleos/$nombre.js y $nombre.wasm ($(du -h "$SALIDA/$nombre.wasm" | cut -f1))"
 }
 
@@ -93,6 +95,15 @@ compilar_snes9x() {
 	enlazar snes9x em++ "$TRABAJO/snes9x_libretro.a" "$TRABAJO/snes9x_extra.a"
 }
 
-for nucleo in ${@:-mgba snes9x}; do
+compilar_melonds() {
+	traer "$MELONDS_REPO" "$MELONDS_COMMIT" "$TRABAJO/melonds"
+	# Sin hilos ni OpenGL: renderizador por software en el hilo del juego. Trae su propia BIOS libre
+	(cd "$TRABAJO/melonds" && emmake make platform=emscripten HAVE_THREADS=0 HAVE_OPENGL=0 -j"$(nproc)" >/dev/null)
+	# Make lo deja como .bc, pero es un objeto WebAssembly ya enlazado
+	cp "$TRABAJO/melonds/melonds_libretro_emscripten.bc" "$TRABAJO/melonds_libretro.o"
+	enlazar melonds em++ "$TRABAJO/melonds_libretro.o"
+}
+
+for nucleo in ${@:-mgba snes9x melonds}; do
 	"compilar_$nucleo"
 done

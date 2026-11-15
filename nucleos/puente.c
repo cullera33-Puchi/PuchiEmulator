@@ -30,6 +30,9 @@ static int16_t audio[MAX_MUESTRAS * 2];
 static size_t muestras = 0;
 
 static uint32_t botones = 0;
+/* Pantalla táctil (Nintendo DS): coordenadas de libretro, de -0x8000 a 0x7FFF sobre toda la imagen */
+static int16_t punteroX = 0, punteroY = 0;
+static bool punteroPulsado = false;
 
 static struct retro_system_av_info av;
 static bool avCambiado = false;
@@ -248,7 +251,19 @@ static void sondearMandos(void) {}
 
 static int16_t estadoMando(unsigned puerto, unsigned dispositivo, unsigned indice, unsigned id) {
 	(void) indice;
-	if (puerto != 0 || (dispositivo & RETRO_DEVICE_MASK) != RETRO_DEVICE_JOYPAD) {
+	if (puerto != 0) {
+		return 0;
+	}
+	if ((dispositivo & RETRO_DEVICE_MASK) == RETRO_DEVICE_POINTER) {
+		switch (id) {
+		case RETRO_DEVICE_ID_POINTER_X: return punteroX;
+		case RETRO_DEVICE_ID_POINTER_Y: return punteroY;
+		case RETRO_DEVICE_ID_POINTER_PRESSED: return punteroPulsado ? 1 : 0;
+		case RETRO_DEVICE_ID_POINTER_COUNT: return punteroPulsado ? 1 : 0;
+		default: return 0;
+		}
+	}
+	if ((dispositivo & RETRO_DEVICE_MASK) != RETRO_DEVICE_JOYPAD) {
 		return 0;
 	}
 	if (id == RETRO_DEVICE_ID_JOYPAD_MASK) {
@@ -316,6 +331,14 @@ void pf_reiniciar(void) {
 EMSCRIPTEN_KEEPALIVE
 void pf_botones(uint32_t mascara) {
 	botones = mascara;
+}
+
+/* Toque en la imagen: x e y de -0x8000 a 0x7FFF; pulsado 0 o 1. */
+EMSCRIPTEN_KEEPALIVE
+void pf_puntero(int x, int y, int pulsado) {
+	punteroX = (int16_t) x;
+	punteroY = (int16_t) y;
+	punteroPulsado = pulsado != 0;
 }
 
 /* Ejecuta un fotograma. Devuelve 1 si hay imagen nueva. */

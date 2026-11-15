@@ -1,6 +1,6 @@
 # PuchiEmulator
 
-Emulador de Game Boy, Game Boy Color, Game Boy Advance y Super Nintendo para jugar en el iPhone desde Safari, como app instalada en la pantalla de inicio.
+Emulador de Game Boy, Game Boy Color, Game Boy Advance, Super Nintendo y, en pruebas, Nintendo DS para jugar en el iPhone desde Safari, como app instalada en la pantalla de inicio.
 
 - Los juegos se eligen en Archivos (`.gb`, `.gbc`, `.gba`, `.sfc`, `.smc` o `.zip`). La app no incluye ni descarga juegos ni BIOS: usa copias de tus propios cartuchos.
 - Las partidas se guardan solas en el iPhone. Se pueden copiar a Archivos y recuperar.
@@ -26,3 +26,7 @@ npm run roms:prueba  # regenerar las ROMs de prueba propias
 ```
 
 Especificación e instrucciones de trabajo en `CLAUDE.md`. Núcleos y licencias en `nucleos/README.md`.
+
+## Licencia
+
+El código de la app es software libre bajo la licencia GNU GPL v3 (`LICENSE`). Cada núcleo de emulación conserva la suya: mGBA (MPL 2.0), Snes9x (solo uso no comercial) y melonDS (GPLv3). Detalle en `public/nucleos/LICENCIAS.txt`.

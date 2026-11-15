@@ -24,7 +24,7 @@ async function colorCentral(page: Page): Promise<[number, number, number]> {
   })
 }
 
-const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo' }
+const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo', 'prueba.nds': 'Nintendo DS' }
 
 /** Abre la biblioteca de una consola desde el inicio. */
 async function entrar(page: Page, consola: string) {
@@ -48,7 +48,7 @@ async function pulsar(page: Page, etiqueta: string, ms = 300) {
 test('inicio sin juegos, añadir un juego de GBA y jugar con los botones', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText(/Añade tus juegos con/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(3)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(4)
 
   await anadir(page, 'prueba.gba')
   await expect(page.getByRole('button', { name: /prueba.*Game Boy Advance/i })).toBeVisible()
@@ -135,7 +135,7 @@ test('un fichero que no es un juego se rechaza', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('selector').setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
   await expect(page.getByText(/no es un juego/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(3)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(4)
 })
 
 test.describe('en horizontal', () => {
@@ -613,7 +613,7 @@ test('Game Boy y Game Boy Color comparten consola y biblioteca, GBA va aparte, y
   ])
   await expect(page.getByText('2 juegos añadidos')).toBeVisible()
   const consolas = page.getByTestId('consolas')
-  await expect(consolas.getByRole('button')).toHaveCount(6) // tres tarjetas con su botón de opciones
+  await expect(consolas.getByRole('button')).toHaveCount(8) // cuatro tarjetas con su botón de opciones
   await expect(consolas.getByRole('button', { name: 'Game Boy y Game Boy Color, 2 juegos', exact: true })).toBeVisible()
 
   await entrar(page, 'Game Boy y Game Boy Color')
@@ -684,4 +684,34 @@ test.describe('transiciones', () => {
     await expect(page.getByRole('heading', { name: 'Ajustes' })).toBeVisible()
     await expect(saliente).toHaveCount(0)
   })
+})
+
+test('Nintendo DS (en pruebas): arranca sin BIOS, dos pantallas, botones, táctil y sin rebobinado', async ({ page }) => {
+  const errores: string[] = []
+  page.on('pageerror', (e) => errores.push(e.message))
+  await page.goto('/')
+  await anadir(page, 'prueba.nds')
+  await expect(page.getByRole('heading', { name: 'Nintendo DS' })).toBeVisible()
+  await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  // Dos pantallas apiladas: 256 x 384
+  const lienzo = page.getByTestId('pantalla')
+  await expect.poll(() => lienzo.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([256, 384])
+  const arriba = () => lienzo.evaluate((c: HTMLCanvasElement) => [...c.getContext('2d')!.getImageData(128, 96, 1, 1).data.slice(0, 3)])
+  await expect.poll(arriba).toEqual([0, 0, 251])
+  await pulsar(page, 'A')
+  await expect.poll(arriba).toEqual([0, 251, 0])
+  await page.mouse.up()
+  await expect.poll(arriba).toEqual([0, 0, 251])
+  // Tocar la pantalla de abajo hace de lápiz y no pulsa ningún botón
+  const caja = (await lienzo.boundingBox())!
+  await page.mouse.move(caja.x + caja.width / 2, caja.y + caja.height * 0.75)
+  await page.mouse.down()
+  await page.mouse.move(caja.x + caja.width * 0.7, caja.y + caja.height * 0.8, { steps: 4 })
+  await page.mouse.up()
+  await expect.poll(arriba).toEqual([0, 0, 251])
+  // Sin rebobinado en DS; X e Y sí
+  await expect(page.getByRole('button', { name: /Rebobinar/ })).toHaveCount(0)
+  await expect(page.getByTestId('mando').getByRole('button', { name: 'X', exact: true })).toBeVisible()
+  expect(errores).toEqual([])
 })
