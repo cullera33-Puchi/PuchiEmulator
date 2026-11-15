@@ -111,15 +111,18 @@ function SuperNintendo() {
   )
 }
 
-/** Game Boy y Game Boy Color juntas: la Color, más pequeña, delante a la derecha */
+/** Las tres portátiles juntas: la clásica detrás, la Color a su lado y la Advance delante */
 function GameBoys() {
   return (
-    <span className="flex h-full items-end">
-      <span className="h-full">
+    <span className="relative flex h-full w-full items-start justify-center">
+      <span className="h-[86%]">
         <GameBoy />
       </span>
-      <span className="-ml-7 h-[80%]">
+      <span className="-ml-6 h-[72%] pt-[6%]">
         <GameBoyColor />
+      </span>
+      <span className="absolute right-0 bottom-0 h-[46%]">
+        <GameBoyAdvance />
       </span>
     </span>
   )
@@ -127,6 +130,5 @@ function GameBoys() {
 
 export function DibujoConsola({ consola }: { consola: Consola }) {
   if (consola === 'snes') return <SuperNintendo />
-  if (consola === 'gb') return <GameBoys />
-  return <GameBoyAdvance />
+  return <GameBoys />
 }

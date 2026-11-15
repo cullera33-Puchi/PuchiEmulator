@@ -20,6 +20,19 @@ export function AjustesMando() {
         </div>
         <div className="separador" />
         <div className="fila flex-col items-stretch gap-2 py-3">
+          <span>Imagen de Super Nintendo</span>
+          <Segmentado
+            etiqueta="Imagen de Super Nintendo"
+            valor={a.snesAspecto}
+            opciones={[
+              ['tv', 'Como en la tele (4:3)'],
+              ['pixel', 'Píxel exacto (8:7)'],
+            ]}
+            alCambiar={(v) => cambiarAjustes({ snesAspecto: v })}
+          />
+        </div>
+        <div className="separador" />
+        <div className="fila flex-col items-stretch gap-2 py-3">
           <span>Tamaño de los botones</span>
           <Segmentado etiqueta="Tamaño de los botones" valor={a.escalaMando} opciones={ESCALAS} alCambiar={(v) => cambiarAjustes({ escalaMando: v })} />
         </div>

@@ -33,6 +33,8 @@ export interface Ajustes {
   caratulasAuto: boolean
   /** Pantalla del juego lo más grande posible: sin margen ni marco */
   pantallaGrande: boolean
+  /** Imagen de Super Nintendo: como en la televisión (4:3) o píxel exacto (8:7) */
+  snesAspecto: 'tv' | 'pixel'
 }
 
 export const POR_DEFECTO: Ajustes = {
@@ -50,6 +52,7 @@ export const POR_DEFECTO: Ajustes = {
   mano: 'derecha',
   caratulasAuto: true,
   pantallaGrande: true,
+  snesAspecto: 'tv',
 }
 
 const CLAVE = 'puchiemulator-ajustes'

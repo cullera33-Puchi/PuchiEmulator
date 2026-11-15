@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.9.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Super Nintendo más grande en horizontal: la imagen se ve a 4:3, como en la tele, y ocupa toda la altura.",
+      "Si prefieres el píxel exacto (8:7), lo eliges en Mando.",
+      "El botón de menú ya no tapa el marcador del juego: en horizontal va junto a guardar y cargar.",
+      "Game Boy, Color y Advance juntas en una sola consola y una sola biblioteca."
+    ]
+  },
+  {
     "version": "0.8.0",
     "fecha": "15/11/2026",
     "cambios": [

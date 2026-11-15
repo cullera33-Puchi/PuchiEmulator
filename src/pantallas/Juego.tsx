@@ -31,11 +31,12 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const ajustes = useAjustes()
   const { avisar, confirmar } = useInterfaz()
   const lienzo = useRef<HTMLCanvasElement>(null)
+  const zona = useRef<HTMLDivElement>(null)
   const sesion = useRef<Sesion | null>(null)
   const [nombre, setNombre] = useState('')
   const [hombros, setHombros] = useState(false)
   const [cuatro, setCuatro] = useState(false)
-  const [proporcion, setProporcion] = useState(2 / 3)
+  const [nativo, setNativo] = useState({ ancho: 240, alto: 160 })
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [menu, setMenu] = useState(false)
@@ -79,7 +80,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           lienzo: lienzo.current!,
           reanudar,
           opciones: { mgba_gb_colors: paletaPara(temaJuego, ajustesRef.current.paletaGb) },
-          alCambiarTamano: (ancho, alto) => setProporcion(alto / ancho),
+          alCambiarTamano: (ancho, alto) => setNativo({ ancho, alto }),
         })
         if (cancelado) {
           void creada.cerrar()
@@ -235,6 +236,32 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   const estadoDe = (r: Ranura) => estados?.find((e) => e.ranura === r)
 
+  // Proporción de la imagen: la del núcleo; en Super Nintendo, la de la televisión (4:3) salvo que
+  // se elija el píxel exacto. 256 x 224 a 4:3 ocupa en horizontal un 17 % más de ancho.
+  const aspecto = sistema === 'snes' && ajustes.snesAspecto === 'tv' ? 4 / 3 : nativo.ancho / nativo.alto
+  const proporcion = 1 / aspecto
+
+  // El lienzo se dimensiona a mano para poder estirar la imagen a otra proporción; ocupa lo máximo que
+  // cabe en su zona y queda centrado (o pegado a un lado en el modo una mano, por CSS)
+  useEffect(() => {
+    const z = zona.current
+    const c = lienzo.current
+    if (!z || !c) return
+    const ajustar = () => {
+      const estilo = getComputedStyle(z)
+      const ancho = z.clientWidth - parseFloat(estilo.paddingLeft) - parseFloat(estilo.paddingRight)
+      const alto = z.clientHeight - parseFloat(estilo.paddingTop) - parseFloat(estilo.paddingBottom)
+      if (ancho <= 0 || alto <= 0) return
+      const w = Math.min(ancho, alto * aspecto)
+      c.style.width = `${Math.floor(w)}px`
+      c.style.height = `${Math.floor(w / aspecto)}px`
+    }
+    ajustar()
+    const ro = new ResizeObserver(ajustar)
+    ro.observe(z)
+    return () => ro.disconnect()
+  }, [aspecto])
+
   return (
     <div
       className={`juego ${ajustes.nitido ? '' : 'suave'} ${ajustes.modoMando === 'una-mano' ? 'una-mano' : ''} ${ajustes.pantallaGrande ? 'grande' : ''}`}
@@ -243,7 +270,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       style={{ ...tema.vars, '--proporcion': proporcion, '--opacidad-horizontal': ajustes.opacidadMando, '--escala': ajustes.escalaMando } as React.CSSProperties}
       data-testid="juego"
     >
-      <div className="zona-pantalla">
+      <div ref={zona} className="zona-pantalla">
         <canvas ref={lienzo} width={240} height={160} aria-label="Pantalla del juego" data-testid="pantalla" />
       </div>
 

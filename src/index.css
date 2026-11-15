@@ -90,11 +90,11 @@
 
 .juego canvas {
   display: block;
+  /* Juego.tsx le pone el tamaño exacto con la proporción de la consola */
   width: 100%;
   height: 100%;
-  min-width: 0;
-  min-height: 0;
-  object-fit: contain;
+  flex: none;
+  object-fit: fill;
   background: var(--marco, #000);
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -505,14 +505,19 @@ body.en-juego .aviso {
     left: auto;
     right: calc(var(--seguro-der) + 12px + var(--tam-mando) / 2 - var(--ancho-pequeno) / 2);
   }
-  .boton-menu {
-    top: 8px;
-    left: calc(50% - 22px);
-    background: rgb(0 0 0 / 0.35);
-  }
-  /* Debajo de L y de R */
+  /* Debajo de L: guardar, cargar y el menú; debajo de R: rebobinar y avance rápido.
+     Nada en el centro, para no tapar el marcador de los juegos. */
   .herramientas {
     top: calc(24px + 40px * min(var(--escala), 1.15));
+    gap: 6px;
+  }
+  .herramienta {
+    width: 40px;
+    height: 40px;
+  }
+  .boton-menu {
+    top: calc(24px + 40px * min(var(--escala), 1.15));
+    left: calc(var(--seguro-izq) + 12px + 92px);
   }
   .herramientas.izquierda {
     right: auto;
@@ -588,8 +593,8 @@ body.en-juego .aviso {
     left: var(--seguro-izq);
     right: calc(var(--seguro-der) + var(--col) * 0.6);
   }
-  .juego.una-mano[data-mano='derecha'] canvas {
-    object-position: left center;
+  .juego.una-mano[data-mano='derecha'] .zona-pantalla {
+    justify-content: flex-start;
   }
   .juego.una-mano[data-mano='derecha'] .hombro.l,
   .juego.una-mano[data-mano='derecha'] .pequeno.select {
@@ -620,8 +625,8 @@ body.en-juego .aviso {
     left: calc(var(--seguro-izq) + var(--col) * 0.6);
     right: var(--seguro-der);
   }
-  .juego.una-mano[data-mano='izquierda'] canvas {
-    object-position: right center;
+  .juego.una-mano[data-mano='izquierda'] .zona-pantalla {
+    justify-content: flex-end;
   }
   .juego.una-mano[data-mano='izquierda'] .hombro.l,
   .juego.una-mano[data-mano='izquierda'] .pequeno.select {

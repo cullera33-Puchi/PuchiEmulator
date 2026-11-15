@@ -163,6 +163,7 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
                 <span className="relative z-[1] flex flex-1 flex-col justify-between p-4">
                   <span>
                     <span className="block text-[22px] leading-tight font-bold">{info.nombre}</span>
+                    {info.descripcion && <span className="block text-[13px] text-zinc-500">{info.descripcion}</span>}
                     <span className="block text-[15px] text-zinc-500">{n ? plural(n, 'juego', 'juegos') : 'Sin juegos'}</span>
                   </span>
                   <span className="flex items-center text-[15px] text-acento dark:text-acento-oscuro">
