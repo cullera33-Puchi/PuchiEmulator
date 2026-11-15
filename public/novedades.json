@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.17.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Nintendo DS en modo libro para Hotel Dusk y juegos parecidos: gira el iPhone y las pantallas se ven de lado, como en la consola.",
+      "Elige en el modo libro si la táctil va a la derecha o a la izquierda, igual que en el juego.",
+      "Nueva disposición «Grande y pequeña»: arrastra la miniatura para moverla y tócala para cambiar de pantalla.",
+      "Se elige en Menú, Mando, Pantallas, y se recuerda en cada juego."
+    ]
+  },
+  {
     "version": "0.16.0",
     "fecha": "15/11/2026",
     "cambios": [

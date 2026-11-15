@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.17.0 (15/11/2026)
+
+Pantallas de Nintendo DS (paso 3 del plan), pedidas por el usuario para jugar a Hotel Dusk. Por juego, en Menú, Mando, «Pantallas» (`pantallasDS` en `CLAVES_CONTROL`; por defecto en Ajustes, Mando).
+
+- Libro (Hotel Dusk, Last Window, Brain Training): cada pantalla girada un cuarto de vuelta y las dos lado a lado (384 x 256), con la táctil a la derecha o a la izquierda, como se elija en el juego. En horizontal, la imagen pegada al lado de la táctil a casi toda la altura y una columna en el lado libre con guardar y cargar, menú, avance rápido, cruceta, A, B y Start (decisión del usuario: pocos botones); L, R, X, Y y Select no se ven. Reutiliza la columna del modo una mano (`data-mano` contrario a la táctil).
+- Grande y pequeña: una pantalla a todo tamaño, con la colocación normal de la consola, y la otra en una miniatura flotante (`MiniaturaDS`) que se arrastra para moverla y se toca para intercambiarlas. Cuál va grande y dónde está la miniatura se guardan por juego (`principalDS`, `miniDS`). Solo es táctil la grande cuando es la de abajo.
+- `src/emulador/pantallasDS.ts`: `componer` recoloca y gira las pantallas que da el núcleo (siempre apiladas) y `aNucleo` lleva cada toque de la imagen que se ve a la pantalla táctil real, con pruebas de las cuatro esquinas en cada giro. Comprobado en el navegador que el giro dibujado y la traducción de toques coinciden.
+- La colocación de DS en vertical a todo lo ancho (v0.12.0) queda solo para «Apiladas».
+- Pruebas: 117 unitarias y 38 de navegador.
+
 ## 0.16.0 (15/11/2026)
 
 - Modo noche, para jugar en la cama (petición del usuario): interruptor en el menú del juego que se recuerda entre partidas. Una capa encima de la pantalla del juego la multiplica por un color oscuro y cálido (`COLOR_NOCHE`): oscurece más que el brillo mínimo del iPhone y quita luz azul, con imagen, botones y herramientas a la vez. No recoge toques y el menú no se oscurece. Intensidad suave, media o muy oscura en Ajustes, Imagen. Sin vibración mientras está encendido (`vibracionActiva`).

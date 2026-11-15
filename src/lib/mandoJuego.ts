@@ -6,6 +6,7 @@
 import { cambiarAjustes, leerAjustes, type Ajustes } from './ajustes'
 import { SISTEMAS, type Sistema } from './sistemas'
 import { bit } from '../emulador/botones'
+import type { PrincipalDS } from '../emulador/pantallasDS'
 
 export type BotonMenu = 'X' | 'Y' | 'START' | 'SELECT'
 export type BotonCorrer = 'B' | 'Y'
@@ -24,12 +25,15 @@ export interface MandoJuego {
  * Ajustes de pantalla y botones que se guardan por juego (v0.13.3, petición del usuario). Los de
  * Ajustes son los de por defecto para los juegos que no tienen los suyos.
  */
-export const CLAVES_CONTROL = ['pantallaGrande', 'snesAspecto', 'filtro', 'escalaMando', 'modoMando', 'mano', 'opacidadMando'] as const
+export const CLAVES_CONTROL = ['pantallaGrande', 'snesAspecto', 'filtro', 'pantallasDS', 'escalaMando', 'modoMando', 'mano', 'opacidadMando'] as const
 export type ClaveControl = (typeof CLAVES_CONTROL)[number]
 export type ControlesMando = Pick<Ajustes, ClaveControl>
 
-/** Lo que se guarda de cada juego: el modo JRPG y los ajustes propios de pantalla y botones. */
-export type MandoGuardado = Partial<MandoJuego & ControlesMando>
+/**
+ * Lo que se guarda de cada juego: el modo JRPG, los ajustes propios de pantalla y botones y, en DS
+ * con «grande y pequeña», cuál va grande y dónde está la miniatura (fracción de la pantalla).
+ */
+export type MandoGuardado = Partial<MandoJuego & ControlesMando> & { principalDS?: PrincipalDS; miniDS?: { x: number; y: number } }
 
 /** Pantalla y botones de un juego: los suyos o, si no tiene, los generales. */
 export function controlesDe(a: Ajustes, juegoId: string): ControlesMando {

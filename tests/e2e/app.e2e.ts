@@ -1064,3 +1064,88 @@ test('modo noche: se enciende en el menú, oscurece la pantalla sin tapar los to
   await expect(page.getByText('Cargando…')).toBeHidden()
   await expect(page.getByTestId('modo-noche')).toBeVisible()
 })
+
+test.describe('pantallas de Nintendo DS', () => {
+  test.use({ viewport: { width: 844, height: 390 } })
+
+  /** Color de un punto del lienzo (x e y de 0 a 1). */
+  const punto = (page: Page, x: number, y: number) =>
+    page.getByTestId('pantalla').evaluate((c: HTMLCanvasElement, [x, y]) => [...c.getContext('2d')!.getImageData(Math.floor(c.width * x), Math.floor(c.height * y), 1, 1).data.slice(0, 3)], [x, y])
+
+  async function elegir(page: Page, disposicion: string, tactil?: string) {
+    await page.getByRole('button', { name: 'Menú', exact: true }).click()
+    await page.getByRole('button', { name: /^Mando/ }).click()
+    await page.getByRole('radiogroup', { name: 'Pantallas de Nintendo DS' }).getByRole('radio', { name: disposicion }).click()
+    if (tactil) await page.getByRole('radiogroup', { name: 'Pantalla táctil' }).getByRole('radio', { name: tactil }).click()
+    await page.getByRole('button', { name: 'Volver al menú' }).click()
+    await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  }
+
+  test('libro (Hotel Dusk): pantallas giradas lado a lado, táctil a la derecha o a la izquierda, pocos botones', async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, 'prueba.nds')
+    await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+    await expect(page.getByText('Cargando…')).toBeHidden()
+    await elegir(page, 'Libro')
+    const juego = page.getByTestId('juego')
+    await expect(juego).toHaveAttribute('data-disposicion', 'libro-derecha')
+    const lienzo = page.getByTestId('pantalla')
+    await expect.poll(() => lienzo.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([384, 256])
+    // La de arriba (azul en la ROM de prueba) a la izquierda; la táctil a la derecha
+    await expect.poll(() => punto(page, 0.25, 0.5)).toEqual([0, 0, 251])
+    expect(await punto(page, 0.75, 0.5)).not.toEqual([0, 0, 251])
+    // Solo cruceta, A, B y Start; la imagen no queda debajo de ningún botón
+    const mando = page.getByTestId('mando')
+    for (const n of ['L', 'R', 'X', 'Y', 'Select']) await expect(mando.getByRole('button', { name: n, exact: true })).toBeHidden()
+    const caja = (await lienzo.boundingBox())!
+    for (const n of ['A', 'B', 'Start']) {
+      const b = (await mando.getByRole('button', { name: n, exact: true }).boundingBox())!
+      expect(b.x + b.width, n).toBeLessThanOrEqual(caja.x + 1)
+    }
+    expect(caja.height).toBeGreaterThan(330)
+    await pulsar(page, 'A')
+    await expect.poll(() => punto(page, 0.25, 0.5)).toEqual([0, 251, 0])
+    await page.mouse.up()
+
+    // Táctil a la izquierda: todo al revés
+    await elegir(page, 'Libro', 'Táctil a la izquierda')
+    await expect(juego).toHaveAttribute('data-disposicion', 'libro-izquierda')
+    await expect.poll(() => punto(page, 0.75, 0.5)).toEqual([0, 0, 251])
+    expect(await punto(page, 0.25, 0.5)).not.toEqual([0, 0, 251])
+  })
+
+  test('grande y pequeña: la miniatura se arrastra, un toque intercambia y se recuerda', async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, 'prueba.nds')
+    await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+    await expect(page.getByText('Cargando…')).toBeHidden()
+    await elegir(page, 'Grande y pequeña')
+    const lienzo = page.getByTestId('pantalla')
+    await expect.poll(() => lienzo.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([256, 192])
+    const mini = page.getByTestId('miniatura-ds')
+    await expect(mini).toBeVisible()
+    const colorMini = () => mini.locator('canvas').evaluate((c: HTMLCanvasElement) => [...c.getContext('2d')!.getImageData(128, 96, 1, 1).data.slice(0, 3)])
+    // Grande, la táctil; en la miniatura, la de arriba (azul)
+    await expect.poll(colorMini).toEqual([0, 0, 251])
+    expect(await punto(page, 0.5, 0.5)).not.toEqual([0, 0, 251])
+    // Un toque las intercambia
+    await mini.click()
+    await expect.poll(() => punto(page, 0.5, 0.5)).toEqual([0, 0, 251])
+    // Arrastrarla la mueve (y no intercambia)
+    const antes = (await mini.boundingBox())!
+    await page.mouse.move(antes.x + 20, antes.y + 20)
+    await page.mouse.down()
+    await page.mouse.move(antes.x - 200, antes.y + 120, { steps: 6 })
+    await page.mouse.up()
+    await expect.poll(async () => (await mini.boundingBox())!.x).toBeLessThan(antes.x - 150)
+    const despues = (await mini.boundingBox())!
+    expect(await punto(page, 0.5, 0.5)).toEqual([0, 0, 251])
+    // Se recuerda al volver a abrir
+    await page.getByRole('button', { name: 'Menú', exact: true }).click()
+    await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+    await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+    await expect(page.getByText('Cargando…')).toBeHidden()
+    await expect.poll(() => punto(page, 0.5, 0.5)).toEqual([0, 0, 251])
+    await expect.poll(async () => Math.abs((await mini.boundingBox())!.x - despues.x)).toBeLessThan(3)
+  })
+})

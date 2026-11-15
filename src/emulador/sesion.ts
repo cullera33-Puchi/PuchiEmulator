@@ -16,6 +16,7 @@ import { Nucleo } from './nucleo'
 import { Historial } from './historial'
 import { planRitmo, Refresco, refrescosPasados } from './ritmo'
 import { mascaraConCorrer } from '../lib/mandoJuego'
+import { aNucleo, componer, tamanoSalida, type PantallasDS, type PrincipalDS } from './pantallasDS'
 
 const MAX_FOTOGRAMAS_SEGUIDOS = 4
 /** Cada cuántos fotogramas se guarda un estado para rebobinar (unos 6 por segundo) */
@@ -90,6 +91,11 @@ export class Sesion {
   // Correr fijo (modo JRPG): el botón que se mantiene pulsado, y fotogramas en que se suelta para que
   // el juego vea una pulsación nueva cuando el usuario lo toca
   private correr = 0
+  // Pantallas de DS (v0.17.0): disposición, cuál va grande y la miniatura
+  private pantallas: PantallasDS = 'apiladas'
+  private principal: PrincipalDS = 'abajo'
+  private mini: CanvasRenderingContext2D | null = null
+  private fuente: HTMLCanvasElement | null = null
   // El núcleo ha fallado (memoria corrupta): desde ese momento no se guarda nada suyo
   private roto = false
   private cargaAutoPendiente = false
@@ -398,19 +404,49 @@ export class Sesion {
     const v = this.nucleo.video()
     if (!v) return
     const lienzo = this.o.lienzo
-    if (!this.imagen || this.imagen.width !== v.ancho || this.imagen.height !== v.alto) {
-      lienzo.width = v.ancho
-      lienzo.height = v.alto
-      this.imagen = new ImageData(v.ancho, v.alto)
-      this.o.alCambiarTamano?.(v.ancho, v.alto)
+    // Las pantallas de DS se recolocan; el resto (y DS apiladas) va tal cual
+    const recolocar = this.pantallas !== 'apiladas' && v.alto === v.ancho * 1.5
+    const salida = recolocar ? tamanoSalida(this.pantallas) : { ancho: v.ancho, alto: v.alto }
+    if (!this.imagen || this.imagen.width !== v.ancho || this.imagen.height !== v.alto) this.imagen = new ImageData(v.ancho, v.alto)
+    if (lienzo.width !== salida.ancho || lienzo.height !== salida.alto) {
+      lienzo.width = salida.ancho
+      lienzo.height = salida.alto
+      this.o.alCambiarTamano?.(salida.ancho, salida.alto)
     }
     this.imagen.data.set(v.datos)
-    this.contexto.putImageData(this.imagen, 0, 0)
+    if (!recolocar) {
+      this.contexto.putImageData(this.imagen, 0, 0)
+      return
+    }
+    if (!this.fuente) this.fuente = document.createElement('canvas')
+    if (this.fuente.width !== v.ancho || this.fuente.height !== v.alto) {
+      this.fuente.width = v.ancho
+      this.fuente.height = v.alto
+    }
+    this.fuente.getContext('2d')!.putImageData(this.imagen, 0, 0)
+    componer(this.contexto, this.fuente, this.pantallas, this.principal, this.mini)
   }
 
-  /** Toque en la imagen, de 0 a 1 sobre el fotograma (o null al soltar). */
+  /**
+   * Disposición de las pantallas de DS: cómo se colocan, cuál va grande (en «grande») y el lienzo de
+   * la miniatura. Se vuelve a pintar en el momento, aunque el juego esté en pausa.
+   */
+  ponerPantallas(pantallas: PantallasDS, principal: PrincipalDS, mini: HTMLCanvasElement | null): void {
+    this.pantallas = pantallas
+    this.principal = principal
+    if (mini && (mini.width !== 256 || mini.height !== 192)) {
+      mini.width = 256
+      mini.height = 192
+    }
+    this.mini = mini?.getContext('2d', { alpha: false }) ?? null
+    if (this.contexto) this.dibujar()
+  }
+
+  /** Toque en la imagen que se ve, de 0 a 1 (o null al soltar). Fuera de la táctil, no toca. */
   ponerPuntero(x: number | null, y = 0): void {
-    this.nucleo?.puntero(x, y)
+    if (x === null) return this.nucleo?.puntero(null)
+    const p = aNucleo(this.pantallas, this.principal, x, y)
+    this.nucleo?.puntero(p ? p[0] : null, p ? p[1] : 0)
   }
 
   /** Correr fijo: máscara del botón que queda pulsado (0, ninguno). */

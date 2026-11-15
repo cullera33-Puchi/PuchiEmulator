@@ -14,6 +14,7 @@ import {
 } from '../lib/mandoJuego'
 import type { Sistema } from '../lib/sistemas'
 import { Interruptor, Segmentado } from './Interfaz'
+import { esLibro } from '../emulador/pantallasDS'
 
 export const ESCALAS: [number, string][] = [
   [0.8, 'Pequeños'],
@@ -110,6 +111,35 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
         </div>
           </>
         )}
+        {(!juego || juego.sistema === 'nds') && (
+          <>
+            <div className="separador" />
+            <div className="fila flex-col items-stretch gap-2 py-3">
+              <span>{juego ? 'Pantallas' : 'Pantallas de Nintendo DS'}</span>
+              <Segmentado
+                etiqueta="Pantallas de Nintendo DS"
+                valor={esLibro(a.pantallasDS) ? 'libro' : a.pantallasDS}
+                opciones={[
+                  ['apiladas', 'Apiladas'],
+                  ['libro', 'Libro'],
+                  ['grande', 'Grande y pequeña'],
+                ]}
+                alCambiar={(v) => cambiar({ pantallasDS: v === 'libro' ? 'libro-derecha' : v })}
+              />
+              {esLibro(a.pantallasDS) && (
+                <Segmentado
+                  etiqueta="Pantalla táctil"
+                  valor={a.pantallasDS}
+                  opciones={[
+                    ['libro-izquierda', 'Táctil a la izquierda'],
+                    ['libro-derecha', 'Táctil a la derecha'],
+                  ]}
+                  alCambiar={(v) => cambiar({ pantallasDS: v })}
+                />
+              )}
+            </div>
+          </>
+        )}
         <div className="separador" />
         <div className="fila flex-col items-stretch gap-2 py-3">
           <span>Filtro de imagen</span>
@@ -180,6 +210,7 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
         {juego
           ? 'Solo para este juego; el resto sigue con los suyos. Los de por defecto se cambian en Ajustes, Mando. '
           : 'Para los juegos que no tengan los suyos: dentro de cada juego, en Menú, Mando, se cambian solo para ese juego. '}
+        {(!juego || juego.sistema === 'nds') && 'Pantallas de DS: «Libro» es para los juegos que se juegan con la consola de lado (Hotel Dusk, Last Window, Brain Training): gira el iPhone y elige el lado de la táctil como en el juego. En «Grande y pequeña», arrastra la miniatura para moverla y tócala para cambiar cuál va grande. '}
         Filtro «Consola»: la rejilla de la pantalla LCD en las portátiles y las líneas de la tele en Super Nintendo. Pantalla grande: sin margen ni marco, de borde a borde en vertical y a toda la altura en horizontal. Con «Una mano», en vertical todo queda abajo, al alcance del pulgar; en horizontal, la pantalla se pega al otro lado y los botones van en una columna translúcida. Cómodo para juegos de rol y de estrategia.
       </p>
     </>

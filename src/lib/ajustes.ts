@@ -7,6 +7,7 @@ import type { Sistema } from './sistemas'
 import type { IdTema, PaletaGb } from './temas'
 import type { MandoGuardado } from './mandoJuego'
 import type { OrdenBiblioteca } from './biblioteca'
+import type { PantallasDS } from '../emulador/pantallasDS'
 
 export interface Ajustes {
   sonido: boolean
@@ -44,6 +45,8 @@ export interface Ajustes {
   snesAspecto: 'tv' | 'pixel'
   /** Filtro de imagen (v0.15.0): ninguno, el de la consola (rejilla en las portátiles, líneas en la tele), rejilla LCD o líneas de TV */
   filtro: 'ninguno' | 'consola' | 'lcd' | 'tv'
+  /** Pantallas de Nintendo DS (v0.17.0): apiladas, libro (táctil a la derecha o a la izquierda) o grande y pequeña */
+  pantallasDS: PantallasDS
   /** Mando de cada juego (modo JRPG y ajustes propios de pantalla y botones), por identificador del juego */
   mandos: Record<string, MandoGuardado>
   /** Orden de la biblioteca: último jugado, nombre o tiempo jugado */
@@ -91,6 +94,7 @@ export const POR_DEFECTO: Ajustes = {
   pantallaGrande: true,
   snesAspecto: 'tv',
   filtro: 'ninguno',
+  pantallasDS: 'apiladas',
   mandos: {},
   ordenBiblioteca: 'reciente',
 }

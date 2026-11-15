@@ -19,7 +19,9 @@ import { paletaPara, temaPara } from '../lib/temas'
 import { SelectorTema } from '../componentes/SelectorTema'
 import { EditorNotas } from '../componentes/Notas'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
-import { bitCorrer, controlesDe, extrasJrpg, mandoDe } from '../lib/mandoJuego'
+import { bitCorrer, cambiarMandoJuego, controlesDe, extrasJrpg, mandoDe } from '../lib/mandoJuego'
+import { esLibro, type PrincipalDS } from '../emulador/pantallasDS'
+import { MiniaturaDS } from '../componentes/MiniaturaDS'
 import { alAbrir } from '../lib/biblioteca'
 
 interface Props {
@@ -63,6 +65,13 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const controles = controlesDe(ajustes, id)
   // Filtro de imagen: «consola» es la rejilla en las portátiles y las líneas en la tele
   const filtro = controles.filtro === 'consola' ? (sistema === 'snes' ? 'tv' : 'lcd') : controles.filtro
+  // Pantallas de DS (v0.17.0): en «libro», la columna de botones del modo una mano, en el lado libre
+  const pantallas = sistema === 'nds' ? controles.pantallasDS : 'apiladas'
+  const libro = esLibro(pantallas)
+  const unaMano = libro || controles.modoMando === 'una-mano'
+  const mano = libro ? (pantallas === 'libro-derecha' ? 'izquierda' : 'derecha') : controles.mano
+  const principal: PrincipalDS = ajustes.mandos[id]?.principalDS ?? 'abajo'
+  const mini = useRef<HTMLCanvasElement>(null)
   const [corriendo, setCorriendo] = useState(false)
   const ajustesRef = useRef(ajustes)
   ajustesRef.current = ajustes
@@ -261,6 +270,12 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     avisar('Guardado rápido cargado', { fn: () => s.deshacerCarga() })
   }
 
+  // Pantallas de DS: se aplican al abrir el juego y al cambiarlas
+  useEffect(() => {
+    if (cargando) return
+    sesion.current?.ponerPantallas(pantallas, principal, pantallas === 'grande' ? mini.current : null)
+  }, [pantallas, principal, cargando])
+
   // Al cambiar el modo o el botón de correr, se suelta
   useEffect(() => {
     setCorriendo(false)
@@ -326,10 +341,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   return (
     <div
-      className={`juego ${ajustes.nitido ? '' : 'suave'} ${controles.modoMando === 'una-mano' ? 'una-mano' : ''} ${controles.pantallaGrande ? 'grande' : ''} ${mando.jrpg ? 'jrpg' : ''}`}
+      className={`juego ${ajustes.nitido ? '' : 'suave'} ${unaMano ? 'una-mano' : ''} ${controles.pantallaGrande ? 'grande' : ''} ${mando.jrpg ? 'jrpg' : ''}`}
       data-tema={tema.id}
-      data-mano={controles.mano}
+      data-mano={mano}
       data-sistema={sistema}
+      data-disposicion={pantallas}
       style={{ ...tema.vars, '--proporcion': proporcion, '--opacidad-horizontal': controles.opacidadMando, '--escala': controles.escalaMando } as React.CSSProperties}
       data-testid="juego"
     >
@@ -339,6 +355,15 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           {filtro !== 'ninguno' && <span className={`filtro ${filtro}`} data-testid="filtro" aria-hidden />}
         </span>
       </div>
+
+      {pantallas === 'grande' && (
+        <MiniaturaDS
+          ref={mini}
+          posicion={ajustes.mandos[id]?.miniDS}
+          alMover={(miniDS) => cambiarMandoJuego(id, { miniDS })}
+          alTocar={() => cambiarMandoJuego(id, { principalDS: principal === 'abajo' ? 'arriba' : 'abajo' })}
+        />
+      )}
 
       <Mando
         hombros={hombros}

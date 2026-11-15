@@ -104,6 +104,41 @@
   image-rendering: auto;
 }
 
+/* Pantallas de DS (v0.17.0) */
+/* Grande y pequeña: la miniatura flota encima de los controles. Sin sitio guardado, arriba a la
+   derecha; con él, en su fracción de la pantalla y siempre dentro. */
+.miniatura-ds {
+  --ancho-mini: min(38vw, calc(34dvh * 4 / 3));
+  position: absolute;
+  z-index: 7;
+  width: var(--ancho-mini);
+  aspect-ratio: 4 / 3;
+  top: calc(var(--seguro-arriba) + 10px);
+  right: calc(var(--seguro-der) + 10px);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1.5px rgb(255 255 255 / 0.7), 0 4px 16px rgb(0 0 0 / 0.5);
+  touch-action: none;
+  -webkit-user-select: none;
+}
+.miniatura-ds.colocada {
+  right: auto;
+  left: min(calc(var(--mini-x, 0) * 100vw), calc(100vw - var(--ancho-mini)));
+  top: min(calc(var(--mini-y, 0) * 100dvh), calc(100dvh - var(--ancho-mini) * 0.75));
+}
+.miniatura-ds canvas {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+/* Libro: solo cruceta, A, B y Start en la columna del lado libre (el juego va casi todo con el lápiz) */
+.juego[data-disposicion^='libro'] .hombro,
+.juego[data-disposicion^='libro'] .botones-accion .x,
+.juego[data-disposicion^='libro'] .botones-accion .y,
+.juego[data-disposicion^='libro'] .pequeno.select {
+  display: none;
+}
+
 /* Modo noche (v0.16.0): una capa que multiplica toda la pantalla del juego (imagen, botones y
    herramientas) por un color oscuro y cálido. No recoge toques; el menú, que va en una hoja aparte,
    no se oscurece. */
@@ -574,19 +609,19 @@ body.en-juego .aviso {
    ella, translúcidos (donde no hay un botón, el toque es del lápiz). Abajo del todo, una fila con
    guardar y cargar, Select y Start, el menú y el avance rápido. */
 @media (orientation: portrait) {
-  .juego[data-sistema='nds']:not(.una-mano) {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) {
     --fila-abajo: calc(var(--seguro-abajo) + 52px);
     --base-mando: calc(var(--fila-abajo) + 4px);
     --tam-mando: min(calc(150px * var(--escala)), 40vw);
   }
-  .juego[data-sistema='nds']:not(.una-mano) .zona-pantalla {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .zona-pantalla {
     top: var(--seguro-arriba);
     height: min(calc(100vw * var(--proporcion, 1.5)), calc(100dvh - var(--seguro-arriba) - var(--fila-abajo)));
   }
   /* Encima de la imagen: relleno oscuro translúcido y borde claro, que se ven sobre cualquier fondo */
-  .juego[data-sistema='nds']:not(.una-mano) .cruceta,
-  .juego[data-sistema='nds']:not(.una-mano) .botones-accion,
-  .juego[data-sistema='nds']:not(.una-mano) .hombro {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .cruceta,
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .botones-accion,
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .hombro {
     --ab: rgb(20 20 24 / 0.38);
     --ab-pulsado: rgb(255 255 255 / 0.45);
     --borde: rgb(255 255 255 / 0.55);
@@ -602,43 +637,43 @@ body.en-juego .aviso {
     opacity: var(--opacidad-horizontal, 0.6);
     text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
   }
-  .juego[data-sistema='nds']:not(.una-mano) .hombro {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .hombro {
     border-color: var(--borde);
   }
-  .juego[data-sistema='nds']:not(.una-mano) .cruceta .brazo {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .cruceta .brazo {
     box-shadow: 0 0 0 1px rgb(255 255 255 / 0.45);
   }
-  .juego[data-sistema='nds']:not(.una-mano) .cruceta .centro {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .cruceta .centro {
     background: var(--cruceta);
   }
-  .juego[data-sistema='nds']:not(.una-mano) .hombro {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .hombro {
     width: min(calc(84px * var(--escala)), 24vw);
     height: calc(34px * var(--escala));
     bottom: calc(var(--base-mando) + var(--tam-mando) + 10px);
   }
-  .juego[data-sistema='nds']:not(.una-mano) .pequeno {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .pequeno {
     bottom: calc(var(--seguro-abajo) + 10px);
     width: calc(64px * var(--escala));
     --ancho-pequeno: calc(64px * var(--escala));
   }
-  .juego[data-sistema='nds']:not(.una-mano) .herramientas,
-  .juego[data-sistema='nds']:not(.una-mano) .boton-menu {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .herramientas,
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .boton-menu {
     top: auto;
     bottom: calc(var(--seguro-abajo) + 4px);
   }
-  .juego[data-sistema='nds']:not(.una-mano) .herramientas {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .herramientas {
     gap: 6px;
   }
-  .juego[data-sistema='nds']:not(.una-mano) .herramientas.izquierda {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .herramientas.izquierda {
     left: calc(var(--seguro-izq) + 12px);
     right: auto;
   }
   /* El menú pasa a la derecha, junto al avance rápido (en DS no hay rebobinado) */
-  .juego[data-sistema='nds']:not(.una-mano) .boton-menu {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .boton-menu {
     left: auto;
     right: calc(var(--seguro-der) + 12px);
   }
-  .juego[data-sistema='nds']:not(.una-mano) .herramientas.derecha {
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .herramientas.derecha {
     left: auto;
     right: calc(var(--seguro-der) + 12px + 50px);
   }
@@ -842,6 +877,49 @@ body.en-juego .aviso {
   .juego.una-mano[data-mano='izquierda'] .boton-menu {
     right: auto;
     left: calc(var(--seguro-izq) + var(--lado-col) + var(--col) + 10px);
+  }
+
+  /* DS en libro (v0.17.0): sin L ni R, las herramientas suben a lo alto de la columna (guardar y
+     cargar; debajo, el menú y el avance rápido) y la imagen se aparta para no quedar debajo de
+     nada. */
+  .juego[data-disposicion^='libro'].una-mano .herramientas {
+    flex-direction: row;
+    gap: 6px;
+  }
+  .juego[data-disposicion^='libro'].una-mano .herramientas.izquierda {
+    top: 10px;
+  }
+  .juego[data-disposicion^='libro'].una-mano .boton-menu,
+  .juego[data-disposicion^='libro'].una-mano .herramientas.derecha {
+    top: 60px;
+  }
+  .juego[data-disposicion^='libro'].una-mano .botones-accion {
+    top: calc(104px - var(--col) * 0.24);
+  }
+  .juego[data-disposicion^='libro'].una-mano .cruceta {
+    top: calc(110px + var(--col) * 0.56);
+  }
+  /* Columna a la izquierda (táctil a la derecha) */
+  .juego[data-disposicion^='libro'].una-mano[data-mano='izquierda'] .zona-pantalla {
+    left: calc(var(--seguro-izq) + var(--lado-col) + var(--col) + 6px);
+  }
+  .juego[data-disposicion^='libro'].una-mano[data-mano='izquierda'] .herramientas.izquierda,
+  .juego[data-disposicion^='libro'].una-mano[data-mano='izquierda'] .boton-menu {
+    left: calc(var(--seguro-izq) + var(--lado-col));
+  }
+  .juego[data-disposicion^='libro'].una-mano[data-mano='izquierda'] .herramientas.derecha {
+    left: calc(var(--seguro-izq) + var(--lado-col) + 50px);
+  }
+  /* Columna a la derecha (táctil a la izquierda) */
+  .juego[data-disposicion^='libro'].una-mano[data-mano='derecha'] .zona-pantalla {
+    right: calc(var(--seguro-der) + var(--lado-col) + var(--col) + 6px);
+  }
+  .juego[data-disposicion^='libro'].una-mano[data-mano='derecha'] .herramientas.izquierda,
+  .juego[data-disposicion^='libro'].una-mano[data-mano='derecha'] .herramientas.derecha {
+    right: calc(var(--seguro-der) + var(--lado-col));
+  }
+  .juego[data-disposicion^='libro'].una-mano[data-mano='derecha'] .boton-menu {
+    right: calc(var(--seguro-der) + var(--lado-col) + 50px);
   }
 }
 
