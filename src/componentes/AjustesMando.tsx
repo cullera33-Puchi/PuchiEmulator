@@ -112,6 +112,21 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
         )}
         <div className="separador" />
         <div className="fila flex-col items-stretch gap-2 py-3">
+          <span>Filtro de imagen</span>
+          <Segmentado
+            etiqueta="Filtro de imagen"
+            valor={a.filtro}
+            opciones={[
+              ['ninguno', 'Ninguno'],
+              ['consola', 'Consola'],
+              ['lcd', 'LCD'],
+              ['tv', 'Tele'],
+            ]}
+            alCambiar={(v) => cambiar({ filtro: v })}
+          />
+        </div>
+        <div className="separador" />
+        <div className="fila flex-col items-stretch gap-2 py-3">
           <span>Tamaño de los botones</span>
           <Segmentado etiqueta="Tamaño de los botones" valor={a.escalaMando} opciones={ESCALAS} alCambiar={(v) => cambiar({ escalaMando: v })} />
         </div>
@@ -165,7 +180,7 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
         {juego
           ? 'Solo para este juego; el resto sigue con los suyos. Los de por defecto se cambian en Ajustes, Mando. '
           : 'Para los juegos que no tengan los suyos: dentro de cada juego, en Menú, Mando, se cambian solo para ese juego. '}
-        Pantalla grande: sin margen ni marco, de borde a borde en vertical y a toda la altura en horizontal. Con «Una mano», en vertical todo queda abajo, al alcance del pulgar; en horizontal, la pantalla se pega al otro lado y los botones van en una columna translúcida. Cómodo para juegos de rol y de estrategia.
+        Filtro «Consola»: la rejilla de la pantalla LCD en las portátiles y las líneas de la tele en Super Nintendo. Pantalla grande: sin margen ni marco, de borde a borde en vertical y a toda la altura en horizontal. Con «Una mano», en vertical todo queda abajo, al alcance del pulgar; en horizontal, la pantalla se pega al otro lado y los botones van en una columna translúcida. Cómodo para juegos de rol y de estrategia.
       </p>
     </>
   )

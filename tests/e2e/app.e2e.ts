@@ -952,3 +952,91 @@ test('biblioteca: buscar, ordenar, favoritos y notas', async ({ page }) => {
   await page.getByRole('button', { name: 'Notas' }).click()
   await expect(page.getByRole('textbox', { name: 'Notas del juego' })).toHaveValue('Voy por la segunda mazmorra')
 })
+
+test('estado de cada juego: se cambia en sus opciones, filtra la biblioteca y sale en estadísticas', async ({ page }) => {
+  await page.goto('/')
+  const otra = Buffer.from(readFileSync(rom('prueba.gba')))
+  otra[otra.length - 1] ^= 0xff
+  const tipo = 'application/octet-stream'
+  await page.getByTestId('selector').setInputFiles([
+    { name: 'prueba.gba', mimeType: tipo, buffer: readFileSync(rom('prueba.gba')) },
+    { name: 'Otro.gba', mimeType: tipo, buffer: otra },
+  ])
+  await expect(page.getByText(/añadido/i)).toBeVisible()
+  await entrar(page, 'Game Boy Advance')
+  const chips = page.getByRole('radiogroup', { name: 'Ver los juegos' })
+  await expect(chips.getByRole('radio', { name: 'Pendiente 2' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Opciones de prueba', exact: true }).click()
+  const estado = page.getByRole('radiogroup', { name: 'Estado del juego' })
+  await expect(estado.getByRole('radio', { name: 'Pendiente' })).toHaveAttribute('aria-checked', 'true')
+  await estado.getByRole('radio', { name: /Terminado/ }).click()
+  await expect(estado.getByRole('radio', { name: /Terminado/ })).toHaveAttribute('aria-checked', 'true')
+
+  await page.goto('/')
+  await entrar(page, 'Game Boy Advance')
+  await expect(page.getByTestId('biblioteca').getByLabel('Terminado')).toHaveCount(1)
+  await chips.getByRole('radio', { name: 'Terminado 1' }).click()
+  await expect(page.getByTestId('biblioteca').getByRole('button', { name: /Game Boy Advance$/ })).toHaveCount(1)
+
+  // Jugar al otro un momento lo pasa a «jugando» (y hace que haya estadísticas)
+  await chips.getByRole('radio', { name: /^Todos/ }).click()
+  await page.getByRole('button', { name: 'Otro, Game Boy Advance' }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await pulsar(page, 'A', 1500)
+  await page.mouse.up()
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await expect(chips.getByRole('radio', { name: 'Jugando 1' })).toBeVisible()
+
+  await page.goto('/')
+  await page.getByRole('button', { name: /Estadísticas/ }).click()
+  const porEstado = page.getByTestId('por-estado')
+  await expect(porEstado).toContainText('1Terminado')
+  await expect(porEstado).toContainText('1Jugando')
+  await expect(porEstado).toContainText('Terminados: 1 este año')
+})
+
+test('seguir jugando: el último juego en grande y los demás recientes debajo', async ({ page }) => {
+  await page.goto('/')
+  for (const [fichero, nombre] of [
+    ['prueba.sfc', /prueba, Super Nintendo/],
+    ['prueba.gba', /prueba.*Game Boy Advance/i],
+  ] as const) {
+    await page.goto('/')
+    await anadir(page, fichero)
+    await page.getByRole('button', { name: nombre }).click()
+    await expect(page.getByText('Cargando…')).toBeHidden()
+    await page.getByRole('button', { name: 'Menú', exact: true }).click()
+    await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  }
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Seguir jugando a prueba' })).toContainText('Game Boy Advance')
+  const otros = page.getByTestId('otros-recientes')
+  await expect(otros.getByRole('button')).toHaveCount(1)
+  await otros.getByRole('button', { name: 'prueba, Super Nintendo: seguir' }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByTestId('juego')).toHaveAttribute('data-sistema', 'snes')
+})
+
+test('filtro de imagen: según la consola, rejilla en GBA y líneas en Super Nintendo, por juego', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByTestId('filtro')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: /^Mando/ }).click()
+  await page.getByRole('radiogroup', { name: 'Filtro de imagen' }).getByRole('radio', { name: 'Consola' }).click()
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  const filtro = page.getByTestId('filtro')
+  await expect(filtro).toHaveClass(/lcd/)
+  // La capa cubre la imagen justo y no tapa los toques
+  const [f, l] = [(await filtro.boundingBox())!, (await page.getByTestId('pantalla').boundingBox())!]
+  expect(Math.abs(f.width - l.width)).toBeLessThan(1)
+  expect(Math.abs(f.height - l.height)).toBeLessThan(1)
+  expect(await filtro.evaluate((e) => getComputedStyle(e).pointerEvents)).toBe('none')
+  await pulsar(page, 'A')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 251, 0])
+})

@@ -24,7 +24,16 @@ export interface Juego {
   caratulaBuscada?: boolean
   /** Marcado como favorito: sale primero en la biblioteca (v0.14.0) */
   favorito?: boolean
+  /** Estado que elige el usuario (v0.15.0); sin él, «jugando» si ya se ha jugado y si no «pendiente» */
+  estado?: EstadoJuego
+  /** Fecha en que se marcó como terminado */
+  terminado?: number
 }
+
+export type EstadoJuego = 'pendiente' | 'jugando' | 'terminado' | 'abandonado'
+
+/** Lo que el usuario dice de un juego y viaja en la copia: favorito, estado y fecha de terminado. */
+export type FichaJuego = Pick<Juego, 'id' | 'favorito' | 'estado' | 'terminado'>
 
 /** Notas del usuario sobre un juego (v0.14.0). Van aparte del juego: se conservan si se quita y viajan en la copia. */
 export interface Nota {
@@ -326,6 +335,18 @@ export async function importarNotas(notas: Nota[]): Promise<void> {
   const tx = bd.transaction('notas', 'readwrite')
   for (const n of notas) tx.objectStore('notas').put(n)
   await terminar(tx)
+}
+
+/** Recupera favorito y estado de una copia en los juegos que están en la biblioteca. */
+export async function aplicarFichas(fichas: FichaJuego[]): Promise<number> {
+  let n = 0
+  for (const f of fichas) {
+    const j = await leerJuego(f.id)
+    if (!j) continue
+    await actualizarJuego({ ...j, favorito: f.favorito, estado: f.estado, terminado: f.terminado })
+    n++
+  }
+  return n
 }
 
 /** Pide al navegador que no borre los datos si falta espacio. */

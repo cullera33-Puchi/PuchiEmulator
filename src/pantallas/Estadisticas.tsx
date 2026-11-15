@@ -7,7 +7,8 @@ import { BarChart3, ChevronLeft, Clock, Flame, Gamepad2, Timer, Trophy } from 'l
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVolverDeslizando } from '../componentes/gestos'
 import { Segmentado } from '../componentes/Interfaz'
-import { listarCaratulas, listarSesiones } from '../lib/almacen'
+import { listarCaratulas, listarJuegos, listarSesiones, type Juego } from '../lib/almacen'
+import { ESTADOS, NOMBRE_ESTADO, resumenEstados, terminados } from '../lib/biblioteca'
 import {
   columnas,
   delPeriodo,
@@ -134,13 +135,15 @@ export function Estadisticas({ alVolver }: { alVolver: () => void }) {
   useVolverDeslizando(pantalla, alVolver)
   const [sesiones, setSesiones] = useState<SesionJuego[] | null>(null)
   const [caratulas, setCaratulas] = useState<Map<string, string>>(new Map())
+  const [juegos, setJuegos] = useState<Juego[]>([])
   const [periodo, setPeriodo] = useState<Periodo>('semana')
   const [todos, setTodos] = useState(false)
   const ahora = useMemo(() => Date.now(), [])
 
   const cargar = useCallback(async () => {
-    const [s, c] = await Promise.all([listarSesiones(), listarCaratulas()])
+    const [s, c, j] = await Promise.all([listarSesiones(), listarCaratulas(), listarJuegos()])
     setSesiones(s)
+    setJuegos(j)
     setCaratulas((antes) => {
       antes.forEach((u) => URL.revokeObjectURL(u))
       return new Map(c.map((x) => [x.id, URL.createObjectURL(new Blob([x.datos], { type: 'image/jpeg' }))]))
@@ -309,7 +312,50 @@ export function Estadisticas({ alVolver }: { alVolver: () => void }) {
             <p className="pie-grupo">Cuenta el tiempo con el juego en marcha. Si pasas más de 10 minutos sin tocar un botón, el reloj se para hasta que vuelves a jugar.</p>
           </>
         )}
+
+        {juegos.length > 0 && <TusJuegosPorEstado juegos={juegos} caratulas={caratulas} ahora={ahora} />}
       </div>
+    </div>
+  )
+}
+
+/** Tu colección por estado y los juegos terminados, con su fecha (v0.15.0). No depende del periodo. */
+function TusJuegosPorEstado({ juegos, caratulas, ahora }: { juegos: Juego[]; caratulas: Map<string, string>; ahora: number }) {
+  const r = resumenEstados(juegos)
+  const fin = terminados(juegos)
+  const año = new Date(ahora).getFullYear()
+  const esteAño = fin.filter((j) => j.terminado && new Date(j.terminado).getFullYear() === año).length
+  return (
+    <div className="mt-6" data-testid="por-estado">
+      <Tarjeta titulo="Tu colección">
+        <div className="grid grid-cols-4 gap-2 text-center">
+          {ESTADOS.map((e) => (
+            <div key={e}>
+              <p className="text-[22px] font-bold tabular-nums">{r[e]}</p>
+              <p className="text-[12px] text-zinc-500">{NOMBRE_ESTADO[e]}</p>
+            </div>
+          ))}
+        </div>
+        {fin.length > 0 && (
+          <>
+            <p className="mt-4 mb-2 text-[15px] font-semibold">
+              Terminados{esteAño ? `: ${esteAño} este año` : ''}
+            </p>
+            <div className="space-y-2">
+              {fin.slice(0, 10).map((j) => (
+                <div key={j.id} className="flex items-center gap-3">
+                  <span className="size-9 shrink-0 overflow-hidden rounded-md" style={{ background: SISTEMAS[j.sistema].color }}>
+                    {caratulas.get(j.id) && <img src={caratulas.get(j.id)} alt="" className="h-full w-full object-cover" />}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{j.nombre}</span>
+                  <span className="shrink-0 text-[13px] text-zinc-500">{j.terminado ? cuandoCorto(j.terminado, ahora) : ''}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </Tarjeta>
+      <p className="pie-grupo">El estado se cambia en las opciones de cada juego, en su biblioteca.</p>
     </div>
   )
 }

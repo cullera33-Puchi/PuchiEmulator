@@ -3,7 +3,7 @@
  * La ROM se copia en el iPhone (IndexedDB) para no tener que elegirla cada vez; el fichero original
  * se queda donde estaba.
  */
-import { guardarJuego, leerJuego, type Juego } from './almacen'
+import { guardarJuego, leerJuego, type EstadoJuego, type Juego } from './almacen'
 import { leerRom, nombreDesdeFichero, tituloInterno } from './sistemas'
 
 export async function sha1(bytes: Uint8Array): Promise<string> {
@@ -53,17 +53,64 @@ export function ordenarJuegos(juegos: Juego[], orden: OrdenBiblioteca = 'recient
   return lista.sort((a, b) => (b.ultimaVez ?? 0) - (a.ultimaVez ?? 0) || porNombre(a, b))
 }
 
+export const NOMBRE_ESTADO: Record<EstadoJuego, string> = { pendiente: 'Pendiente', jugando: 'Jugando', terminado: 'Terminado', abandonado: 'Abandonado' }
+export const ESTADOS: EstadoJuego[] = ['pendiente', 'jugando', 'terminado', 'abandonado']
+
+/** Estado de un juego: el que ha elegido el usuario o, si no, «jugando» si ya se ha jugado y «pendiente» si no. */
+export function estadoDe(j: Juego): EstadoJuego {
+  return j.estado ?? (j.ultimaVez ? 'jugando' : 'pendiente')
+}
+
+/** El juego con su estado nuevo; al terminarlo se anota la fecha, y al cambiar a otro se quita. */
+export function conEstado(j: Juego, estado: EstadoJuego, ahora = Date.now()): Juego {
+  return { ...j, estado, terminado: estado === 'terminado' ? (j.estado === 'terminado' && j.terminado ? j.terminado : ahora) : undefined }
+}
+
+/** Al abrir un juego pendiente, pasa a «jugando». Lo terminado o abandonado no cambia. */
+export function alAbrir(j: Juego, ahora = Date.now()): Juego {
+  return { ...j, ultimaVez: ahora, estado: j.estado === 'pendiente' ? 'jugando' : j.estado }
+}
+
+/** Cuántos juegos hay en cada estado. */
+export function resumenEstados(juegos: Juego[]): Record<EstadoJuego, number> {
+  const r: Record<EstadoJuego, number> = { pendiente: 0, jugando: 0, terminado: 0, abandonado: 0 }
+  for (const j of juegos) r[estadoDe(j)]++
+  return r
+}
+
+/** Terminados, del más reciente al más antiguo. */
+export function terminados(juegos: Juego[]): Juego[] {
+  return juegos.filter((j) => estadoDe(j) === 'terminado').sort((a, b) => (b.terminado ?? 0) - (a.terminado ?? 0))
+}
+
 /**
- * Biblioteca lista para mostrar (v0.14.0): los que coinciden con la búsqueda (cada palabra en el
+ * Para «Seguir jugando» en el inicio (v0.15.0): los últimos jugados, sin los terminados ni los
+ * abandonados, del más reciente al más antiguo.
+ */
+export function seguirJugando(juegos: Juego[], cuantos = 5): Juego[] {
+  return juegos
+    .filter((j) => j.ultimaVez && estadoDe(j) !== 'terminado' && estadoDe(j) !== 'abandonado')
+    .sort((a, b) => (b.ultimaVez ?? 0) - (a.ultimaVez ?? 0))
+    .slice(0, cuantos)
+}
+
+/**
+ * Biblioteca lista para mostrar (v0.14.0): los del estado elegido (v0.15.0) que coinciden con la búsqueda (cada palabra en el
  * nombre o en el título de la ROM, sin acentos ni mayúsculas), en el orden elegido y con los
  * favoritos aparte, primero.
  */
 export function prepararBiblioteca(
   juegos: Juego[],
-  { texto = '', orden = 'reciente', tiempos = new Map() }: { texto?: string; orden?: OrdenBiblioteca; tiempos?: Map<string, number> } = {},
+  {
+    texto = '',
+    orden = 'reciente',
+    tiempos = new Map(),
+    estado = 'todos',
+  }: { texto?: string; orden?: OrdenBiblioteca; tiempos?: Map<string, number>; estado?: EstadoJuego | 'todos' } = {},
 ): { favoritos: Juego[]; resto: Juego[] } {
   const palabras = normalizar(texto).split(/\s+/).filter(Boolean)
   const coinciden = juegos.filter((j) => {
+    if (estado !== 'todos' && estadoDe(j) !== estado) return false
     const donde = normalizar(`${j.nombre} ${j.titulo}`)
     return palabras.every((p) => donde.includes(p))
   })

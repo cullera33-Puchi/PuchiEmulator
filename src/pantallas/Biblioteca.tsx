@@ -5,7 +5,7 @@
  * Tocar un juego lo abre donde se dejó (si hay estado «auto»); mantenerlo pulsado o tocar «…» abre
  * sus opciones. Quitar un juego o borrar su partida se puede deshacer.
  */
-import { ChevronLeft, ChevronRight, Ellipsis, Gamepad2, NotebookPen, Plus, Search, Star, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Ellipsis, Gamepad2, NotebookPen, Plus, Search, Star, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type PointerEvent as EventoPuntero } from 'react'
 import { useAnadirJuegos } from '../componentes/AnadirJuegos'
 import { useVolverDeslizando } from '../componentes/gestos'
@@ -31,9 +31,10 @@ import {
   listarJuegos,
   listarSesiones,
   quitarJuego,
+  type EstadoJuego,
   type Juego,
 } from '../lib/almacen'
-import { prepararBiblioteca, type OrdenBiblioteca } from '../lib/biblioteca'
+import { conEstado as estadoNuevo, ESTADOS, estadoDe, NOMBRE_ESTADO, prepararBiblioteca, resumenEstados, type OrdenBiblioteca } from '../lib/biblioteca'
 import { duracion, porJuego } from '../lib/estadisticas'
 import { cuando, cuandoCorto, plural, tamano } from '../lib/formato'
 import { vibrar } from '../lib/vibracion'
@@ -106,6 +107,11 @@ function Ficha({ juego, caratula, tiempo, alJugar, alOpciones }: { juego: Juego;
         }}
       >
         <span className="relative block aspect-square overflow-hidden rounded-xl bg-white shadow-sm dark:bg-zinc-900">
+          {estadoDe(juego) === 'terminado' && (
+            <span className="absolute bottom-1.5 left-1.5 z-[1] flex h-5 items-center gap-0.5 rounded-full bg-black/60 pr-1.5 pl-1 text-[10px] font-semibold text-white" aria-label="Terminado">
+              <Check size={12} strokeWidth={3} className="text-green-400" /> Terminado
+            </span>
+          )}
           {juego.favorito && (
             <span className="absolute top-1.5 right-1.5 z-[1] grid size-6 place-items-center rounded-full bg-black/55 text-amber-300" aria-label="Favorito">
               <Star size={14} fill="currentColor" />
@@ -143,6 +149,7 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
   const [detalle, setDetalle] = useState<Detalle | null>(null)
   const [eligiendoCaratula, setEligiendoCaratula] = useState<Juego | null>(null)
   const [busqueda, setBusqueda] = useState('')
+  const [filtro, setFiltro] = useState<EstadoJuego | 'todos'>('todos')
   const [notasDe, setNotasDe] = useState<Juego | null>(null)
   const orden = useAjustes().ordenBiblioteca
   const pantalla = useRef<HTMLDivElement>(null)
@@ -187,7 +194,16 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
     avisar(nuevo.favorito ? 'Añadido a favoritos' : 'Quitado de favoritos')
   }
 
-  const vista = juegos ? prepararBiblioteca(juegos, { texto: busqueda, orden, tiempos: new Map([...tiempos].map(([id, t]) => [id, t.ms])) }) : null
+  const cambiarEstado = async (j: Juego, estado: EstadoJuego) => {
+    const nuevo = estadoNuevo(j, estado)
+    await actualizarJuego(nuevo)
+    setDetalle((d) => (d ? { ...d, juego: nuevo } : d))
+    registrar('info', 'Estado del juego cambiado', { estado })
+    await recargar()
+  }
+
+  const recuento = juegos ? resumenEstados(juegos) : null
+  const vista = juegos ? prepararBiblioteca(juegos, { texto: busqueda, orden, estado: filtro, tiempos: new Map([...tiempos].map(([id, t]) => [id, t.ms])) }) : null
   const ficha = (j: Juego) => (
     <Ficha key={j.id} juego={j} caratula={caratulas.get(j.id)} tiempo={tiempos.get(j.id)} alJugar={() => jugar(j, conEstado.has(j.id))} alOpciones={() => void abrirDetalle(j)} />
   )
@@ -290,6 +306,23 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
                 alCambiar={(v: OrdenBiblioteca) => cambiarAjustes({ ordenBiblioteca: v })}
               />
             )}
+            {recuento && juegos.length > 1 && (
+              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="radiogroup" aria-label="Ver los juegos">
+                {(['todos', ...ESTADOS] as const)
+                  .filter((e) => e === 'todos' || recuento[e] > 0 || filtro === e)
+                  .map((e) => (
+                    <button
+                      key={e}
+                      role="radio"
+                      aria-checked={filtro === e}
+                      onClick={() => setFiltro(e)}
+                      className={`h-8 shrink-0 rounded-full px-3.5 text-[14px] font-medium ${filtro === e ? 'bg-acento text-white dark:bg-acento-oscuro' : 'bg-white text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'}`}
+                    >
+                      {e === 'todos' ? `Todos ${juegos.length}` : `${NOMBRE_ESTADO[e]} ${recuento[e]}`}
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
 
           <div data-testid="biblioteca">
@@ -302,8 +335,10 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
             )}
             <div className="grid grid-cols-3 gap-x-3 gap-y-4">{vista.resto.map(ficha)}</div>
           </div>
-          {busqueda && !vista.favoritos.length && !vista.resto.length && (
-            <p className="mt-10 text-center text-[15px] text-zinc-500">Ningún juego coincide con «{busqueda}»</p>
+          {!vista.favoritos.length && !vista.resto.length && (
+            <p className="mt-10 text-center text-[15px] text-zinc-500">
+              {busqueda ? `Ningún juego coincide con «${busqueda}»` : `No hay juegos en «${filtro === 'todos' ? 'Todos' : NOMBRE_ESTADO[filtro]}»`}
+            </p>
           )}
           {!busqueda && <p className="pie-grupo mt-4 text-center">Toca un juego para seguir donde lo dejaste. Mantén pulsado para ver sus opciones.</p>}
         </>
@@ -352,6 +387,22 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
                 </span>
                 <ChevronRight size={18} className="text-zinc-400" />
               </button>
+            </div>
+
+            <p className="cabecera-grupo mt-5">Estado</p>
+            <div className="lista" role="radiogroup" aria-label="Estado del juego">
+              {ESTADOS.map((e, i) => (
+                <div key={e}>
+                  {i > 0 && <div className="separador" />}
+                  <button className="fila" role="radio" aria-checked={estadoDe(detalle.juego) === e} onClick={() => void cambiarEstado(detalle.juego, e)}>
+                    <span className="flex-1">{NOMBRE_ESTADO[e]}</span>
+                    {e === 'terminado' && detalle.juego.terminado && estadoDe(detalle.juego) === 'terminado' && (
+                      <span className="text-[15px] text-zinc-500">{cuando(detalle.juego.terminado)}</span>
+                    )}
+                    {estadoDe(detalle.juego) === e && <Check size={20} className="text-acento dark:text-acento-oscuro" />}
+                  </button>
+                </div>
+              ))}
             </div>
 
             <div className="lista mt-5">

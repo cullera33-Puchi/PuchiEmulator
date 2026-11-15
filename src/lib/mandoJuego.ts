@@ -24,7 +24,7 @@ export interface MandoJuego {
  * Ajustes de pantalla y botones que se guardan por juego (v0.13.3, petición del usuario). Los de
  * Ajustes son los de por defecto para los juegos que no tienen los suyos.
  */
-export const CLAVES_CONTROL = ['pantallaGrande', 'snesAspecto', 'escalaMando', 'modoMando', 'mano', 'opacidadMando'] as const
+export const CLAVES_CONTROL = ['pantallaGrande', 'snesAspecto', 'filtro', 'escalaMando', 'modoMando', 'mano', 'opacidadMando'] as const
 export type ClaveControl = (typeof CLAVES_CONTROL)[number]
 export type ControlesMando = Pick<Ajustes, ClaveControl>
 

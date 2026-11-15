@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.15.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Marca cada juego como pendiente, jugando, terminado o abandonado; filtra la biblioteca por estado y mira tu colección en Estadísticas.",
+      "«Seguir jugando» en el inicio enseña tus últimos cinco juegos.",
+      "Filtros de imagen: rejilla de pantalla LCD o líneas de tele, en Menú, Mando, para cada juego."
+    ]
+  },
+  {
     "version": "0.14.0",
     "fecha": "15/11/2026",
     "cambios": [

@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   _reiniciarConexion,
+  actualizarJuego,
+  leerJuego,
   guardarEstado,
   guardarNota,
   guardarPartida,
@@ -97,6 +99,19 @@ describe('copia de partidas', () => {
     expect(await leerNota(id)).toBeUndefined()
     expect((await importarArchivo(texto)).notas).toBe(1)
     expect((await leerNota(id))?.texto).toBe('Voy por la tercera mazmorra. Contraseña: 1234')
+  })
+
+  it('la copia lleva el favorito y el estado de cada juego y los pone en los que están en la biblioteca', async () => {
+    const r = await anadirFichero('prueba.gba', fichero('prueba.gba'))
+    if (r.tipo !== 'nuevo') throw new Error('no se añadió')
+    const j = r.juego
+    await actualizarJuego({ ...j, favorito: true, estado: 'terminado', terminado: 1234 })
+    const texto = JSON.stringify(await crearArchivo(false, '0.15.0'))
+    await actualizarJuego({ ...j, favorito: undefined, estado: undefined, terminado: undefined })
+    await importarArchivo(texto)
+    expect((await leerJuego(j.id))?.estado).toBe('terminado')
+    expect((await leerJuego(j.id))?.favorito).toBe(true)
+    expect((await leerJuego(j.id))?.terminado).toBe(1234)
   })
 
   it('una copia de antes de las notas (formato 1) se sigue leyendo', () => {

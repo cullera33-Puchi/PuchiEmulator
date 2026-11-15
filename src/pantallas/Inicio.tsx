@@ -12,6 +12,7 @@ import { leerAjustes, useAjustes } from '../lib/ajustes'
 import { borrarCaratula, contarPartidas, guardarCaratula, leerCaratula, leerEstado, listarCaratulas, listarJuegos, listarSesiones, type Juego } from '../lib/almacen'
 import { delPeriodo, duracion, total, type SesionJuego } from '../lib/estadisticas'
 import { reducirImagen } from '../lib/caratulas'
+import { seguirJugando } from '../lib/biblioteca'
 import { aplazarCopia, diasSinCopia, exportarCopia, necesitaCopia } from '../lib/copias'
 import { APP_VERSION } from '../lib/version'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
@@ -31,7 +32,9 @@ export const claveFotoConsola = (c: Consola) => `consola-${c}`
 export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: Props) {
   const { avisar } = useInterfaz()
   const [juegos, setJuegos] = useState<Juego[] | null>(null)
-  const [ultimo, setUltimo] = useState<{ juego: Juego; caratula?: string; reanudar: boolean } | null>(null)
+  // «Seguir jugando»: el último en grande y hasta cuatro más (v0.15.0)
+  const [recientes, setRecientes] = useState<{ juego: Juego; caratula?: string; reanudar: boolean }[]>([])
+  const ultimo = recientes[0] ?? null
   const [fotos, setFotos] = useState<Map<string, string>>(new Map())
   const [opciones, setOpciones] = useState<Consola | null>(null)
   const [sesiones, setSesiones] = useState<SesionJuego[]>([])
@@ -49,11 +52,9 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
       return urls
     })
     setJuegos(lista)
-    const reciente = lista.filter((j) => j.ultimaVez).sort((a, b) => (b.ultimaVez ?? 0) - (a.ultimaVez ?? 0))[0]
-    if (reciente) {
-      const auto = await leerEstado(reciente.id, 'auto')
-      setUltimo({ juego: reciente, caratula: urls.get(reciente.id), reanudar: !!auto })
-    } else setUltimo(null)
+    const ultimos = seguirJugando(lista)
+    const autos = await Promise.all(ultimos.map((j) => leerEstado(j.id, 'auto')))
+    setRecientes(ultimos.map((j, i) => ({ juego: j, caratula: urls.get(j.id), reanudar: !!autos[i] })))
   }, [])
 
   useEffect(() => {
@@ -152,6 +153,30 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
               <Play size={20} fill="currentColor" />
             </span>
           </button>
+          {recientes.length > 1 && (
+            <div className="-mt-3 mb-6 grid grid-cols-4 gap-3" data-testid="otros-recientes">
+              {recientes.slice(1).map((r) => (
+                <button
+                  key={r.juego.id}
+                  className="min-w-0 text-left active:opacity-70"
+                  aria-label={`${r.juego.nombre}, ${SISTEMAS[r.juego.sistema].nombre}: seguir`}
+                  onClick={() => {
+                    void altavoz.activar(leerAjustes().sonarEnSilencio)
+                    alJugar(r.juego, r.reanudar)
+                  }}
+                >
+                  <span className="block aspect-square overflow-hidden rounded-xl shadow-sm" style={{ background: SISTEMAS[r.juego.sistema].color }}>
+                    {r.caratula ? (
+                      <img src={r.caratula} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="flex h-full items-end p-1.5 text-[11px] leading-tight font-semibold text-white">{r.juego.nombre}</span>
+                    )}
+                  </span>
+                  <span className="mt-1 block truncate text-[12px] text-zinc-600 dark:text-zinc-400">{r.juego.nombre}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </>
       )}
 

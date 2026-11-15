@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.15.0 (15/11/2026)
+
+Tres mejoras de usabilidad aprobadas por el usuario (8, 9 y 11 de la lista).
+
+- Estado de cada juego: pendiente, jugando, terminado o abandonado (`Juego.estado`, `Juego.terminado`). Sin elegir, «jugando» si ya se ha jugado y «pendiente» si no (`estadoDe`); abrir un pendiente lo pasa a «jugando» (`alAbrir`). Se cambia en las opciones del juego, con la fecha al terminarlo. En la biblioteca, filtro por estado con su recuento y distintivo «Terminado» en la carátula. En Estadísticas, «Tu colección»: cuántos hay de cada estado y los terminados con su fecha. Favorito y estado viajan en la copia de partidas (formato 3, `fichas`) y se recuperan en los juegos que están en la biblioteca.
+- «Seguir jugando» en el inicio: el último juego en grande y hasta cuatro más debajo, sin los terminados ni los abandonados (`seguirJugando`).
+- Filtros de imagen, por juego (Menú, Mando) o por defecto (Ajustes, Mando): ninguno, según la consola (rejilla de LCD en las portátiles y líneas de tele en Super Nintendo), rejilla LCD o líneas de tele. Es una capa encima de la imagen con el tamaño exacto de cada píxel del juego (`--px` y `--py`), que no recoge toques. Por defecto, ninguno.
+- Pruebas: 110 unitarias y 35 de navegador.
+
 ## 0.14.0 (15/11/2026)
 
 Las cinco primeras mejoras de la revisión de la app, aprobadas por el usuario.

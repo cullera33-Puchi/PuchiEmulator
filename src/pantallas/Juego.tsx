@@ -20,6 +20,7 @@ import { SelectorTema } from '../componentes/SelectorTema'
 import { EditorNotas } from '../componentes/Notas'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
 import { bitCorrer, controlesDe, extrasJrpg, mandoDe } from '../lib/mandoJuego'
+import { alAbrir } from '../lib/biblioteca'
 
 interface Props {
   id: string
@@ -34,6 +35,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const { avisar, confirmar } = useInterfaz()
   const lienzo = useRef<HTMLCanvasElement>(null)
   const zona = useRef<HTMLDivElement>(null)
+  const imagen = useRef<HTMLSpanElement>(null)
   const sesion = useRef<Sesion | null>(null)
   const [nombre, setNombre] = useState('')
   const [hombros, setHombros] = useState(false)
@@ -59,6 +61,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const mando = mandoDe(ajustes.mandos, id, sistema)
   // Pantalla y botones de este juego (los suyos o los generales)
   const controles = controlesDe(ajustes, id)
+  // Filtro de imagen: «consola» es la rejilla en las portátiles y las líneas en la tele
+  const filtro = controles.filtro === 'consola' ? (sistema === 'snes' ? 'tv' : 'lcd') : controles.filtro
   const [corriendo, setCorriendo] = useState(false)
   const ajustesRef = useRef(ajustes)
   ajustesRef.current = ajustes
@@ -124,7 +128,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         }
         sesion.current = creada
         registrar('info', 'Juego abierto', { sistema: juego.sistema, reanudar })
-        void actualizarJuego({ ...juego, ultimaVez: Date.now() })
+        void actualizarJuego(alAbrir(juego))
         void leerEstado(juego.id, 'rapida').then((e) => !cancelado && setHayRapido(!!e))
         setCargando(false)
         await creada.jugar(ajustesRef.current.sonido, ajustesRef.current.sonarEnSilencio)
@@ -306,15 +310,19 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       const ancho = z.clientWidth - parseFloat(estilo.paddingLeft) - parseFloat(estilo.paddingRight)
       const alto = z.clientHeight - parseFloat(estilo.paddingTop) - parseFloat(estilo.paddingBottom)
       if (ancho <= 0 || alto <= 0) return
-      const w = Math.min(ancho, alto * aspecto)
-      c.style.width = `${Math.floor(w)}px`
-      c.style.height = `${Math.floor(w / aspecto)}px`
+      const w = Math.floor(Math.min(ancho, alto * aspecto))
+      const h = Math.floor(w / aspecto)
+      c.style.width = `${w}px`
+      c.style.height = `${h}px`
+      // Tamaño de un píxel del juego en pantalla, para los filtros de imagen
+      imagen.current?.style.setProperty('--px', `${w / nativo.ancho}px`)
+      imagen.current?.style.setProperty('--py', `${h / nativo.alto}px`)
     }
     ajustar()
     const ro = new ResizeObserver(ajustar)
     ro.observe(z)
     return () => ro.disconnect()
-  }, [aspecto])
+  }, [aspecto, nativo.ancho, nativo.alto])
 
   return (
     <div
@@ -326,7 +334,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       data-testid="juego"
     >
       <div ref={zona} className="zona-pantalla">
-        <canvas ref={lienzo} width={240} height={160} aria-label="Pantalla del juego" data-testid="pantalla" />
+        <span ref={imagen} className="imagen">
+          <canvas ref={lienzo} width={240} height={160} aria-label="Pantalla del juego" data-testid="pantalla" />
+          {filtro !== 'ninguno' && <span className={`filtro ${filtro}`} data-testid="filtro" aria-hidden />}
+        </span>
       </div>
 
       <Mando

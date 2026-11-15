@@ -104,6 +104,32 @@
   image-rendering: auto;
 }
 
+/* Filtros de imagen (v0.15.0): una capa encima de la imagen con un dibujo del tamaño de cada píxel
+   del juego (--px y --py, que pone Juego.tsx). La rejilla oscurece el borde de cada píxel, como
+   la pantalla LCD de las portátiles; las líneas oscurecen la parte de abajo de cada fila, como una
+   tele de tubo. No recoge toques. */
+.imagen {
+  position: relative;
+  display: block;
+  flex: none;
+  line-height: 0;
+}
+.imagen .filtro {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.imagen .filtro.lcd {
+  background-image:
+    linear-gradient(to right, rgb(0 0 0 / 0.3) 0, rgb(0 0 0 / 0.3) 14%, transparent 14%),
+    linear-gradient(to bottom, rgb(0 0 0 / 0.3) 0, rgb(0 0 0 / 0.3) 14%, transparent 14%);
+  background-size: var(--px, 2px) var(--py, 2px);
+}
+.imagen .filtro.tv {
+  background-image: linear-gradient(to bottom, transparent 0, transparent 55%, rgb(0 0 0 / 0.33) 55%, rgb(0 0 0 / 0.33) 100%);
+  background-size: 100% var(--py, 2px);
+}
+
 .zona-pantalla {
   position: absolute;
   display: flex;

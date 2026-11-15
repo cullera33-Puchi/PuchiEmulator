@@ -39,6 +39,8 @@ export interface Ajustes {
   pantallaGrande: boolean
   /** Imagen de Super Nintendo: como en la televisión (4:3) o píxel exacto (8:7) */
   snesAspecto: 'tv' | 'pixel'
+  /** Filtro de imagen (v0.15.0): ninguno, el de la consola (rejilla en las portátiles, líneas en la tele), rejilla LCD o líneas de TV */
+  filtro: 'ninguno' | 'consola' | 'lcd' | 'tv'
   /** Mando de cada juego (modo JRPG y ajustes propios de pantalla y botones), por identificador del juego */
   mandos: Record<string, MandoGuardado>
   /** Orden de la biblioteca: último jugado, nombre o tiempo jugado */
@@ -66,6 +68,7 @@ export const POR_DEFECTO: Ajustes = {
   caratulasAuto: true,
   pantallaGrande: true,
   snesAspecto: 'tv',
+  filtro: 'ninguno',
   mandos: {},
   ordenBiblioteca: 'reciente',
 }

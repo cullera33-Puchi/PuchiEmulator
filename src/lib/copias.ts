@@ -3,6 +3,7 @@
  * otro iPhone. Lleva las partidas guardadas y, si se pide, los estados. Nunca lleva las ROMs.
  */
 import {
+  aplicarFichas,
   importarNotas,
   importarProgreso,
   importarSesiones,
@@ -12,6 +13,8 @@ import {
   listarPartidas,
   listarSesiones,
   type Estado,
+  type EstadoJuego,
+  type FichaJuego,
   type Nota,
   type Partida,
   type Ranura,
@@ -22,8 +25,8 @@ import { registrar } from './registro'
 import type { Sistema } from './sistemas'
 
 export const FORMATO = 'puchiemulator-partidas'
-/** 1: partidas, estados y sesiones. 2: notas de los juegos (v0.14.0). */
-export const VERSION_FORMATO = 2
+/** 1: partidas, estados y sesiones. 2: notas de los juegos (v0.14.0). 3: favorito y estado de cada juego (v0.15.0). */
+export const VERSION_FORMATO = 3
 
 interface PartidaArchivo {
   id: string
@@ -53,6 +56,8 @@ export interface ArchivoPartidas {
   sesiones?: SesionJuego[]
   /** Notas de los juegos (desde la v0.14.0) */
   notas?: Nota[]
+  /** Favorito y estado de cada juego (desde la v0.15.0) */
+  fichas?: FichaJuego[]
 }
 
 export function aBase64(buffer: ArrayBuffer): string {
@@ -102,6 +107,7 @@ export async function crearArchivo(conEstados: boolean, version: string): Promis
     })),
     sesiones: sesiones.map(({ id: _id, ...s }) => s),
     notas,
+    fichas: juegos.filter((j) => j.favorito || j.estado).map((j) => ({ id: j.id, favorito: j.favorito, estado: j.estado, terminado: j.terminado })),
   }
 }
 
@@ -110,7 +116,9 @@ export class ErrorArchivo extends Error {}
 const RANURAS: Ranura[] = ['auto', 'rapida', '1', '2', '3']
 
 /** Comprueba y convierte un archivo leído. Lanza ErrorArchivo con un mensaje para el usuario. */
-export function leerArchivo(texto: string): { partidas: Partida[]; estados: Estado[]; sesiones: SesionJuego[]; notas: Nota[] } {
+const ESTADOS_JUEGO: EstadoJuego[] = ['pendiente', 'jugando', 'terminado', 'abandonado']
+
+export function leerArchivo(texto: string): { partidas: Partida[]; estados: Estado[]; sesiones: SesionJuego[]; notas: Nota[]; fichas: FichaJuego[] } {
   let datos: unknown
   try {
     datos = JSON.parse(texto)
@@ -148,14 +156,21 @@ export function leerArchivo(texto: string): { partidas: Partida[]; estados: Esta
     if (!valido(n?.id) || typeof n.texto !== 'string') throw new ErrorArchivo('La copia está dañada.')
     notas.push({ id: n.id, texto: n.texto, fecha: Number(n.fecha) || Date.now() })
   }
-  return { partidas, estados, sesiones, notas }
+  const fichas: FichaJuego[] = []
+  for (const f of Array.isArray(a.fichas) ? a.fichas : []) {
+    if (!valido(f?.id) || (f.estado !== undefined && !ESTADOS_JUEGO.includes(f.estado))) throw new ErrorArchivo('La copia está dañada.')
+    fichas.push({ id: f.id, favorito: f.favorito === true ? true : undefined, estado: f.estado, terminado: Number.isFinite(f.terminado) ? f.terminado : undefined })
+  }
+  return { partidas, estados, sesiones, notas, fichas }
 }
 
 /** Importa una copia: sustituye la partida y los estados de los juegos que vienen en ella. */
 export async function importarArchivo(texto: string): Promise<{ partidas: number; estados: number; sesiones: number; notas: number }> {
-  const { partidas, estados, sesiones, notas } = leerArchivo(texto)
+  const { partidas, estados, sesiones, notas, fichas } = leerArchivo(texto)
   await importarProgreso(partidas, estados)
   await importarNotas(notas)
+  // Favorito y estado, en los juegos que ya están en la biblioteca
+  await aplicarFichas(fichas)
   const nuevas = await importarSesiones(sesiones)
   return { partidas: partidas.length, estados: estados.length, sesiones: nuevas, notas: notas.length }
 }
