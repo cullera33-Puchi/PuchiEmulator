@@ -1,0 +1,109 @@
+/**
+ * Consolas que admite la app y cómo se reconoce cada ROM.
+ * Se mira primero la cabecera del cartucho y, si no es concluyente, la extensión del fichero.
+ */
+import { unzipSync } from 'fflate'
+
+export type Sistema = 'gb' | 'gbc' | 'gba'
+export type NombreNucleo = 'mgba'
+
+export interface InfoSistema {
+  nombre: string
+  corto: string
+  nucleo: NombreNucleo
+  extension: string
+  /** Botones que tiene la consola, para dibujar el mando */
+  hombros: boolean
+  color: string
+}
+
+export const SISTEMAS: Record<Sistema, InfoSistema> = {
+  gb: { nombre: 'Game Boy', corto: 'GB', nucleo: 'mgba', extension: 'gb', hombros: false, color: '#8E8E93' },
+  gbc: { nombre: 'Game Boy Color', corto: 'GBC', nucleo: 'mgba', extension: 'gbc', hombros: false, color: '#AF52DE' },
+  gba: { nombre: 'Game Boy Advance', corto: 'GBA', nucleo: 'mgba', extension: 'gba', hombros: true, color: '#5856D6' },
+}
+
+const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba' }
+
+export function extensionDe(nombre: string): string {
+  const i = nombre.lastIndexOf('.')
+  return i < 0 ? '' : nombre.slice(i + 1).toLowerCase()
+}
+
+function esGba(b: Uint8Array): boolean {
+  return b.length >= 0xc0 && b[3] === 0xea && b[0xb2] === 0x96
+}
+
+function esGb(b: Uint8Array): boolean {
+  return b.length >= 0x150 && b[0x104] === 0xce && b[0x105] === 0xed && b[0x106] === 0x66 && b[0x107] === 0x66
+}
+
+/** Consola de una ROM, o null si no se reconoce. */
+export function detectarSistema(bytes: Uint8Array, nombreFichero: string): Sistema | null {
+  if (esGba(bytes)) return 'gba'
+  if (esGb(bytes)) return bytes[0x143] & 0x80 ? 'gbc' : 'gb'
+  const porExtension = EXTENSIONES[extensionDe(nombreFichero)]
+  return porExtension ?? null
+}
+
+function texto(bytes: Uint8Array, desde: number, hasta: number): string {
+  let s = ''
+  for (let i = desde; i < hasta && i < bytes.length; i++) {
+    const c = bytes[i]
+    if (c === 0) break
+    if (c >= 0x20 && c < 0x7f) s += String.fromCharCode(c)
+  }
+  return s.trim()
+}
+
+/** Título interno del cartucho (en mayúsculas y recortado), si lo tiene. */
+export function tituloInterno(bytes: Uint8Array, sistema: Sistema): string {
+  if (sistema === 'gba') return texto(bytes, 0xa0, 0xac)
+  // En Game Boy Color el título ocupa menos: los últimos bytes son el código y el indicador de color
+  return texto(bytes, 0x134, sistema === 'gbc' ? 0x143 : 0x144)
+}
+
+/**
+ * Nombre para la biblioteca a partir del fichero: sin extensión, sin las etiquetas habituales
+ * entre corchetes y sin guiones bajos. «Pokemon_Esmeralda (S) [!].gba» queda «Pokemon Esmeralda (S)».
+ */
+export function nombreDesdeFichero(nombre: string): string {
+  const sinRuta = nombre.split(/[\\/]/).pop() ?? nombre
+  const i = sinRuta.lastIndexOf('.')
+  const base = i > 0 ? sinRuta.slice(0, i) : sinRuta
+  const limpio = base
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return limpio || base
+}
+
+export interface RomLeida {
+  bytes: Uint8Array
+  nombreFichero: string
+  sistema: Sistema
+}
+
+/**
+ * Lee un fichero elegido por el usuario. Si es un .zip, toma la primera ROM que encuentre dentro.
+ * Devuelve null si no hay ninguna ROM reconocible.
+ */
+export function leerRom(bytes: Uint8Array, nombreFichero: string): RomLeida | null {
+  if (extensionDe(nombreFichero) === 'zip' || (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04)) {
+    let ficheros: Record<string, Uint8Array>
+    try {
+      ficheros = unzipSync(bytes, { filter: (f) => !f.name.endsWith('/') && f.originalSize <= 64 * 1024 * 1024 })
+    } catch {
+      return null
+    }
+    const nombres = Object.keys(ficheros).sort((a, b) => Number(!EXTENSIONES[extensionDe(a)]) - Number(!EXTENSIONES[extensionDe(b)]))
+    for (const n of nombres) {
+      const sistema = detectarSistema(ficheros[n], n)
+      if (sistema) return { bytes: ficheros[n], nombreFichero: n, sistema }
+    }
+    return null
+  }
+  const sistema = detectarSistema(bytes, nombreFichero)
+  return sistema ? { bytes, nombreFichero, sistema } : null
+}

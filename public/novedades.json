@@ -1,0 +1,12 @@
+[
+  {
+    "version": "0.1.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Primera versión: Game Boy, Game Boy Color y Game Boy Advance.",
+      "Añade tus juegos desde Archivos (.gb, .gbc, .gba o .zip).",
+      "Juega en vertical o en horizontal, con botones táctiles, teclado o mando.",
+      "Las partidas se guardan solas en el iPhone, con tres ranuras de estado y copia en Archivos."
+    ]
+  }
+]

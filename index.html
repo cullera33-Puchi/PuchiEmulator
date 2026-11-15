@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/icono-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Emulador" />
+    <meta name="theme-color" content="#000000" />
+    <script>
+      // Tema antes de pintar (Automático, Claro u Oscuro; ver src/lib/ajustes.ts)
+      try {
+        var a = JSON.parse(localStorage.getItem('puchiemulator-ajustes') || '{}')
+        var t = a.tema || 'auto'
+        var d = t === 'oscuro' || (t !== 'claro' && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = d ? 'dark' : 'light'
+      } catch (e) {}
+    </script>
+    <meta name="robots" content="noindex, nofollow" />
+    <title>PuchiEmulator</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

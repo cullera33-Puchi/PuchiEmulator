@@ -1,0 +1,57 @@
+name: Publicar en GitHub Pages
+
+# Publica la app en https://<usuario>.github.io/<repositorio>/ en cada envío a main.
+# Requisito, una sola vez: Settings, Pages, Source: GitHub Actions.
+# Los núcleos (public/nucleos) ya van compilados en el repositorio: ver nucleos/README.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tests
+        run: npm test
+      - name: Build para las pruebas de navegador
+        run: npm run build
+      - name: Navegador para las pruebas
+        run: npx playwright install --with-deps chromium
+      - name: Pruebas de navegador
+        run: npm run e2e -- --trace off
+      - name: Build para la ruta del repositorio
+        run: npm run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  publicar:
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - id: despliegue
+        uses: actions/deploy-pages@v4

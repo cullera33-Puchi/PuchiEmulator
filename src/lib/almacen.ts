@@ -1,0 +1,230 @@
+/**
+ * Todo lo que guarda la app en el iPhone, en IndexedDB:
+ * - juegos: la ficha de cada juego de la biblioteca (sin la ROM, para listar rápido).
+ * - roms: la copia de la ROM, por el mismo identificador.
+ * - partidas: la partida guardada del juego (SRAM, Flash o EEPROM, y el reloj del cartucho).
+ * - estados: estados guardados, por juego y ranura («auto» es el de reanudar).
+ *
+ * El identificador de un juego es el SHA-1 de su ROM: si se quita de la biblioteca y se vuelve a
+ * añadir, encuentra su partida.
+ */
+import type { Sistema } from './sistemas'
+
+export interface Juego {
+  id: string
+  nombre: string
+  sistema: Sistema
+  titulo: string
+  nombreFichero: string
+  tam: number
+  anadido: number
+  ultimaVez?: number
+}
+
+export interface Partida {
+  id: string
+  datos: ArrayBuffer
+  rtc?: ArrayBuffer
+  fecha: number
+}
+
+export type Ranura = 'auto' | '1' | '2' | '3'
+
+export interface Estado {
+  clave: string
+  id: string
+  ranura: Ranura
+  datos: ArrayBuffer
+  fecha: number
+  /** Captura de la pantalla en PNG, para reconocer el estado */
+  captura?: ArrayBuffer
+}
+
+const NOMBRE = 'puchiemulator'
+const VERSION = 1
+
+let abierta: Promise<IDBDatabase> | null = null
+
+function abrir(): Promise<IDBDatabase> {
+  abierta ??= new Promise((resolver, rechazar) => {
+    const peticion = indexedDB.open(NOMBRE, VERSION)
+    peticion.onupgradeneeded = () => {
+      const bd = peticion.result
+      if (!bd.objectStoreNames.contains('juegos')) bd.createObjectStore('juegos', { keyPath: 'id' })
+      if (!bd.objectStoreNames.contains('roms')) bd.createObjectStore('roms')
+      if (!bd.objectStoreNames.contains('partidas')) bd.createObjectStore('partidas', { keyPath: 'id' })
+      if (!bd.objectStoreNames.contains('estados')) {
+        const estados = bd.createObjectStore('estados', { keyPath: 'clave' })
+        estados.createIndex('id', 'id')
+      }
+    }
+    peticion.onsuccess = () => {
+      const bd = peticion.result
+      // Si otra pestaña abre una versión nueva, se cierra esta conexión para no bloquearla
+      bd.onversionchange = () => {
+        bd.close()
+        abierta = null
+      }
+      resolver(bd)
+    }
+    peticion.onerror = () => {
+      abierta = null
+      rechazar(peticion.error)
+    }
+  })
+  return abierta
+}
+
+/** Solo para las pruebas: olvida la conexión abierta. */
+export function _reiniciarConexion(): void {
+  abierta = null
+}
+
+function esperar<T>(peticion: IDBRequest<T>): Promise<T> {
+  return new Promise((resolver, rechazar) => {
+    peticion.onsuccess = () => resolver(peticion.result)
+    peticion.onerror = () => rechazar(peticion.error)
+  })
+}
+
+function terminar(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolver, rechazar) => {
+    tx.oncomplete = () => resolver()
+    tx.onerror = () => rechazar(tx.error)
+    tx.onabort = () => rechazar(tx.error ?? new Error('Transacción cancelada'))
+  })
+}
+
+async function leer<T>(almacen: string, clave: IDBValidKey): Promise<T | undefined> {
+  const bd = await abrir()
+  return esperar(bd.transaction(almacen).objectStore(almacen).get(clave)) as Promise<T | undefined>
+}
+
+async function todos<T>(almacen: string): Promise<T[]> {
+  const bd = await abrir()
+  return esperar(bd.transaction(almacen).objectStore(almacen).getAll()) as Promise<T[]>
+}
+
+async function poner(almacen: string, valor: unknown, clave?: IDBValidKey): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction(almacen, 'readwrite')
+  tx.objectStore(almacen).put(valor, clave)
+  await terminar(tx)
+}
+
+/* ---- Juegos ---- */
+
+export function listarJuegos(): Promise<Juego[]> {
+  return todos<Juego>('juegos')
+}
+
+export function leerJuego(id: string): Promise<Juego | undefined> {
+  return leer<Juego>('juegos', id)
+}
+
+export async function guardarJuego(juego: Juego, rom: ArrayBuffer): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction(['juegos', 'roms'], 'readwrite')
+  tx.objectStore('juegos').put(juego)
+  tx.objectStore('roms').put(rom, juego.id)
+  await terminar(tx)
+}
+
+export function actualizarJuego(juego: Juego): Promise<void> {
+  return poner('juegos', juego)
+}
+
+export function leerRomGuardada(id: string): Promise<ArrayBuffer | undefined> {
+  return leer<ArrayBuffer>('roms', id)
+}
+
+/** Quita el juego y su ROM de la biblioteca. La partida y los estados se conservan. */
+export async function quitarJuego(id: string): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction(['juegos', 'roms'], 'readwrite')
+  tx.objectStore('juegos').delete(id)
+  tx.objectStore('roms').delete(id)
+  await terminar(tx)
+}
+
+/* ---- Partidas ---- */
+
+export function leerPartida(id: string): Promise<Partida | undefined> {
+  return leer<Partida>('partidas', id)
+}
+
+export function listarPartidas(): Promise<Partida[]> {
+  return todos<Partida>('partidas')
+}
+
+export function guardarPartida(partida: Partida): Promise<void> {
+  return poner('partidas', partida)
+}
+
+/* ---- Estados ---- */
+
+export const claveEstado = (id: string, ranura: Ranura) => `${id}:${ranura}`
+
+export function leerEstado(id: string, ranura: Ranura): Promise<Estado | undefined> {
+  return leer<Estado>('estados', claveEstado(id, ranura))
+}
+
+export function guardarEstado(estado: Omit<Estado, 'clave'>): Promise<void> {
+  return poner('estados', { ...estado, clave: claveEstado(estado.id, estado.ranura) })
+}
+
+export async function estadosDe(id: string): Promise<Estado[]> {
+  const bd = await abrir()
+  const indice = bd.transaction('estados').objectStore('estados').index('id')
+  return esperar(indice.getAll(id)) as Promise<Estado[]>
+}
+
+export function listarEstados(): Promise<Estado[]> {
+  return todos<Estado>('estados')
+}
+
+export async function borrarEstado(id: string, ranura: Ranura): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction('estados', 'readwrite')
+  tx.objectStore('estados').delete(claveEstado(id, ranura))
+  await terminar(tx)
+}
+
+/** Borra la partida guardada y todos los estados de un juego. */
+export async function borrarProgreso(id: string): Promise<void> {
+  const estados = await estadosDe(id)
+  const bd = await abrir()
+  const tx = bd.transaction(['partidas', 'estados'], 'readwrite')
+  tx.objectStore('partidas').delete(id)
+  for (const e of estados) tx.objectStore('estados').delete(e.clave)
+  await terminar(tx)
+}
+
+/** Sustituye o añade partidas y estados en una sola transacción (importar una copia). */
+export async function importarProgreso(partidas: Partida[], estados: Estado[]): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction(['partidas', 'estados'], 'readwrite')
+  for (const p of partidas) tx.objectStore('partidas').put(p)
+  for (const e of estados) tx.objectStore('estados').put(e)
+  await terminar(tx)
+}
+
+/** Pide al navegador que no borre los datos si falta espacio. */
+export async function pedirPersistencia(): Promise<boolean> {
+  try {
+    if (await navigator.storage?.persisted?.()) return true
+    return (await navigator.storage?.persist?.()) ?? false
+  } catch {
+    return false
+  }
+}
+
+export async function espacioUsado(): Promise<{ usado: number; cuota: number } | null> {
+  try {
+    const e = await navigator.storage?.estimate?.()
+    if (!e) return null
+    return { usado: e.usage ?? 0, cuota: e.quota ?? 0 }
+  } catch {
+    return null
+  }
+}

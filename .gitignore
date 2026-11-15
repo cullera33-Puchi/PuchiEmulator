@@ -1,0 +1,20 @@
+node_modules
+dist
+.nucleos
+test-results
+playwright-report
+*.tsbuildinfo
+.DS_Store
+# Nunca se suben juegos ni BIOS: solo las ROMs de prueba propias de tests/fixtures
+*.gba
+*.gb
+*.gbc
+*.sfc
+*.smc
+*.zip
+*.sav
+*.srm
+!tests/fixtures/prueba.gba
+!tests/fixtures/prueba.gb
+!tests/fixtures/prueba.zip
+juegos_locales/

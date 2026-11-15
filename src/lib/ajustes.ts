@@ -1,0 +1,74 @@
+/**
+ * Preferencias del usuario. Son comodidades de este iPhone, así que van en localStorage; si no
+ * está disponible, la app funciona con los valores por defecto.
+ */
+import { useSyncExternalStore } from 'react'
+
+export interface Ajustes {
+  sonido: boolean
+  /** Suena aunque el interruptor de silencio del iPhone esté activado */
+  sonarEnSilencio: boolean
+  /** Píxeles nítidos (true) o imagen suavizada */
+  nitido: boolean
+  /** Opacidad de los botones en horizontal, de 0,2 a 1 */
+  opacidadMando: number
+  tema: 'auto' | 'claro' | 'oscuro'
+}
+
+export const POR_DEFECTO: Ajustes = {
+  sonido: true,
+  sonarEnSilencio: false,
+  nitido: true,
+  opacidadMando: 0.6,
+  tema: 'auto',
+}
+
+const CLAVE = 'puchiemulator-ajustes'
+let actuales: Ajustes = cargar()
+const oyentes = new Set<() => void>()
+
+function cargar(): Ajustes {
+  try {
+    const t = localStorage.getItem(CLAVE)
+    if (t) return { ...POR_DEFECTO, ...(JSON.parse(t) as Partial<Ajustes>) }
+  } catch {
+    // sin almacenamiento
+  }
+  return { ...POR_DEFECTO }
+}
+
+export function leerAjustes(): Ajustes {
+  return actuales
+}
+
+export function cambiarAjustes(cambio: Partial<Ajustes>): void {
+  actuales = { ...actuales, ...cambio }
+  try {
+    localStorage.setItem(CLAVE, JSON.stringify(actuales))
+  } catch {
+    // sin almacenamiento: vale para esta sesión
+  }
+  oyentes.forEach((f) => f())
+}
+
+export function useAjustes(): Ajustes {
+  return useSyncExternalStore(
+    (f) => {
+      oyentes.add(f)
+      return () => oyentes.delete(f)
+    },
+    () => actuales,
+  )
+}
+
+export function aplicarTema(tema = actuales.tema): void {
+  let oscuro = tema === 'oscuro'
+  if (tema === 'auto') {
+    try {
+      oscuro = matchMedia('(prefers-color-scheme: dark)').matches
+    } catch {
+      oscuro = false
+    }
+  }
+  document.documentElement.dataset.theme = oscuro ? 'dark' : 'light'
+}

@@ -1,0 +1,337 @@
+@import 'tailwindcss';
+
+/* Modo oscuro según el tema elegido (data-theme en <html>), no solo el del sistema */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-acento: #007aff;
+  --color-acento-oscuro: #0a84ff;
+}
+
+@layer base {
+  /* Sin zoom por doble toque: Safari espera un posible doble toque y se come toques seguidos */
+  * {
+    touch-action: manipulation;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
+    /* Fondo agrupado de iOS (systemGroupedBackground) */
+    @apply bg-[#F2F2F7] text-zinc-900 antialiased dark:bg-black dark:text-zinc-100;
+  }
+  input {
+    -webkit-user-select: text;
+    user-select: text;
+    /* 16px evita el zoom automático de Safari al enfocar un campo */
+    font-size: 16px;
+  }
+}
+
+@utility lista {
+  @apply overflow-hidden rounded-xl bg-white dark:bg-zinc-900;
+}
+
+@utility fila {
+  @apply flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left;
+}
+
+@utility separador {
+  @apply ml-4 border-t border-zinc-200 dark:border-zinc-800;
+}
+
+@utility cabecera-grupo {
+  @apply px-4 pb-1.5 text-[13px] font-medium text-zinc-500 uppercase;
+}
+
+@utility pie-grupo {
+  @apply px-4 pt-1.5 text-[13px] text-zinc-500;
+}
+
+@utility boton-texto {
+  @apply text-[17px] text-acento active:opacity-50 disabled:opacity-40 dark:text-acento-oscuro;
+}
+
+@utility boton-icono {
+  @apply inline-grid size-10 place-items-center rounded-full text-acento active:opacity-50 disabled:opacity-40 dark:text-acento-oscuro;
+}
+
+@utility boton-lleno {
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-acento px-5 text-[17px] font-semibold text-white active:opacity-70 disabled:opacity-40 dark:bg-acento-oscuro;
+}
+
+/* ---------- Pantalla de juego ---------- */
+
+.juego {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+  touch-action: none;
+  --seguro-arriba: env(safe-area-inset-top);
+  --seguro-abajo: env(safe-area-inset-bottom);
+  --seguro-izq: env(safe-area-inset-left);
+  --seguro-der: env(safe-area-inset-right);
+  --opacidad-mando: 1;
+}
+
+.juego canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.juego.suave canvas {
+  image-rendering: auto;
+}
+
+.zona-pantalla {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Vertical: la pantalla arriba a todo lo ancho y los controles debajo */
+.zona-pantalla {
+  top: calc(var(--seguro-arriba) + 8px);
+  left: 0;
+  right: 0;
+  height: min(calc(100vw * var(--proporcion, 0.6667)), 50dvh);
+}
+
+.mando {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.control {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  color: rgb(255 255 255 / 0.75);
+  font-weight: 600;
+  opacity: var(--opacidad-mando);
+  transition: background-color 60ms;
+}
+.control.pulsado {
+  background: rgb(255 255 255 / 0.34);
+}
+
+.cruceta {
+  --tam: min(42vw, 168px);
+  width: var(--tam);
+  height: var(--tam);
+  left: calc(var(--seguro-izq) + 16px);
+  bottom: calc(var(--seguro-abajo) + 96px);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+.cruceta .brazo {
+  position: absolute;
+  background: rgb(255 255 255 / 0.13);
+  transition: background-color 60ms;
+}
+.cruceta .brazo.pulsado {
+  background: rgb(255 255 255 / 0.36);
+}
+.cruceta .brazo.arriba,
+.cruceta .brazo.abajo {
+  left: 33%;
+  width: 34%;
+  height: 38%;
+}
+.cruceta .brazo.arriba {
+  top: 0;
+  border-radius: 10px 10px 0 0;
+}
+.cruceta .brazo.abajo {
+  bottom: 0;
+  border-radius: 0 0 10px 10px;
+}
+.cruceta .brazo.izquierda,
+.cruceta .brazo.derecha {
+  top: 33%;
+  height: 34%;
+  width: 38%;
+}
+.cruceta .brazo.izquierda {
+  left: 0;
+  border-radius: 10px 0 0 10px;
+}
+.cruceta .brazo.derecha {
+  right: 0;
+  border-radius: 0 10px 10px 0;
+}
+.cruceta .brazo.arriba,
+.cruceta .brazo.abajo {
+  height: 33%;
+}
+.cruceta .brazo.izquierda,
+.cruceta .brazo.derecha {
+  width: 33%;
+}
+.cruceta .centro {
+  position: absolute;
+  inset: 33%;
+  background: rgb(255 255 255 / 0.13);
+}
+
+.botones-accion {
+  --tam: min(42vw, 168px);
+  position: absolute;
+  width: var(--tam);
+  height: var(--tam);
+  right: calc(var(--seguro-der) + 16px);
+  bottom: calc(var(--seguro-abajo) + 96px);
+}
+.botones-accion .control {
+  width: 44%;
+  height: 44%;
+  font-size: 22px;
+}
+/* Disposición clásica: B abajo a la izquierda y A arriba a la derecha */
+.botones-accion .b {
+  left: 0;
+  bottom: 8%;
+}
+.botones-accion .a {
+  right: 0;
+  top: 8%;
+}
+
+.hombro {
+  width: min(26vw, 104px);
+  height: 40px;
+  border-radius: 12px;
+  font-size: 15px;
+  bottom: calc(var(--seguro-abajo) + 96px + min(42vw, 168px) + 20px);
+}
+.hombro.l {
+  left: calc(var(--seguro-izq) + 16px);
+}
+.hombro.r {
+  right: calc(var(--seguro-der) + 16px);
+}
+
+.pequeno {
+  height: 30px;
+  width: 78px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  bottom: calc(var(--seguro-abajo) + 30px);
+}
+.pequeno.select {
+  left: calc(50% - 86px);
+}
+.pequeno.start {
+  left: calc(50% + 8px);
+}
+
+.boton-menu {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  color: rgb(255 255 255 / 0.7);
+  left: calc(50% - 22px);
+  bottom: calc(var(--seguro-abajo) + 96px + min(42vw, 168px) + 18px);
+}
+.boton-menu:active {
+  background: rgb(255 255 255 / 0.15);
+}
+
+/* Horizontal: la pantalla en el centro a toda la altura y los controles a los lados */
+@media (orientation: landscape) {
+  .zona-pantalla {
+    top: 0;
+    bottom: 0;
+    height: auto;
+    left: calc(var(--seguro-izq) + 136px);
+    right: calc(var(--seguro-der) + 136px);
+  }
+  .cruceta,
+  .botones-accion {
+    --tam: min(40dvh, 160px);
+    bottom: max(calc(var(--seguro-abajo) + 44px), 18dvh);
+  }
+  .cruceta {
+    left: calc(var(--seguro-izq) + 12px);
+  }
+  .botones-accion {
+    right: calc(var(--seguro-der) + 12px);
+  }
+  .hombro {
+    top: 12px;
+    bottom: auto;
+    width: 104px;
+  }
+  .hombro.l {
+    left: calc(var(--seguro-izq) + 12px);
+  }
+  .hombro.r {
+    right: calc(var(--seguro-der) + 12px);
+  }
+  .pequeno {
+    bottom: calc(var(--seguro-abajo) + 8px);
+  }
+  .pequeno.select {
+    left: calc(var(--seguro-izq) + 12px + min(40dvh, 160px) / 2 - 39px);
+  }
+  .pequeno.start {
+    left: auto;
+    right: calc(var(--seguro-der) + 12px + min(40dvh, 160px) / 2 - 39px);
+  }
+  .boton-menu {
+    top: 8px;
+    bottom: auto;
+    left: calc(50% - 22px);
+    background: rgb(0 0 0 / 0.35);
+  }
+  /* En horizontal los controles quedan encima del borde de la imagen: se hacen translúcidos */
+  .juego {
+    --opacidad-mando: var(--opacidad-horizontal, 0.6);
+  }
+}
+
+/* Hojas y avisos */
+@keyframes subir {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.hoja {
+  animation: subir 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.velo {
+  animation: aparecer 200ms ease-out;
+}
