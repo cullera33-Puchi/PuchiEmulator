@@ -271,6 +271,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       className={`juego ${ajustes.nitido ? '' : 'suave'} ${ajustes.modoMando === 'una-mano' ? 'una-mano' : ''} ${ajustes.pantallaGrande ? 'grande' : ''}`}
       data-tema={tema.id}
       data-mano={ajustes.mano}
+      data-sistema={sistema}
       style={{ ...tema.vars, '--proporcion': proporcion, '--opacidad-horizontal': ajustes.opacidadMando, '--escala': ajustes.escalaMando } as React.CSSProperties}
       data-testid="juego"
     >

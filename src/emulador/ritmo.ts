@@ -31,23 +31,58 @@ export function planRitmo(fps: number, refrescoMs: number): PlanRitmo {
   return { modo: 'tiempo' }
 }
 
+/** Frecuencias de pantalla habituales (ProMotion baja a 80, 48 o 30 Hz según lo que se mueve). */
+const FRECUENCIAS = [30, 40, 48, 60, 80, 90, 120]
+
 /**
- * Duración media del refresco, con una media móvil que ignora los saltos (la app en segundo plano,
- * un refresco perdido). Hacen falta unas cuantas medidas antes de fiarse.
+ * Duración del refresco, con la mediana de los últimos 90 (v0.12.0). En el iPhone 17 (120 Hz) los
+ * intervalos varían mucho de uno a otro y la media móvil que había antes, al descartar los saltos,
+ * se quedaba con los cortos: medía de 121 a 138 Hz y el juego salía de la sincronía. La mediana se
+ * redondea a la frecuencia habitual más cercana si está a menos de un 3 %.
  */
 export class Refresco {
-  private media = 0
-  private medidas = 0
+  private readonly ultimos: number[] = []
+  private valor = 0
+  private cuenta = 0
 
   medir(dt: number): void {
     if (dt < 4 || dt > 60) return
-    if (this.media && Math.abs(dt / this.media - 1) > 0.25) return
-    this.media = this.media ? this.media * 0.97 + dt * 0.03 : dt
-    this.medidas++
+    this.ultimos.push(dt)
+    if (this.ultimos.length > 90) this.ultimos.shift()
+    // Se recalcula cada 15 medidas: ordenar 90 números en cada refresco no hace falta
+    if (this.ultimos.length >= 30 && ++this.cuenta % 15 === 1) this.valor = estimarRefresco(this.ultimos)
   }
 
-  /** Duración media en ms, o 0 si aún no hay medidas suficientes. */
+  /** Duración del refresco en ms, o 0 si aún no hay medidas suficientes. */
   get ms(): number {
-    return this.medidas >= 30 ? this.media : 0
+    return this.valor
   }
+}
+
+function mediana(valores: number[]): number {
+  const orden = [...valores].sort((a, b) => a - b)
+  const mitad = orden.length >> 1
+  return orden.length % 2 ? orden[mitad] : (orden[mitad - 1] + orden[mitad]) / 2
+}
+
+/**
+ * Mediana de los intervalos, ajustada a una frecuencia habitual si está muy cerca. Los intervalos
+ * de dos o más refrescos (uno perdido) se dividen entre los que son antes de la segunda pasada,
+ * para que no tiren de la mediana hacia arriba.
+ */
+export function estimarRefresco(intervalos: number[]): number {
+  let m = mediana(intervalos)
+  for (let i = 0; i < 2; i++) m = mediana(intervalos.map((dt) => dt / Math.max(1, Math.round(dt / m))))
+  const hz = 1000 / m
+  for (const f of FRECUENCIAS) if (Math.abs(hz / f - 1) < 0.03) return 1000 / f
+  return m
+}
+
+/**
+ * Refrescos que han pasado en un intervalo `dt`: normalmente 1, pero si se pierde alguno (el
+ * iPhone no llegó a tiempo) se cuentan todos, para que el juego no vaya más lento.
+ */
+export function refrescosPasados(dt: number, refrescoMs: number): number {
+  if (!(refrescoMs > 0)) return 1
+  return Math.max(1, Math.min(4, Math.round(dt / refrescoMs)))
 }

@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.12.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Sonido más limpio en todas las consolas: fuera el brillo metálico, sobre todo en Nintendo DS y Super Nintendo.",
+      "Nintendo DS en vertical: las dos pantallas a todo lo ancho, con los controles translúcidos encima de la táctil.",
+      "Mejor ritmo en pantallas de 120 Hz como la del iPhone 17.",
+      "Si algo va lento o suena raro, copia el registro en Ajustes y pásamelo: ahora anota también el rendimiento de DS."
+    ]
+  },
+  {
     "version": "0.11.2",
     "fecha": "15/11/2026",
     "cambios": [

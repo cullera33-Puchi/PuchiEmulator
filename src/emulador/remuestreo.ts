@@ -1,11 +1,67 @@
 /**
- * Remuestreo lineal de audio estéreo de 16 bits (la frecuencia del núcleo) a coma flotante a la
- * frecuencia del iPhone. Conserva la posición entre bloques para que no haya saltos.
+ * Remuestreo de audio estéreo de 16 bits (la frecuencia del núcleo) a coma flotante a la frecuencia
+ * del iPhone, con un filtro sinc enventanado de 16 coeficientes (v0.12.0).
+ *
+ * La interpolación lineal que había antes deja pasar imágenes del sonido por encima de la mitad de
+ * la frecuencia del núcleo (32 kHz en DS y Super Nintendo): a 48 kHz se oyen como un brillo
+ * metálico. El filtro las quita y, en avance rápido, baja el corte para no meter agudos falsos.
+ * Conserva la posición y las últimas muestras entre bloques para que no haya saltos. Retraso:
+ * 8 muestras de entrada (0,25 ms).
  */
+const MEDIO = 8 // coeficientes a cada lado
+const TAPS = MEDIO * 2
+const FASES = 256 // posiciones fraccionarias precalculadas (se interpola entre dos)
+
+/** Kaiser (beta 8): unos 80 dB de rechazo con 16 coeficientes. */
+function bessel0(x: number): number {
+  let suma = 1
+  let termino = 1
+  for (let k = 1; k < 30; k++) {
+    termino *= (x / (2 * k)) * (x / (2 * k))
+    suma += termino
+    if (termino < 1e-12 * suma) break
+  }
+  return suma
+}
+const BETA = 8
+const NORMA = bessel0(BETA)
+
+/** Tabla de (FASES + 1) filas de TAPS coeficientes, cada fila normalizada a ganancia 1. */
+export function tablaFiltro(corte: number): Float32Array {
+  const tabla = new Float32Array((FASES + 1) * TAPS)
+  for (let p = 0; p <= FASES; p++) {
+    const f = p / FASES
+    let suma = 0
+    for (let j = 0; j < TAPS; j++) {
+      // Distancia entre el instante de salida y la muestra j de la ventana
+      const u = f + MEDIO - 1 - j
+      const x = u / MEDIO
+      const ventana = Math.abs(x) >= 1 ? 0 : bessel0(BETA * Math.sqrt(1 - x * x)) / NORMA
+      const a = Math.PI * corte * u
+      const sinc = a === 0 ? 1 : Math.sin(a) / a
+      const c = corte * sinc * ventana
+      tabla[p * TAPS + j] = c
+      suma += c
+    }
+    for (let j = 0; j < TAPS; j++) tabla[p * TAPS + j] /= suma
+  }
+  return tabla
+}
+
+/** Corte relativo a la mitad de la frecuencia de entrada: algo por debajo para dejar transición. */
+function corteDe(paso: number): number {
+  const c = Math.min(1, 1 / paso) * 0.92
+  return Math.round(c * 40) / 40 // escalones del 2,5 %: la tabla solo se rehace al cambiar de velocidad
+}
+
 export class Remuestreador {
-  private posicion = 0 // posición fraccionaria dentro del bloque de entrada
-  private anteriorI = 0
-  private anteriorD = 0
+  private posicion = 0 // posición fraccionaria de la siguiente salida dentro del bloque nuevo
+  private historiaI = new Float32Array(TAPS)
+  private historiaD = new Float32Array(TAPS)
+  private corte = 0
+  private tabla: Float32Array = new Float32Array(0)
+  private bufI = new Float32Array(0)
+  private bufD = new Float32Array(0)
 
   /**
    * @param entrada muestras intercaladas (izquierda, derecha)
@@ -14,32 +70,61 @@ export class Remuestreador {
   procesar(entrada: Int16Array, paso: number): Float32Array {
     const pares = entrada.length >> 1
     if (pares === 0 || !(paso > 0)) return new Float32Array(0)
-    // La posición -1 corresponde a la última muestra del bloque anterior
-    const salidaPares = Math.max(0, Math.floor((pares - 1 - this.posicion) / paso) + 1)
-    const salida = new Float32Array(salidaPares * 2)
-    let pos = this.posicion
-    for (let k = 0; k < salidaPares; k++) {
-      const i = Math.floor(pos)
-      const f = pos - i
-      const i0 = i - 1
-      const izq0 = i0 < 0 ? this.anteriorI : entrada[i0 * 2]
-      const der0 = i0 < 0 ? this.anteriorD : entrada[i0 * 2 + 1]
-      const izq1 = entrada[i * 2]
-      const der1 = entrada[i * 2 + 1]
-      salida[k * 2] = (izq0 + (izq1 - izq0) * f) / 32768
-      salida[k * 2 + 1] = (der0 + (der1 - der0) * f) / 32768
-      pos += paso
+    const corte = corteDe(paso)
+    if (corte !== this.corte) {
+      this.corte = corte
+      this.tabla = tablaFiltro(corte)
     }
-    this.posicion = pos - pares
-    this.anteriorI = entrada[(pares - 1) * 2]
-    this.anteriorD = entrada[(pares - 1) * 2 + 1]
+    // Bloque de trabajo: las TAPS últimas muestras anteriores y las nuevas
+    const largo = TAPS + pares
+    if (this.bufI.length < largo) {
+      this.bufI = new Float32Array(largo * 2)
+      this.bufD = new Float32Array(largo * 2)
+    }
+    const bi = this.bufI
+    const bd = this.bufD
+    bi.set(this.historiaI)
+    bd.set(this.historiaD)
+    for (let i = 0; i < pares; i++) {
+      bi[TAPS + i] = entrada[i * 2] / 32768
+      bd[TAPS + i] = entrada[i * 2 + 1] / 32768
+    }
+    // Una salida en t (índice del bloque de trabajo) usa las muestras floor(t) - 7 a floor(t) + 8
+    const ultimo = largo - 1 - MEDIO
+    let t = TAPS + this.posicion
+    const salidaPares = t > ultimo ? 0 : Math.floor((ultimo - t) / paso) + 1
+    const salida = new Float32Array(salidaPares * 2)
+    const tabla = this.tabla
+    for (let k = 0; k < salidaPares; k++) {
+      const i = Math.floor(t)
+      const fase = (t - i) * FASES
+      const p = Math.floor(fase)
+      const mezcla = fase - p
+      const fila0 = p * TAPS
+      const fila1 = fila0 + TAPS
+      const base = i - MEDIO + 1
+      let izq = 0
+      let der = 0
+      for (let j = 0; j < TAPS; j++) {
+        const c0 = tabla[fila0 + j]
+        const c = c0 + (tabla[fila1 + j] - c0) * mezcla
+        izq += bi[base + j] * c
+        der += bd[base + j] * c
+      }
+      salida[k * 2] = izq
+      salida[k * 2 + 1] = der
+      t += paso
+    }
+    this.posicion = t - TAPS - pares
+    this.historiaI.set(bi.subarray(largo - TAPS, largo))
+    this.historiaD.set(bd.subarray(largo - TAPS, largo))
     return salida
   }
 
   reiniciar(): void {
     this.posicion = 0
-    this.anteriorI = 0
-    this.anteriorD = 0
+    this.historiaI.fill(0)
+    this.historiaD.fill(0)
   }
 }
 

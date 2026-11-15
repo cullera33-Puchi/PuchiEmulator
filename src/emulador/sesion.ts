@@ -14,7 +14,7 @@ import { altavoz } from './audio'
 import { botonesDeMando } from './botones'
 import { Nucleo } from './nucleo'
 import { Historial } from './historial'
-import { planRitmo, Refresco } from './ritmo'
+import { planRitmo, Refresco, refrescosPasados } from './ritmo'
 
 const MAX_FOTOGRAMAS_SEGUIDOS = 4
 /** Cada cuántos fotogramas se guarda un estado para rebobinar (unos 6 por segundo) */
@@ -73,7 +73,8 @@ export class Sesion {
   private readonly refresco = new Refresco()
   private refrescos = 0
   /** Medidas de rendimiento, para el registro */
-  private medida = { inicio: 0, refrescos: 0, trabajo: 0, maximo: 0, largos: 0 }
+  // Medidas de rendimiento: se acumulan aunque se abra el menú (antes se perdían en cada pausa)
+  private medida = { tiempo: 0, refrescos: 0, trabajo: 0, maximo: 0, largos: 0, modo: '' }
   /** Estado de justo antes de la última carga, para «Deshacer» */
   private antesDeCargar: Uint8Array | null = null
   /** Tiempo jugado en esta sesión (sin pausas ni inactividad) */
@@ -144,7 +145,6 @@ export class Sesion {
     this.inicioSesion ||= Date.now()
     this.ultimo = performance.now()
     this.acumulado = 0
-    this.medida = { inicio: performance.now(), refrescos: 0, trabajo: 0, maximo: 0, largos: 0 }
     this.peticion = requestAnimationFrame(this.bucle)
   }
 
@@ -219,9 +219,13 @@ export class Sesion {
     // consola (por ejemplo, 60 Hz frente a 59,73 en GBA); el sonido se ajusta a eso desde el principio
     let ritmoReal = 1
     const plan = planRitmo(1000 / this.paso, this.refresco.ms)
-    if (plan.modo === 'sincronizado' && dt < this.refresco.ms * 3) {
+    if (plan.modo === 'sincronizado' && dt < this.refresco.ms * 4.5) {
       this.acumulado = 0
-      toca = ++this.refrescos % plan.cadaRefrescos === 0 ? plan.porRefresco * this.velocidad : 0
+      // Si se ha perdido algún refresco, se cuentan también: el juego no se frena
+      const antes = Math.floor(this.refrescos / plan.cadaRefrescos)
+      this.refrescos += refrescosPasados(dt, this.refresco.ms)
+      const ciclos = Math.floor(this.refrescos / plan.cadaRefrescos) - antes
+      toca = Math.min(ciclos * plan.porRefresco, MAX_FOTOGRAMAS_SEGUIDOS) * this.velocidad
       ritmoReal = ((1000 / this.refresco.ms) * plan.porRefresco) / plan.cadaRefrescos / (1000 / this.paso)
     } else {
       this.acumulado += dt * this.velocidad
@@ -243,30 +247,38 @@ export class Sesion {
     }
     if (this.nucleo.avCambiado()) this.leerTiempos()
     if (hayImagen) this.dibujar()
-    this.medir(performance.now() - t0, plan.modo)
+    this.medir(performance.now() - t0, plan.modo, dt)
   }
 
   /** Cada 30 s de juego, al registro: lo que tarda cada refresco y cuántos se pasan del tiempo. */
-  private medir(trabajo: number, modo: string): void {
+  private medir(trabajo: number, modo: string, dt: number): void {
     const m = this.medida
     m.refrescos++
+    m.tiempo += dt
     m.trabajo += trabajo
+    m.modo = modo
     if (trabajo > m.maximo) m.maximo = trabajo
     const presupuesto = this.refresco.ms || 1000 / 60
     if (trabajo > presupuesto * 0.8) m.largos++
-    const ahora = performance.now()
-    if (ahora - m.inicio < 30_000) return
+    if (m.tiempo >= 30_000) this.anotarRendimiento()
+  }
+
+  private anotarRendimiento(): void {
+    const m = this.medida
+    if (m.refrescos === 0) return
+    const presupuesto = this.refresco.ms || 1000 / 60
     registrar('info', 'Rendimiento', {
       sistema: this.o.juego.sistema,
       pantallaHz: Math.round(1000 / presupuesto),
       consolaHz: Math.round(100_000 / this.paso) / 100,
-      ritmo: modo,
+      ritmo: m.modo,
+      segundos: Math.round(m.tiempo / 1000),
       mediaMs: Math.round((m.trabajo / m.refrescos) * 10) / 10,
       maxMs: Math.round(m.maximo * 10) / 10,
       largos: m.largos,
       refrescos: m.refrescos,
     })
-    this.medida = { inicio: ahora, refrescos: 0, trabajo: 0, maximo: 0, largos: 0 }
+    this.medida = { tiempo: 0, refrescos: 0, trabajo: 0, maximo: 0, largos: 0, modo: '' }
   }
 
   private irAtras(dt: number): void {
@@ -413,6 +425,8 @@ export class Sesion {
   async cerrar(): Promise<void> {
     if (this.cerrada) return
     this.pausar()
+    // Lo que quede de la última medida, si es una partida corta
+    if (this.medida.tiempo >= 5000) this.anotarRendimiento()
     await this.guardarTodo()
     this.cerrada = true
     clearInterval(this.temporizadorGuardado)

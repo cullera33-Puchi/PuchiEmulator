@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.12.0 (15/11/2026)
+
+- Sonido metálico (informado con Nintendo DS, también en GBA y Super Nintendo): la interpolación lineal de `Remuestreador` dejaba pasar imágenes del sonido por encima de la mitad de la frecuencia del núcleo (16 kHz en DS y Super Nintendo), que a 48 kHz se oyen como un brillo metálico. Ahora es un filtro sinc con ventana de Kaiser (16 coeficientes, 256 fases interpoladas, corte al 92 % y más bajo en avance rápido). Error frente al tono ideal: menos de -60 dB a 1 kHz y de -50 dB a 8 kHz. Retraso añadido: 8 muestras de entrada (0,25 ms).
+- melonDS: interpolación cúbica y salida a 16 bits (`melonds_audio_interpolation`, `melonds_audio_bitrate`); por defecto iba sin interpolar y a 10 bits. Son opciones del núcleo: no hace falta recompilarlo.
+- Pantallas de 120 Hz: en el iPhone 17 el refresco se medía entre 121 y 138 Hz (la media móvil se quedaba con los intervalos cortos) y el juego salía de la sincronía con la pantalla. `Refresco` usa ahora la mediana de los últimos 90 intervalos, con los de varios refrescos divididos antes, y la ajusta a la frecuencia habitual más cercana (`estimarRefresco`). En sincronía se cuentan los refrescos perdidos (`refrescosPasados`) para que el juego no se frene.
+- Registro: la medida de rendimiento ya no se reinicia al abrir el menú (por eso no salían líneas de DS); se acumula el tiempo de juego, se anota cada 30 s y al salir si hay al menos 5 s. Incluye los segundos medidos.
+- Nintendo DS en vertical: las dos pantallas a todo lo ancho y lo alto posible (en el iPhone 17, de 291 a 402 puntos de ancho), con la cruceta, los botones y L y R translúcidos encima de la pantalla táctil (relleno oscuro con borde claro) y una fila abajo con guardar y cargar, Select y Start, avance rápido y el menú (`data-sistema` en `.juego`). El modo una mano no cambia.
+- Pruebas: 85 unitarias y 25 de navegador.
+
 ## 0.11.2 (15/11/2026)
 
 - Dynamic Island en vertical (informado con Nintendo DS): tras girar el iPhone, iOS puede dejar `env(safe-area-inset-top)` a 0 en vertical y la imagen sube bajo la isla. `src/lib/zonaSegura.ts` mide la zona segura en cada cambio de orientación, recuerda la mayor de cada orientación y la pone en `--zona-*`; el juego usa el máximo entre lo que dice iOS y lo recordado. Las medidas van al registro («Zona segura»).

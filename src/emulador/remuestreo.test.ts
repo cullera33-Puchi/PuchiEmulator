@@ -4,38 +4,88 @@ import { ControlRitmo, factorRitmo, Remuestreador } from './remuestreo'
 const estereo = (valores: number[]) => new Int16Array(valores.flatMap((v) => [v, -v]))
 
 describe('Remuestreador', () => {
-  it('con paso 1 devuelve las mismas muestras con un retraso de una', () => {
+  /** Tono puro de `hz` a la frecuencia `entrada`, en bloques de `bloque` pares, remuestreado a `salida`. */
+  function remuestrear(hz: number, entrada: number, salida: number, segundos: number, bloque = 547) {
     const r = new Remuestreador()
-    const s = r.procesar(estereo([16384, 16384, 16384]), 1)
-    expect(s.length).toBe(6)
-    expect(s[0]).toBe(0) // la anterior al primer bloque es silencio
-    expect(s[2]).toBeCloseTo(0.5)
-    expect(s[3]).toBeCloseTo(-0.5)
+    const total = Math.round(entrada * segundos)
+    const partes: Float32Array[] = []
+    for (let n = 0; n < total; n += bloque) {
+      const pares = Math.min(bloque, total - n)
+      const b = new Int16Array(pares * 2)
+      for (let i = 0; i < pares; i++) {
+        const v = Math.round(Math.sin((2 * Math.PI * hz * (n + i)) / entrada) * 16000)
+        b[i * 2] = v
+        b[i * 2 + 1] = -v
+      }
+      partes.push(r.procesar(b, entrada / salida))
+    }
+    const todo = new Float32Array(partes.reduce((s, p) => s + p.length, 0))
+    let k = 0
+    for (const p of partes) {
+      todo.set(p, k)
+      k += p.length
+    }
+    return todo
+  }
+
+  /** Error frente al tono ideal, en dB respecto a la señal. */
+  function errorDb(s: Float32Array, hz: number, entrada: number, salida: number): number {
+    const retraso = 0
+    let err = 0
+    let sen = 0
+    for (let k = 200; k < s.length / 2 - 200; k++) {
+      const ideal = (Math.sin(2 * Math.PI * hz * (k / salida - retraso)) * 16000) / 32768
+      err += (s[k * 2] - ideal) ** 2
+      sen += ideal ** 2
+    }
+    return 10 * Math.log10(err / sen)
+  }
+
+  it('genera las muestras que tocan sin perder ninguna entre bloques', () => {
+    for (const [entrada, salida] of [
+      [32768, 48000],
+      [65536, 48000],
+      [32040, 44100],
+    ]) {
+      const s = remuestrear(440, entrada, salida, 2)
+      // Las 8 últimas muestras de entrada esperan al bloque siguiente
+      const enEspera = (8 * salida) / entrada
+      expect(Math.abs(s.length / 2 - 2 * salida)).toBeLessThanOrEqual(enEspera + 2)
+    }
   })
 
-  it('reduce a la mitad con paso 2 y no pierde muestras entre bloques', () => {
-    const r = new Remuestreador()
-    let total = 0
-    for (let i = 0; i < 100; i++) total += r.procesar(estereo(new Array(1097).fill(1000)), 2).length / 2
-    // 109.700 muestras de entrada son 54.850 de salida, con una de margen
-    expect(Math.abs(total - 54850)).toBeLessThanOrEqual(1)
+  it('un tono de 1 kHz de DS (32.768 Hz) a 48 kHz sale limpio: error por debajo de -60 dB', () => {
+    expect(errorDb(remuestrear(1000, 32768, 48000, 1), 1000, 32768, 48000)).toBeLessThan(-60)
   })
 
-  it('genera las muestras que tocan al pasar de 65.536 a 48.000 Hz', () => {
-    const r = new Remuestreador()
-    const paso = 65536 / 48000
-    let total = 0
-    for (let i = 0; i < 60; i++) total += r.procesar(estereo(new Array(1097).fill(0)), paso).length / 2
-    expect(Math.abs(total - (60 * 1097) / paso)).toBeLessThanOrEqual(1)
+  it('también los agudos (8 kHz), que con la interpolación lineal sonaban metálicos', () => {
+    expect(errorDb(remuestrear(8000, 32768, 48000, 1), 8000, 32768, 48000)).toBeLessThan(-50)
   })
 
-  it('interpola entre bloques sin saltos', () => {
+  it('da lo mismo un bloque grande que muchos pequeños', () => {
+    const a = remuestrear(3000, 32768, 48000, 0.5, 100000)
+    const b = remuestrear(3000, 32768, 48000, 0.5, 37)
+    expect(b.length).toBe(a.length)
+    let max = 0
+    for (let i = 0; i < a.length; i++) max = Math.max(max, Math.abs(a[i] - b[i]))
+    expect(max).toBeLessThan(1e-5)
+  })
+
+  it('en avance rápido (x4) atenúa lo que no cabe en la salida en lugar de convertirlo en ruido', () => {
+    // 30 kHz a 131 kHz (DS x4) no cabe en 48 kHz: debe salir casi en silencio
+    const s = remuestrear(30000, 32768 * 4, 48000, 0.5)
+    let energia = 0
+    for (let k = 100; k < s.length / 2; k++) energia += s[k * 2] ** 2
+    const rms = Math.sqrt(energia / (s.length / 2 - 100))
+    expect(rms).toBeLessThan(0.06) // la entrada tiene 0,35 de RMS (la lineal deja pasar casi todo)
+  })
+
+  it('el silencio sigue siendo silencio y la ganancia es 1', () => {
     const r = new Remuestreador()
-    r.procesar(estereo([0, 0, 0, 0]), 1)
-    const s = r.procesar(estereo([32767, 32767]), 0.5)
-    // Entre el 0 del bloque anterior y el máximo del nuevo hay un valor intermedio
-    expect(s[0]).toBeCloseTo(0)
-    expect(s[2]).toBeCloseTo(0.5, 1)
+    expect(Math.max(...r.procesar(new Int16Array(2000), 32768 / 48000).map(Math.abs))).toBe(0)
+    const s = r.procesar(new Int16Array(2000).fill(16384), 32768 / 48000)
+    expect(s[s.length - 2]).toBeCloseTo(0.5, 3)
+    expect(s[s.length - 1]).toBeCloseTo(0.5, 3)
   })
 })
 

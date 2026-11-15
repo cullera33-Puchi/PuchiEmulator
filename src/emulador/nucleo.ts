@@ -76,6 +76,9 @@ const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     melonds_touch_mode: 'Touch',
     melonds_screen_layout: 'Top/Bottom',
     melonds_screen_gap: '0',
+    // Sonido: interpolación cúbica y 16 bits (por defecto, sin interpolar y a 10 bits: suena áspero)
+    melonds_audio_interpolation: 'Cubic',
+    melonds_audio_bitrate: '16-bit',
   },
 }
 

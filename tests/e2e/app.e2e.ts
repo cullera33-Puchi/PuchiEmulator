@@ -697,6 +697,12 @@ test('Nintendo DS (en pruebas): arranca sin BIOS, dos pantallas, botones, tácti
   // Dos pantallas apiladas: 256 x 384
   const lienzo = page.getByTestId('pantalla')
   await expect.poll(() => lienzo.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([256, 384])
+  // En vertical, las dos pantallas a todo lo ancho (v0.12.0): los controles van encima de la de abajo
+  const ancho = page.viewportSize()!.width
+  await expect.poll(async () => (await lienzo.boundingBox())!.width).toBeGreaterThan(ancho - 4)
+  const cajaA = (await page.getByTestId('mando').getByRole('button', { name: 'A', exact: true }).boundingBox())!
+  const cajaLienzo = (await lienzo.boundingBox())!
+  expect(cajaA.y).toBeLessThan(cajaLienzo.y + cajaLienzo.height)
   const arriba = () => lienzo.evaluate((c: HTMLCanvasElement) => [...c.getContext('2d')!.getImageData(128, 96, 1, 1).data.slice(0, 3)])
   await expect.poll(arriba).toEqual([0, 0, 251])
   await pulsar(page, 'A')

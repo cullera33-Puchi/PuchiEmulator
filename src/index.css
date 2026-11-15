@@ -453,6 +453,81 @@ body.en-juego .aviso {
 }
 
 /* Pantalla lo más grande posible: sin margen ni marco (en vertical, de borde a borde) */
+/* Nintendo DS en vertical (v0.12.0): las dos pantallas a todo lo ancho y todo lo alto que se pueda.
+   La de abajo es táctil y casi nunca se mira entera: la cruceta, los botones y L y R quedan encima de
+   ella, translúcidos (donde no hay un botón, el toque es del lápiz). Abajo del todo, una fila con
+   guardar y cargar, Select y Start, el menú y el avance rápido. */
+@media (orientation: portrait) {
+  .juego[data-sistema='nds']:not(.una-mano) {
+    --fila-abajo: calc(var(--seguro-abajo) + 52px);
+    --base-mando: calc(var(--fila-abajo) + 4px);
+    --tam-mando: min(calc(150px * var(--escala)), 40vw);
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .zona-pantalla {
+    top: var(--seguro-arriba);
+    height: min(calc(100vw * var(--proporcion, 1.5)), calc(100dvh - var(--seguro-arriba) - var(--fila-abajo)));
+  }
+  /* Encima de la imagen: relleno oscuro translúcido y borde claro, que se ven sobre cualquier fondo */
+  .juego[data-sistema='nds']:not(.una-mano) .cruceta,
+  .juego[data-sistema='nds']:not(.una-mano) .botones-accion,
+  .juego[data-sistema='nds']:not(.una-mano) .hombro {
+    --ab: rgb(20 20 24 / 0.38);
+    --ab-pulsado: rgb(255 255 255 / 0.45);
+    --borde: rgb(255 255 255 / 0.55);
+    --ab-texto: rgb(255 255 255 / 0.92);
+    --cruceta: rgb(20 20 24 / 0.38);
+    --cruceta-pulsado: rgb(255 255 255 / 0.45);
+    --boton-a: var(--ab);
+    --boton-b: var(--ab);
+    --boton-x: var(--ab);
+    --boton-y: var(--ab);
+    --hombro: var(--ab);
+    --hombro-texto: var(--ab-texto);
+    opacity: var(--opacidad-horizontal, 0.6);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .hombro {
+    border-color: var(--borde);
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .cruceta .brazo {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.45);
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .cruceta .centro {
+    background: var(--cruceta);
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .hombro {
+    width: min(calc(84px * var(--escala)), 24vw);
+    height: calc(34px * var(--escala));
+    bottom: calc(var(--base-mando) + var(--tam-mando) + 10px);
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .pequeno {
+    bottom: calc(var(--seguro-abajo) + 10px);
+    width: calc(64px * var(--escala));
+    --ancho-pequeno: calc(64px * var(--escala));
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .herramientas,
+  .juego[data-sistema='nds']:not(.una-mano) .boton-menu {
+    top: auto;
+    bottom: calc(var(--seguro-abajo) + 4px);
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .herramientas {
+    gap: 6px;
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .herramientas.izquierda {
+    left: calc(var(--seguro-izq) + 12px);
+    right: auto;
+  }
+  /* El menú pasa a la derecha, junto al avance rápido (en DS no hay rebobinado) */
+  .juego[data-sistema='nds']:not(.una-mano) .boton-menu {
+    left: auto;
+    right: calc(var(--seguro-der) + 12px);
+  }
+  .juego[data-sistema='nds']:not(.una-mano) .herramientas.derecha {
+    left: auto;
+    right: calc(var(--seguro-der) + 12px + 50px);
+  }
+}
+
 .juego.grande .zona-pantalla {
   margin: 0 !important;
   padding: 0;
