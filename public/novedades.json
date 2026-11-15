@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.18.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Nuevo apartado «Pantalla» en el menú del juego y en Ajustes, separado de «Mando».",
+      "Todo lo de la imagen se guarda en cada juego, también los píxeles nítidos y los colores como en la consola.",
+      "En cada juego solo salen las opciones de su consola."
+    ]
+  },
+  {
     "version": "0.17.0",
     "fecha": "15/11/2026",
     "cambios": [

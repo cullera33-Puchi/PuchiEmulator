@@ -3,7 +3,7 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { FastForward, FolderOpen, Gamepad2, Menu, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
+import { ChevronRight, FastForward, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, Interruptor, useInterfaz } from '../componentes/Interfaz'
@@ -19,6 +19,7 @@ import { paletaPara, temaPara } from '../lib/temas'
 import { SelectorTema } from '../componentes/SelectorTema'
 import { EditorNotas } from '../componentes/Notas'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
+import { AjustesPantalla } from '../componentes/AjustesPantalla'
 import { bitCorrer, cambiarMandoJuego, controlesDe, extrasJrpg, mandoDe } from '../lib/mandoJuego'
 import { esLibro, type PrincipalDS } from '../emulador/pantallasDS'
 import { MiniaturaDS } from '../componentes/MiniaturaDS'
@@ -57,6 +58,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [sistema, setSistema] = useState<Sistema>('gba')
   const [verTemas, setVerTemas] = useState(false)
   const [verMando, setVerMando] = useState(false)
+  const [verPantalla, setVerPantalla] = useState(false)
   const [verNotas, setVerNotas] = useState(false)
   const tema = temaPara(sistema, ajustes.temas[sistema])
   // Mando de este juego (modo JRPG) y correr fijo
@@ -79,6 +81,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const seguir = useCallback(() => {
     setMenu(false)
     setVerNotas(false)
+    setVerPantalla(false)
     setPausaFondo(false)
     setVerEstados(false)
     void sesion.current?.jugar(ajustesRef.current.sonido, ajustesRef.current.sonarEnSilencio)
@@ -108,7 +111,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             reanudar: desdeAuto,
             opciones: {
               mgba_gb_colors: paletaPara(temaJuego, ajustesRef.current.paletaGb),
-              mgba_color_correction: ajustesRef.current.coloresConsola ? 'Auto' : 'OFF',
+              mgba_color_correction: controlesDe(ajustesRef.current, juego.id).coloresConsola ? 'Auto' : 'OFF',
             },
             alCambiarTamano: (ancho, alto) => setNativo({ ancho, alto }),
             alFallar: () => {
@@ -174,8 +177,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   }, [tema, ajustes.paletaGb])
 
   useEffect(() => {
-    sesion.current?.opcion('mgba_color_correction', ajustes.coloresConsola ? 'Auto' : 'OFF')
-  }, [ajustes.coloresConsola])
+    sesion.current?.opcion('mgba_color_correction', controles.coloresConsola ? 'Auto' : 'OFF')
+  }, [controles.coloresConsola])
 
   // Segundo plano: pausa y guardado
   useEffect(() => {
@@ -341,7 +344,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   return (
     <div
-      className={`juego ${ajustes.nitido ? '' : 'suave'} ${unaMano ? 'una-mano' : ''} ${controles.pantallaGrande ? 'grande' : ''} ${mando.jrpg ? 'jrpg' : ''}`}
+      className={`juego ${controles.nitido ? '' : 'suave'} ${unaMano ? 'una-mano' : ''} ${controles.pantallaGrande ? 'grande' : ''} ${mando.jrpg ? 'jrpg' : ''}`}
       data-tema={tema.id}
       data-mano={mano}
       data-sistema={sistema}
@@ -452,6 +455,13 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         </button>
       </Hoja>
 
+      <Hoja oscura abierta={menu && verPantalla} alCerrar={() => setVerPantalla(false)} titulo="Pantalla">
+        <AjustesPantalla juego={{ id, sistema }} />
+        <button className="boton-texto mt-4 w-full py-2" onClick={() => setVerPantalla(false)}>
+          Volver al menú
+        </button>
+      </Hoja>
+
       <Hoja oscura abierta={menu && verMando} alCerrar={() => setVerMando(false)} titulo="Mando">
         <AjustesMando juego={{ id, sistema }} />
         <button className="boton-texto mt-4 w-full py-2" onClick={() => setVerMando(false)}>
@@ -459,7 +469,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         </button>
       </Hoja>
 
-      <Hoja oscura abierta={menu && !verEstados && !verTemas && !verMando} alCerrar={seguir} titulo={nombre}>
+      <Hoja oscura abierta={menu && !verEstados && !verTemas && !verMando && !verPantalla} alCerrar={seguir} titulo={nombre}>
         <div className="lista">
           <button className="fila font-semibold text-acento dark:text-acento-oscuro" onClick={seguir}>
             <Play size={20} /> Seguir jugando
@@ -484,6 +494,12 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             {ajustes.sonido ? <Volume2 size={20} className="text-acento dark:text-acento-oscuro" /> : <VolumeX size={20} className="text-zinc-400" />}
             <span className="flex-1">Sonido</span>
             <span className="text-zinc-500">{ajustes.sonido ? 'Activado' : 'Desactivado'}</span>
+          </button>
+          <div className="separador" />
+          <button className="fila" onClick={() => setVerPantalla(true)}>
+            <Monitor size={20} className="text-acento dark:text-acento-oscuro" />
+            <span className="flex-1">Pantalla</span>
+            <ChevronRight size={18} className="text-zinc-400" />
           </button>
           <div className="separador" />
           <button className="fila" onClick={() => setVerMando(true)}>

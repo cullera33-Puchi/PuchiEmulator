@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { bit } from '../emulador/botones'
 import { cambiarAjustes, leerAjustes, POR_DEFECTO } from './ajustes'
 import {
+  CLAVES_MANDO,
+  CLAVES_PANTALLA,
   cambiarMandoJuego,
   controlesDe,
   correrDe,
@@ -72,5 +74,18 @@ describe('pantalla y botones por juego', () => {
     expect(leerAjustes().mandos.j).toEqual({ jrpg: true, escalaMando: 1.3, mano: 'izquierda' })
     usarControlesGenerales('j')
     expect(leerAjustes().mandos.j).toEqual({ jrpg: true })
+  })
+})
+
+describe('pantalla y mando, cada uno por su lado', () => {
+  it('volver a los ajustes generales de pantalla no toca los botones, y al revés', () => {
+    cambiarAjustes({ mandos: {} })
+    cambiarMandoJuego('j', { filtro: 'lcd', nitido: false, escalaMando: 1.3 })
+    expect(tieneControlesPropios(leerAjustes(), 'j', CLAVES_PANTALLA)).toBe(true)
+    usarControlesGenerales('j', CLAVES_PANTALLA)
+    expect(leerAjustes().mandos.j).toEqual({ escalaMando: 1.3 })
+    expect(tieneControlesPropios(leerAjustes(), 'j', CLAVES_PANTALLA)).toBe(false)
+    usarControlesGenerales('j', CLAVES_MANDO)
+    expect(leerAjustes().mandos.j).toEqual({})
   })
 })

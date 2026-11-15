@@ -25,7 +25,11 @@ export interface MandoJuego {
  * Ajustes de pantalla y botones que se guardan por juego (v0.13.3, petición del usuario). Los de
  * Ajustes son los de por defecto para los juegos que no tienen los suyos.
  */
-export const CLAVES_CONTROL = ['pantallaGrande', 'snesAspecto', 'filtro', 'pantallasDS', 'escalaMando', 'modoMando', 'mano', 'opacidadMando'] as const
+/** Apartado «Pantalla» (v0.18.0): imagen, por juego. */
+export const CLAVES_PANTALLA = ['pantallaGrande', 'nitido', 'coloresConsola', 'snesAspecto', 'pantallasDS', 'filtro'] as const
+/** Apartado «Mando»: botones, por juego. */
+export const CLAVES_MANDO = ['escalaMando', 'modoMando', 'mano', 'opacidadMando'] as const
+export const CLAVES_CONTROL = [...CLAVES_PANTALLA, ...CLAVES_MANDO] as const
 export type ClaveControl = (typeof CLAVES_CONTROL)[number]
 export type ControlesMando = Pick<Ajustes, ClaveControl>
 
@@ -43,10 +47,10 @@ export function controlesDe(a: Ajustes, juegoId: string): ControlesMando {
   return r as ControlesMando
 }
 
-/** El juego tiene algún ajuste de pantalla o botones propio. */
-export function tieneControlesPropios(a: Ajustes, juegoId: string): boolean {
+/** El juego tiene algún ajuste propio de esas claves (por defecto, de pantalla o de botones). */
+export function tieneControlesPropios(a: Ajustes, juegoId: string, claves: readonly ClaveControl[] = CLAVES_CONTROL): boolean {
   const propios = a.mandos[juegoId] ?? {}
-  return CLAVES_CONTROL.some((k) => propios[k] !== undefined)
+  return claves.some((k) => propios[k] !== undefined)
 }
 
 /** Guarda un cambio solo para ese juego. */
@@ -55,11 +59,11 @@ export function cambiarMandoJuego(juegoId: string, cambio: MandoGuardado): void 
   cambiarAjustes({ mandos: { ...mandos, [juegoId]: { ...mandos[juegoId], ...cambio } } })
 }
 
-/** Quita los ajustes de pantalla y botones propios del juego (conserva el modo JRPG). */
-export function usarControlesGenerales(juegoId: string): void {
+/** Quita los ajustes propios del juego de esas claves (conserva el modo JRPG y lo demás). */
+export function usarControlesGenerales(juegoId: string, claves: readonly ClaveControl[] = CLAVES_CONTROL): void {
   const mandos = leerAjustes().mandos
   const propio: MandoGuardado = { ...mandos[juegoId] }
-  for (const k of CLAVES_CONTROL) delete propio[k]
+  for (const k of claves) delete propio[k]
   cambiarAjustes({ mandos: { ...mandos, [juegoId]: propio } })
 }
 

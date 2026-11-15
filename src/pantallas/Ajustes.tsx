@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useVolverDeslizando } from '../componentes/gestos'
 import { SelectorTema } from '../componentes/SelectorTema'
 import { AjustesMando } from '../componentes/AjustesMando'
+import { AjustesPantalla } from '../componentes/AjustesPantalla'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { temaPara } from '../lib/temas'
 import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
@@ -237,18 +238,9 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
         </div>
         <p className="pie-grupo">Si está desactivado, el juego no suena con el interruptor de silencio puesto, como el resto de juegos del iPhone.</p>
 
-        <p className="cabecera-grupo mt-6">Imagen y vibración</p>
-        <div className="lista">
-          <div className="fila justify-between">
-            <span>Píxeles nítidos</span>
-            <Interruptor etiqueta="Píxeles nítidos" activo={a.nitido} alCambiar={(v) => cambiar({ nitido: v })} />
-          </div>
-          <div className="separador" />
-          <div className="fila justify-between">
-            <span>Colores como en la consola</span>
-            <Interruptor etiqueta="Colores como en la consola" activo={a.coloresConsola} alCambiar={(v) => cambiar({ coloresConsola: v })} />
-          </div>
-          <div className="separador" />
+        <p className="cabecera-grupo mt-6">Pantalla</p>
+        <AjustesPantalla />
+        <div className="lista mt-3">
           <div className="fila flex-col items-stretch gap-2 py-3">
             <span>Modo noche</span>
             <Segmentado
@@ -262,14 +254,16 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
               alCambiar={(v) => cambiar({ intensidadNoche: v })}
             />
           </div>
-          <div className="separador" />
+        </div>
+        <p className="pie-grupo">El modo noche se enciende en el menú de cada partida. Oscurece la pantalla más que el brillo mínimo del iPhone, la vuelve más cálida y quita la vibración.</p>
+
+        <p className="cabecera-grupo mt-6">Mando</p>
+        <div className="lista mb-3">
           <div className="fila justify-between">
             <span>Vibrar al pulsar</span>
             <Interruptor etiqueta="Vibrar al pulsar" activo={a.vibracion} alCambiar={(v) => cambiar({ vibracion: v })} />
           </div>
         </div>
-        <p className="pie-grupo">Modo noche: se enciende en el menú de cada partida. Oscurece la pantalla más que el brillo mínimo del iPhone, la vuelve más cálida y quita la vibración. Colores como en la consola: la GBA y la Game Boy Color tenían pantallas apagadas y los juegos se pintaron con colores muy vivos para compensarlo. Con esta opción se ven como en la consola, sin colores chillones.</p>
-        <p className="cabecera-grupo mt-6">Mando</p>
         <AjustesMando />
         <p className="pie-grupo">También funcionan un teclado y los mandos de PlayStation, Xbox o MFi conectados al iPhone.</p>
 

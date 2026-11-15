@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.18.0 (15/11/2026)
+
+- Apartado «Pantalla» separado de «Mando» (petición del usuario), en el menú del juego y en Ajustes (`AjustesPantalla`). Pantalla: lo más grande posible, píxeles nítidos, colores como en la consola, imagen de Super Nintendo, pantallas de DS y filtro de imagen. Mando: tamaño de los botones, una o dos manos, mano, opacidad en horizontal y el modo para juegos de rol. En Ajustes, el modo noche va con Pantalla y «Vibrar al pulsar», con Mando.
+- Píxeles nítidos y colores como en la consola pasan a guardarse por juego, como el resto de la pantalla (`CLAVES_PANTALLA`); los de Ajustes son los de por defecto. Dentro de un juego solo salen las opciones de su consola (colores en Game Boy, Color y GBA; imagen de Super Nintendo en Super Nintendo; pantallas en DS).
+- «Usar los ajustes generales» en cada apartado devuelve a los de por defecto solo lo de ese apartado (`usarControlesGenerales` con `CLAVES_PANTALLA` o `CLAVES_MANDO`).
+- Pruebas: 118 unitarias y 39 de navegador.
+
 ## 0.17.0 (15/11/2026)
 
 Pantallas de Nintendo DS (paso 3 del plan), pedidas por el usuario para jugar a Hotel Dusk. Por juego, en Menú, Mando, «Pantallas» (`pantallasDS` en `CLAVES_CONTROL`; por defecto en Ajustes, Mando).

@@ -1,0 +1,123 @@
+/**
+ * Apartado «Pantalla» (v0.18.0): todo lo de la imagen, separado de los botones. Dentro de un juego,
+ * los cambios son solo para ese juego y solo salen las opciones de su consola; en Ajustes, son los
+ * de por defecto para los juegos que no tienen los suyos.
+ */
+import { cambiarAjustes, useAjustes } from '../lib/ajustes'
+import { CLAVES_PANTALLA, cambiarMandoJuego, controlesDe, tieneControlesPropios, usarControlesGenerales, type ControlesMando } from '../lib/mandoJuego'
+import type { Sistema } from '../lib/sistemas'
+import { esLibro } from '../emulador/pantallasDS'
+import { Interruptor, Segmentado } from './Interfaz'
+
+export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sistema } } = {}) {
+  const ajustes = useAjustes()
+  const a = juego ? controlesDe(ajustes, juego.id) : ajustes
+  const cambiar = (cambio: Partial<ControlesMando>) => (juego ? cambiarMandoJuego(juego.id, cambio) : cambiarAjustes(cambio))
+  const s = juego?.sistema
+  const verSnes = !s || s === 'snes'
+  const verDS = !s || s === 'nds'
+  // La corrección de color es de mGBA: Game Boy Color y GBA
+  const verColores = !s || s === 'gb' || s === 'gbc' || s === 'gba'
+  return (
+    <>
+      {juego && <p className="cabecera-grupo">Pantalla de este juego</p>}
+      <div className="lista">
+        <div className="fila justify-between">
+          <span>Lo más grande posible</span>
+          <Interruptor etiqueta="Pantalla lo más grande posible" activo={a.pantallaGrande} alCambiar={(v) => cambiar({ pantallaGrande: v })} />
+        </div>
+        <div className="separador" />
+        <div className="fila justify-between">
+          <span>Píxeles nítidos</span>
+          <Interruptor etiqueta="Píxeles nítidos" activo={a.nitido} alCambiar={(v) => cambiar({ nitido: v })} />
+        </div>
+        {verColores && (
+          <>
+            <div className="separador" />
+            <div className="fila justify-between">
+              <span>Colores como en la consola</span>
+              <Interruptor etiqueta="Colores como en la consola" activo={a.coloresConsola} alCambiar={(v) => cambiar({ coloresConsola: v })} />
+            </div>
+          </>
+        )}
+        {verSnes && (
+          <>
+            <div className="separador" />
+            <div className="fila flex-col items-stretch gap-2 py-3">
+              <span>Imagen de Super Nintendo</span>
+              <Segmentado
+                etiqueta="Imagen de Super Nintendo"
+                valor={a.snesAspecto}
+                opciones={[
+                  ['tv', 'Como en la tele (4:3)'],
+                  ['pixel', 'Píxel exacto (8:7)'],
+                ]}
+                alCambiar={(v) => cambiar({ snesAspecto: v })}
+              />
+            </div>
+          </>
+        )}
+        {verDS && (
+          <>
+            <div className="separador" />
+            <div className="fila flex-col items-stretch gap-2 py-3">
+              <span>{juego ? 'Pantallas' : 'Pantallas de Nintendo DS'}</span>
+              <Segmentado
+                etiqueta="Pantallas de Nintendo DS"
+                valor={esLibro(a.pantallasDS) ? 'libro' : a.pantallasDS}
+                opciones={[
+                  ['apiladas', 'Apiladas'],
+                  ['libro', 'Libro'],
+                  ['grande', 'Grande y pequeña'],
+                ]}
+                alCambiar={(v) => cambiar({ pantallasDS: v === 'libro' ? 'libro-derecha' : v })}
+              />
+              {esLibro(a.pantallasDS) && (
+                <Segmentado
+                  etiqueta="Pantalla táctil"
+                  valor={a.pantallasDS}
+                  opciones={[
+                    ['libro-izquierda', 'Táctil a la izquierda'],
+                    ['libro-derecha', 'Táctil a la derecha'],
+                  ]}
+                  alCambiar={(v) => cambiar({ pantallasDS: v })}
+                />
+              )}
+            </div>
+          </>
+        )}
+        <div className="separador" />
+        <div className="fila flex-col items-stretch gap-2 py-3">
+          <span>Filtro de imagen</span>
+          <Segmentado
+            etiqueta="Filtro de imagen"
+            valor={a.filtro}
+            opciones={[
+              ['ninguno', 'Ninguno'],
+              ['consola', 'Consola'],
+              ['lcd', 'LCD'],
+              ['tv', 'Tele'],
+            ]}
+            alCambiar={(v) => cambiar({ filtro: v })}
+          />
+        </div>
+      </div>
+      {juego && tieneControlesPropios(ajustes, juego.id, CLAVES_PANTALLA) && (
+        <div className="lista mt-3">
+          <button className="fila text-acento dark:text-acento-oscuro" onClick={() => usarControlesGenerales(juego.id, CLAVES_PANTALLA)}>
+            Usar los ajustes generales
+          </button>
+        </div>
+      )}
+      <p className="pie-grupo">
+        {juego
+          ? 'Solo para este juego; el resto sigue con los suyos. Los de por defecto se cambian en Ajustes, Pantalla. '
+          : 'Para los juegos que no tengan los suyos: dentro de cada juego, en Menú, Pantalla, se cambian solo para ese juego. '}
+        Lo más grande posible: sin margen ni marco, de borde a borde en vertical y a toda la altura en horizontal.
+        {verColores && ' Colores como en la consola: la GBA y la Game Boy Color tenían pantallas apagadas y los juegos se pintaron con colores muy vivos para compensarlo; así se ven como en la consola.'}
+        {verDS && ' Pantallas de DS: «Libro» es para los juegos que se juegan con la consola de lado (Hotel Dusk, Last Window, Brain Training): gira el iPhone y elige el lado de la táctil como en el juego. En «Grande y pequeña», arrastra la miniatura para moverla y tócala para cambiar cuál va grande.'}
+        {' Filtro «Consola»: la rejilla de la pantalla LCD en las portátiles y las líneas de la tele en Super Nintendo.'}
+      </p>
+    </>
+  )
+}
