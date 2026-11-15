@@ -7,7 +7,16 @@ import { cambiarAjustes, useAjustes } from '../lib/ajustes'
 import { CLAVES_PANTALLA, cambiarMandoJuego, controlesDe, tieneControlesPropios, usarControlesGenerales, type ControlesMando } from '../lib/mandoJuego'
 import type { Sistema } from '../lib/sistemas'
 import { esLibro } from '../emulador/pantallasDS'
+import { Check } from 'lucide-react'
 import { Interruptor, Segmentado } from './Interfaz'
+
+/** Disposiciones de DS, con una línea que explica cada una. */
+const OPCIONES_DS: ['apiladas' | 'lado' | 'libro' | 'grande', string, string][] = [
+  ['apiladas', 'Apiladas', 'Una encima de otra, como en la consola'],
+  ['lado', 'Lado a lado', 'Una junto a otra, con el iPhone en horizontal'],
+  ['libro', 'Libro', 'Giradas, para Hotel Dusk y juegos parecidos'],
+  ['grande', 'Grande y pequeña', 'Una grande y la otra en miniatura, que se mueve'],
+]
 
 export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sistema } } = {}) {
   const ajustes = useAjustes()
@@ -62,16 +71,27 @@ export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sist
             <div className="separador" />
             <div className="fila flex-col items-stretch gap-2 py-3">
               <span>{juego ? 'Pantallas' : 'Pantallas de Nintendo DS'}</span>
-              <Segmentado
-                etiqueta="Pantallas de Nintendo DS"
-                valor={esLibro(a.pantallasDS) ? 'libro' : a.pantallasDS}
-                opciones={[
-                  ['apiladas', 'Apiladas'],
-                  ['libro', 'Libro'],
-                  ['grande', 'Grande y pequeña'],
-                ]}
-                alCambiar={(v) => cambiar({ pantallasDS: v === 'libro' ? 'libro-derecha' : v })}
-              />
+              <div className="overflow-hidden rounded-[10px] bg-zinc-100 dark:bg-zinc-800" role="radiogroup" aria-label="Pantallas de Nintendo DS">
+                {OPCIONES_DS.map(([valor, titulo, detalle], i) => {
+                  const elegida = valor === 'libro' ? esLibro(a.pantallasDS) : a.pantallasDS === valor
+                  return (
+                    <button
+                      key={valor}
+                      role="radio"
+                      aria-checked={elegida}
+                      aria-label={titulo}
+                      onClick={() => cambiar({ pantallasDS: valor === 'libro' ? (esLibro(a.pantallasDS) ? a.pantallasDS : 'libro-derecha') : valor })}
+                      className={`flex w-full items-center gap-3 px-3 py-2.5 text-left ${i > 0 ? 'border-t border-zinc-200 dark:border-zinc-700' : ''}`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[16px]">{titulo}</span>
+                        <span className="block text-[13px] text-zinc-500">{detalle}</span>
+                      </span>
+                      {elegida && <Check size={20} className="shrink-0 text-acento dark:text-acento-oscuro" />}
+                    </button>
+                  )
+                })}
+              </div>
               {esLibro(a.pantallasDS) && (
                 <Segmentado
                   etiqueta="Pantalla táctil"
@@ -81,6 +101,18 @@ export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sist
                     ['libro-derecha', 'Táctil a la derecha'],
                   ]}
                   alCambiar={(v) => cambiar({ pantallasDS: v })}
+                />
+              )}
+              {a.pantallasDS === 'grande' && (
+                <Segmentado
+                  etiqueta="Tamaño de la miniatura"
+                  valor={a.tamanoMiniDS}
+                  opciones={[
+                    ['pequena', 'Miniatura pequeña'],
+                    ['mediana', 'Mediana'],
+                    ['grande', 'Grande'],
+                  ]}
+                  alCambiar={(v) => cambiar({ tamanoMiniDS: v })}
                 />
               )}
             </div>
@@ -115,7 +147,7 @@ export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sist
           : 'Para los juegos que no tengan los suyos: dentro de cada juego, en Menú, Pantalla, se cambian solo para ese juego. '}
         Lo más grande posible: sin margen ni marco, de borde a borde en vertical y a toda la altura en horizontal.
         {verColores && ' Colores como en la consola: la GBA y la Game Boy Color tenían pantallas apagadas y los juegos se pintaron con colores muy vivos para compensarlo; así se ven como en la consola.'}
-        {verDS && ' Pantallas de DS: «Libro» es para los juegos que se juegan con la consola de lado (Hotel Dusk, Last Window, Brain Training): gira el iPhone y elige el lado de la táctil como en el juego. En «Grande y pequeña», arrastra la miniatura para moverla y tócala para cambiar cuál va grande.'}
+        {verDS && ' Pantallas de DS: «Libro» es para los juegos que se juegan con la consola de lado (Hotel Dusk, Last Window, Brain Training): gira el iPhone y elige el lado de la táctil como en el juego. En «Grande y pequeña», arrastra la miniatura para moverla y tócala para cambiar cuál va grande. «Lado a lado» se ve mejor con el iPhone en horizontal.'}
         {' Filtro «Consola»: la rejilla de la pantalla LCD en las portátiles y las líneas de la tele en Super Nintendo.'}
       </p>
     </>

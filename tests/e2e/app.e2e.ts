@@ -1114,6 +1114,47 @@ test.describe('pantallas de Nintendo DS', () => {
     expect(await punto(page, 0.25, 0.5)).not.toEqual([0, 0, 251])
   })
 
+  test('lado a lado: las dos pantallas sin girar, la táctil a la derecha, y los botones debajo', async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, 'prueba.nds')
+    await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+    await expect(page.getByText('Cargando…')).toBeHidden()
+    await elegir(page, 'Lado a lado')
+    const lienzo = page.getByTestId('pantalla')
+    await expect.poll(() => lienzo.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([512, 192])
+    await expect.poll(() => punto(page, 0.25, 0.5)).toEqual([0, 0, 251])
+    expect(await punto(page, 0.75, 0.5)).not.toEqual([0, 0, 251])
+    // Los botones, debajo de la imagen
+    const caja = (await lienzo.boundingBox())!
+    for (const n of ['A', 'B', 'Start']) {
+      const b = (await page.getByTestId('mando').getByRole('button', { name: n, exact: true }).boundingBox())!
+      expect(b.y, n).toBeGreaterThanOrEqual(caja.y + caja.height - 1)
+    }
+    expect(caja.width).toBeGreaterThan(600)
+  })
+
+  test('grande y pequeña: la miniatura tiene tres tamaños', async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, 'prueba.nds')
+    await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+    await expect(page.getByText('Cargando…')).toBeHidden()
+    await elegir(page, 'Grande y pequeña')
+    const mini = page.getByTestId('miniatura-ds')
+    const mediana = (await mini.boundingBox())!.width
+    for (const [tam, cmp] of [
+      ['Miniatura pequeña', (w: number) => expect(w).toBeLessThan(mediana * 0.8)],
+      ['Grande', (w: number) => expect(w).toBeGreaterThan(mediana * 1.2)],
+    ] as const) {
+      await page.getByRole('button', { name: 'Menú', exact: true }).click()
+      await page.getByRole('button', { name: /^Pantalla/ }).click()
+      await page.getByRole('radiogroup', { name: 'Tamaño de la miniatura' }).getByRole('radio', { name: tam }).click()
+      await page.getByRole('button', { name: 'Volver al menú' }).click()
+      await page.getByRole('button', { name: 'Seguir jugando' }).click()
+      await expect.poll(async () => (await mini.boundingBox())!.width).not.toBe(mediana)
+      cmp((await mini.boundingBox())!.width)
+    }
+  })
+
   test('grande y pequeña: la miniatura se arrastra, un toque intercambia y se recuerda', async ({ page }) => {
     await page.goto('/')
     await anadir(page, 'prueba.nds')
@@ -1280,4 +1321,42 @@ test('pausa con guardado si se deja de tocar', async ({ page }) => {
   await expect(page.getByText('Cargando…')).toBeHidden()
   await page.clock.fastForward('03:05')
   await expect(page.getByText(/Llevabas 3 minutos sin tocar nada/)).toBeVisible()
+})
+
+test('DS con una mano: pantallas a todo lo ancho y los botones juntos encima de la táctil', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.nds')
+  await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: /^Mando/ }).click()
+  await page.getByRole('radiogroup', { name: 'Distribución del mando' }).getByRole('radio', { name: 'Una mano' }).click()
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  await expect(page.getByTestId('juego')).toHaveClass(/una-mano/)
+  const ancho = page.viewportSize()!.width
+  await expect.poll(async () => (await page.getByTestId('pantalla').boundingBox())!.width).toBeGreaterThan(ancho - 4)
+})
+
+test('DS: soplar mientras se mantiene y cerrar la tapa desde el menú', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.nds')
+  await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  const soplar = page.getByRole('button', { name: /Soplar al micrófono/ })
+  const caja = (await soplar.boundingBox())!
+  await page.mouse.move(caja.x + caja.width / 2, caja.y + caja.height / 2)
+  await page.mouse.down()
+  await expect(soplar).toHaveClass(/activa/)
+  await page.mouse.up()
+  await expect(soplar).not.toHaveClass(/activa/)
+  // La tapa, desde el menú: se ve cerrada hasta que se toca
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('switch', { name: 'Cerrar la tapa' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  await expect(page.getByTestId('tapa-cerrada')).toBeVisible()
+  await page.getByTestId('tapa-cerrada').click()
+  await expect(page.getByTestId('tapa-cerrada')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await expect(page.getByRole('switch', { name: 'Cerrar la tapa' })).toHaveAttribute('aria-checked', 'false')
 })

@@ -49,6 +49,8 @@ export interface Ajustes {
   filtro: 'ninguno' | 'consola' | 'lcd' | 'tv'
   /** Pantallas de Nintendo DS (v0.17.0): apiladas, libro (táctil a la derecha o a la izquierda) o grande y pequeña */
   pantallasDS: PantallasDS
+  /** Tamaño de la miniatura en «grande y pequeña» (v0.20.0) */
+  tamanoMiniDS: 'pequena' | 'mediana' | 'grande'
   /** Mando de cada juego (modo JRPG y ajustes propios de pantalla y botones), por identificador del juego */
   mandos: Record<string, MandoGuardado>
   /** Orden de la biblioteca: último jugado, nombre o tiempo jugado */
@@ -98,6 +100,7 @@ export const POR_DEFECTO: Ajustes = {
   snesAspecto: 'tv',
   filtro: 'ninguno',
   pantallasDS: 'apiladas',
+  tamanoMiniDS: 'mediana',
   mandos: {},
   ordenBiblioteca: 'reciente',
 }

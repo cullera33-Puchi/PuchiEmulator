@@ -26,7 +26,7 @@ export interface MandoJuego {
  * Ajustes son los de por defecto para los juegos que no tienen los suyos.
  */
 /** Apartado «Pantalla» (v0.18.0): imagen, por juego. */
-export const CLAVES_PANTALLA = ['pantallaGrande', 'nitido', 'coloresConsola', 'snesAspecto', 'pantallasDS', 'filtro'] as const
+export const CLAVES_PANTALLA = ['pantallaGrande', 'nitido', 'coloresConsola', 'snesAspecto', 'pantallasDS', 'tamanoMiniDS', 'filtro'] as const
 /** Apartado «Mando»: botones, por juego. */
 export const CLAVES_MANDO = ['escalaMando', 'modoMando', 'mano', 'opacidadMando'] as const
 export const CLAVES_CONTROL = [...CLAVES_PANTALLA, ...CLAVES_MANDO] as const

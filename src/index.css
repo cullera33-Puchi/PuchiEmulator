@@ -123,7 +123,7 @@
 /* Grande y pequeña: la miniatura flota encima de los controles. Sin sitio guardado, arriba a la
    derecha; con él, en su fracción de la pantalla y siempre dentro. */
 .miniatura-ds {
-  --ancho-mini: min(38vw, calc(34dvh * 4 / 3));
+  --ancho-mini: calc(min(38vw, calc(34dvh * 4 / 3)) * var(--escala-mini, 1));
   position: absolute;
   z-index: 7;
   width: var(--ancho-mini);
@@ -634,9 +634,9 @@ body.en-juego .aviso {
     height: min(calc(100vw * var(--proporcion, 1.5)), calc(100dvh - var(--seguro-arriba) - var(--fila-abajo)));
   }
   /* Encima de la imagen: relleno oscuro translúcido y borde claro, que se ven sobre cualquier fondo */
-  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .cruceta,
-  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .botones-accion,
-  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .hombro {
+  .juego[data-sistema='nds'][data-disposicion='apiladas'] .cruceta,
+  .juego[data-sistema='nds'][data-disposicion='apiladas'] .botones-accion,
+  .juego[data-sistema='nds'][data-disposicion='apiladas'] .hombro {
     --ab: rgb(20 20 24 / 0.38);
     --ab-pulsado: rgb(255 255 255 / 0.45);
     --borde: rgb(255 255 255 / 0.55);
@@ -652,14 +652,26 @@ body.en-juego .aviso {
     opacity: var(--opacidad-horizontal, 0.6);
     text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
   }
-  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .hombro {
+  .juego[data-sistema='nds'][data-disposicion='apiladas'] .hombro {
     border-color: var(--borde);
   }
-  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .cruceta .brazo {
+  .juego[data-sistema='nds'][data-disposicion='apiladas'] .cruceta .brazo {
     box-shadow: 0 0 0 1px rgb(255 255 255 / 0.45);
   }
-  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .cruceta .centro {
+  .juego[data-sistema='nds'][data-disposicion='apiladas'] .cruceta .centro {
     background: var(--cruceta);
+  }
+  /* Una mano en DS (v0.20.0): las pantallas igual de grandes y el grupo de botones del modo una
+     mano, translúcido, encima de la parte de abajo de la táctil */
+  .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .herramienta,
+  .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .pequeno {
+    background: rgb(20 20 24 / 0.45);
+    border: 1px solid rgb(255 255 255 / 0.5);
+    color: rgb(255 255 255 / 0.92);
+  }
+  .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .zona-pantalla {
+    top: var(--seguro-arriba);
+    height: min(calc(100vw * var(--proporcion, 1.5)), calc(100dvh - var(--seguro-arriba) - var(--seguro-abajo) - 40px));
   }
   .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .hombro {
     width: min(calc(84px * var(--escala)), 24vw);
@@ -678,6 +690,21 @@ body.en-juego .aviso {
   }
   .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .herramientas {
     gap: 6px;
+  }
+  /* Con «Soplar» junto al avance rápido (v0.20.0), las herramientas de 40 y Select y Start, algo más
+     estrechos, centrados en el hueco que queda entre los dos grupos */
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .herramienta {
+    width: 40px;
+    height: 40px;
+  }
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .pequeno {
+    width: calc(56px * min(var(--escala), 1.15));
+  }
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .pequeno.select {
+    left: calc(50% - 30px - calc(56px * min(var(--escala), 1.15)));
+  }
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .pequeno.start {
+    left: calc(50% - 22px);
   }
   .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .herramientas.izquierda {
     left: calc(var(--seguro-izq) + 12px);
@@ -769,6 +796,57 @@ body.en-juego .aviso {
     left: auto;
     right: calc(var(--seguro-der) + 12px);
   }
+  /* DS lado a lado (v0.20.0): las dos pantallas arriba a todo lo ancho y, debajo, una franja con
+     la cruceta a la izquierda, los botones a la derecha, L y R junto a ellos y en el centro las
+     herramientas y Select y Start */
+  .juego[data-disposicion='lado']:not(.una-mano) {
+    --tam-mando: min(calc(112px * var(--escala)), 30dvh);
+    --base-mando: calc(var(--seguro-abajo) + 2px);
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .zona-pantalla {
+    left: var(--seguro-izq);
+    right: var(--seguro-der);
+    bottom: calc(var(--tam-mando) + var(--seguro-abajo) + 6px);
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .hombro {
+    top: auto;
+    bottom: calc(var(--base-mando) + var(--tam-mando) - 34px);
+    width: 80px;
+    height: 34px;
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .hombro.l {
+    left: calc(var(--seguro-izq) + 22px + var(--tam-mando));
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .hombro.r {
+    right: calc(var(--seguro-der) + 22px + var(--tam-mando));
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .herramientas,
+  .juego[data-disposicion='lado']:not(.una-mano) .boton-menu {
+    top: auto;
+    bottom: calc(var(--seguro-abajo) + 46px);
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .herramientas.izquierda {
+    left: auto;
+    right: calc(50% + 26px);
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .boton-menu {
+    left: calc(50% - 20px);
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .herramientas.derecha {
+    right: auto;
+    left: calc(50% + 26px);
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .pequeno {
+    bottom: calc(var(--seguro-abajo) + 6px);
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .pequeno.select {
+    left: calc(50% - 4px - var(--ancho-pequeno));
+  }
+  .juego[data-disposicion='lado']:not(.una-mano) .pequeno.start {
+    right: auto;
+    left: calc(50% + 4px);
+  }
+
   /* En horizontal los controles quedan encima del borde de la imagen: se hacen translúcidos */
   .juego {
     --opacidad-mando: var(--opacidad-horizontal, 0.6);
@@ -934,7 +1012,7 @@ body.en-juego .aviso {
     right: calc(var(--seguro-der) + var(--lado-col));
   }
   .juego[data-disposicion^='libro'].una-mano[data-mano='derecha'] .boton-menu {
-    right: calc(var(--seguro-der) + var(--lado-col) + 50px);
+    right: calc(var(--seguro-der) + var(--lado-col) + 96px);
   }
 }
 

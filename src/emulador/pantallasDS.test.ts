@@ -41,6 +41,14 @@ describe('pantallas de DS', () => {
     expect(aNucleo('libro-izquierda', 'abajo', 0.8, 0.5)).toBeNull()
   })
 
+  it('lado a lado: la táctil es la mitad derecha, sin girar', () => {
+    expect(tamanoSalida('lado')).toEqual({ ancho: 512, alto: 192 })
+    cerca(aNucleo('lado', 'abajo', 0.5, 0), tactil(0, 0))
+    cerca(aNucleo('lado', 'abajo', 1, 1), tactil(256, 192))
+    cerca(aNucleo('lado', 'abajo', 0.75, 0.5), tactil(128, 96))
+    expect(aNucleo('lado', 'abajo', 0.4, 0.5)).toBeNull()
+  })
+
   it('grande y pequeña: solo es táctil la grande cuando es la de abajo', () => {
     cerca(aNucleo('grande', 'abajo', 0.5, 0.5), tactil(128, 96))
     expect(aNucleo('grande', 'arriba', 0.5, 0.5)).toBeNull()

@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.20.0 (15/11/2026)
+
+Bloque 2 de las mejoras marcadas por el usuario: Nintendo DS (6, 8, 9 y 10).
+
+- Lado a lado (6): las dos pantallas una junto a otra, sin girar (512 x 192), con la táctil a la derecha (`lado` en `pantallasDS.ts`, con pruebas de los toques). En horizontal, la imagen arriba a todo lo ancho y, debajo, la cruceta, los botones, L y R, las herramientas y Select y Start.
+- Tamaño de la miniatura (8): pequeña, mediana o grande en «Grande y pequeña» (`tamanoMiniDS`, por juego). El selector de pantallas de DS pasa a una lista con una línea que explica cada disposición.
+- Una mano en DS (9): en vertical, las pantallas igual de grandes que apiladas y el grupo de botones del modo una mano, translúcido y oscuro con borde claro, encima de la parte de abajo de la táctil; en horizontal, la columna del modo una mano de siempre.
+- Micrófono y tapa (10): botón «Soplar» en la fila de herramientas (en DS no hay rebobinado), que mientras se mantiene hace que el juego oiga un soplido (L2 en melonDS; el núcleo no admite voz, decisión del usuario). «Cerrar la tapa» en el menú del juego (L3), para los puzles que lo piden; con la tapa cerrada, la imagen se tapa y un toque la abre. En DS en vertical, las herramientas pasan a 40 puntos y Select y Start se centran en el hueco libre.
+- Pruebas: 126 unitarias y 48 de navegador.
+
 ## 0.19.0 (15/11/2026)
 
 Bloque 1 de las mejoras marcadas por el usuario (20, 22, 15 y 14).

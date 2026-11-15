@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.20.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Nintendo DS: nueva disposición «Lado a lado», con el iPhone en horizontal.",
+      "La miniatura de «Grande y pequeña» puede ser pequeña, mediana o grande.",
+      "Modo una mano en DS, con las pantallas a todo lo ancho.",
+      "Botón «Soplar» para los juegos que usan el micrófono, y «Cerrar la tapa» en el menú para los puzles que lo piden."
+    ]
+  },
+  {
     "version": "0.19.0",
     "fecha": "15/11/2026",
     "cambios": [

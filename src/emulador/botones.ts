@@ -12,6 +12,10 @@ export const BOTON = {
   X: 9,
   L: 10,
   R: 11,
+  /** DS: el micrófono oye un soplido mientras se mantiene (L2 en melonDS), v0.20.0 */
+  SOPLAR: 12,
+  /** DS: la tapa cerrada (L3 en melonDS), v0.20.0 */
+  TAPA: 14,
 } as const
 
 export type NombreBoton = keyof typeof BOTON

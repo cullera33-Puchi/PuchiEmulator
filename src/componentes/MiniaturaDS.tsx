@@ -11,12 +11,15 @@ interface Props {
   posicion?: { x: number; y: number }
   alMover: (posicion: { x: number; y: number }) => void
   alTocar: () => void
+  tamano?: 'pequena' | 'mediana' | 'grande'
 }
+
+const ESCALA_MINI = { pequena: 0.7, mediana: 1, grande: 1.35 }
 
 /** Se considera arrastre a partir de 8 puntos; menos es un toque. */
 const UMBRAL = 8
 
-export function MiniaturaDS({ ref, posicion, alMover, alTocar }: Props) {
+export function MiniaturaDS({ ref, posicion, alMover, alTocar, tamano = 'mediana' }: Props) {
   const caja = useRef<HTMLDivElement>(null)
   const inicio = useRef<{ x: number; y: number; izquierda: number; arriba: number; moviendo: boolean } | null>(null)
   const [arrastre, setArrastre] = useState<{ izquierda: number; arriba: number } | null>(null)
@@ -61,11 +64,12 @@ export function MiniaturaDS({ ref, posicion, alMover, alTocar }: Props) {
   }
 
   // Mientras se arrastra, en puntos; si no, la fracción guardada (el CSS la mantiene dentro)
+  const escala = { '--escala-mini': ESCALA_MINI[tamano] } as React.CSSProperties
   const estilo = arrastre
-    ? { left: arrastre.izquierda, top: arrastre.arriba, right: 'auto' }
+    ? { ...escala, left: arrastre.izquierda, top: arrastre.arriba, right: 'auto' }
     : posicion
-      ? ({ '--mini-x': posicion.x, '--mini-y': posicion.y } as React.CSSProperties)
-      : undefined
+      ? ({ ...escala, '--mini-x': posicion.x, '--mini-y': posicion.y } as React.CSSProperties)
+      : escala
   return (
     <div
       ref={caja}

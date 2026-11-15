@@ -11,7 +11,7 @@ import { guardarEstado, guardarPartida, guardarSesionJuego, leerEstado, leerPart
 import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
-import { botonesDeMando } from './botones'
+import { bit, botonesDeMando } from './botones'
 import { Nucleo } from './nucleo'
 import { Historial } from './historial'
 import { planRitmo, Refresco, refrescosPasados } from './ritmo'
@@ -97,6 +97,8 @@ export class Sesion {
   private correr = 0
   // Turbo (v0.19.0): botones que se pulsan y sueltan solos mientras se mantienen
   private turbo = 0
+  // Botones que pone la app y no el mando: soplar y la tapa de DS (v0.20.0)
+  private extra = 0
   private fotogramaTurbo = 0
   // Pantallas de DS (v0.17.0): disposición, cuál va grande y la miniatura
   private pantallas: PantallasDS = 'apiladas'
@@ -312,7 +314,7 @@ export class Sesion {
     this.basePrevia = mascara
     let hayImagen = false
     for (let i = 0; i < toca; i++) {
-      const enviada = mascaraConCorrer(mascaraConTurbo(mascara, this.turbo, this.fotogramaTurbo++), this.correr, this.huecoCorrer > 0)
+      const enviada = mascaraConCorrer(mascaraConTurbo(mascara, this.turbo, this.fotogramaTurbo++), this.correr, this.huecoCorrer > 0) | this.extra
       if (this.huecoCorrer > 0) this.huecoCorrer--
       this.nucleo.botones(enviada)
       if (this.cargaAutoPendiente && ++this.fotogramasJugados >= 120) {
@@ -463,6 +465,13 @@ export class Sesion {
     if (x === null) return this.nucleo?.puntero(null)
     const p = aNucleo(this.pantallas, this.principal, x, y)
     this.nucleo?.puntero(p ? p[0] : null, p ? p[1] : 0)
+  }
+
+  /** DS: soplar al micrófono (mientras se mantiene) o tener la tapa cerrada. */
+  ponerExtra(boton: 'SOPLAR' | 'TAPA', activo: boolean): void {
+    const b = bit(boton)
+    this.extra = activo ? this.extra | b : this.extra & ~b
+    this.ultimaActividad = Date.now()
   }
 
   /** Turbo: máscara de los botones con turbo (0, ninguno). */

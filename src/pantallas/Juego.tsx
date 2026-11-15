@@ -3,7 +3,7 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { BedDouble, ChevronRight, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
+import { BedDouble, BookOpen, ChevronRight, Wind, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, Interruptor, useInterfaz } from '../componentes/Interfaz'
@@ -58,6 +58,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [hora, setHora] = useState(() => Date.now())
   const [dormir, setDormir] = useState(false)
   const [verSueno, setVerSueno] = useState(false)
+  // DS: soplar al micrófono (mientras se mantiene) y la tapa cerrada (v0.20.0)
+  const [soplando, setSoplando] = useState(false)
+  const [tapaCerrada, setTapaCerrada] = useState(false)
   const [estados, setEstados] = useState<Estado[] | null>(null)
   const [verEstados, setVerEstados] = useState(false)
   const [velocidad, setVelocidad] = useState(1)
@@ -345,6 +348,17 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     }
   }
 
+  const soplar = (activo: boolean) => {
+    setSoplando(activo)
+    sesion.current?.ponerExtra('SOPLAR', activo)
+  }
+
+  const cambiarTapa = (cerrada: boolean) => {
+    setTapaCerrada(cerrada)
+    sesion.current?.ponerExtra('TAPA', cerrada)
+    registrar('info', cerrada ? 'Tapa de DS cerrada' : 'Tapa de DS abierta')
+  }
+
   // Turbo: al abrir el juego y al cambiarlo
   useEffect(() => {
     if (!cargando) sesion.current?.ponerTurbo(turbo)
@@ -436,6 +450,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           posicion={ajustes.mandos[id]?.miniDS}
           alMover={(miniDS) => cambiarMandoJuego(id, { miniDS })}
           alTocar={() => cambiarMandoJuego(id, { principalDS: principal === 'abajo' ? 'arriba' : 'abajo' })}
+          tamano={controles.tamanoMiniDS}
         />
       )}
 
@@ -483,6 +498,25 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           <Rewind size={20} />
         </button>
         )}
+        {sistema === 'nds' && (
+          <button
+            className={`herramienta ${soplando ? 'activa' : ''}`}
+            aria-label="Soplar al micrófono (mantén pulsado)"
+            onPointerDown={(e) => {
+              try {
+                e.currentTarget.setPointerCapture(e.pointerId)
+              } catch {
+                // sin captura: basta con soltar encima
+              }
+              soplar(true)
+            }}
+            onPointerUp={() => soplar(false)}
+            onPointerCancel={() => soplar(false)}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <Wind size={20} />
+          </button>
+        )}
         <button className={`herramienta ${velocidad > 1 ? 'activa' : ''}`} aria-label={`Avance rápido (${velocidad > 1 ? `x${velocidad}` : 'desactivado'})`} onClick={cambiarVelocidad}>
           {velocidad > 1 ? <span className="text-[14px] font-bold">x{velocidad}</span> : <FastForward size={20} />}
         </button>
@@ -517,6 +551,16 @@ export function Juego({ id, reanudar, alSalir }: Props) {
               <span className="max-w-64 text-center text-[13px] text-zinc-400">Llevabas {ajustes.pausaSinTocar} minutos sin tocar nada. La partida está guardada.</span>
             )}
             <span className="text-[13px] text-zinc-400">Toca para seguir</span>
+          </span>
+        </button>
+      )}
+
+      {tapaCerrada && !menu && (
+        <button className="absolute inset-0 z-10 grid place-items-center bg-black/85 p-8 text-center" onClick={() => cambiarTapa(false)} data-testid="tapa-cerrada">
+          <span className="flex flex-col items-center gap-3">
+            <BookOpen size={40} strokeWidth={1.5} className="text-zinc-400" />
+            <span className="text-[17px] font-semibold">Tapa cerrada</span>
+            <span className="text-[13px] text-zinc-400">Toca para abrirla</span>
           </span>
         </button>
       )}
@@ -600,6 +644,17 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             <NotebookPen size={20} className="text-acento dark:text-acento-oscuro" /> Notas
           </button>
           <div className="separador" />
+          {sistema === 'nds' && (
+            <>
+              <div className="fila justify-between">
+                <span className="flex flex-1 items-center gap-3">
+                  <BookOpen size={20} className="text-acento dark:text-acento-oscuro" /> Cerrar la tapa
+                </span>
+                <Interruptor etiqueta="Cerrar la tapa" activo={tapaCerrada} alCambiar={cambiarTapa} />
+              </div>
+              <div className="separador" />
+            </>
+          )}
           <button className="fila" onClick={() => setVerSueno(true)}>
             <BedDouble size={20} className="text-acento dark:text-acento-oscuro" />
             <span className="flex-1">Temporizador de sueño</span>

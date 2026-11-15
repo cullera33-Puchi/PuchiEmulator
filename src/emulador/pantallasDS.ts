@@ -8,12 +8,13 @@
  *   Brain Training). Cada pantalla se gira un cuarto de vuelta y quedan lado a lado (384 x 256). Con
  *   la táctil a la derecha, la consola se gira a la izquierda (la de arriba queda a la izquierda);
  *   con la táctil a la izquierda, al revés.
+ * - «lado» (v0.20.0): una junto a otra, sin girar (512 x 192), la táctil a la derecha.
  * - «grande»: una pantalla grande (256 x 192) y la otra en una miniatura aparte.
  *
  * Los toques llegan en coordenadas de la imagen que se ve (0 a 1) y hay que llevarlos a la imagen
  * del núcleo (`aNucleo`), donde la táctil es la mitad de abajo.
  */
-export type PantallasDS = 'apiladas' | 'libro-derecha' | 'libro-izquierda' | 'grande'
+export type PantallasDS = 'apiladas' | 'lado' | 'libro-derecha' | 'libro-izquierda' | 'grande'
 export type PrincipalDS = 'arriba' | 'abajo'
 
 /** Ancho y alto de una pantalla de DS. */
@@ -26,6 +27,7 @@ export const esLibro = (d: PantallasDS) => d === 'libro-derecha' || d === 'libro
 export function tamanoSalida(d: PantallasDS): { ancho: number; alto: number } {
   if (esLibro(d)) return { ancho: ALTO * 2, alto: ANCHO }
   if (d === 'grande') return { ancho: ANCHO, alto: ALTO }
+  if (d === 'lado') return { ancho: ANCHO * 2, alto: ALTO }
   return { ancho: ANCHO, alto: ALTO * 2 }
 }
 
@@ -36,6 +38,7 @@ export function tamanoSalida(d: PantallasDS): { ancho: number; alto: number } {
 export function aNucleo(d: PantallasDS, principal: PrincipalDS, x: number, y: number): [number, number] | null {
   if (d === 'apiladas') return [x, y]
   if (d === 'grande') return principal === 'abajo' ? [x, 0.5 + y / 2] : null
+  if (d === 'lado') return x < 0.5 ? null : [(x - 0.5) * 2, 0.5 + y / 2]
   // Libro: la imagen mide 384 x 256 y cada mitad es una pantalla girada
   const px = x * ALTO * 2
   const py = y * ANCHO
@@ -62,6 +65,11 @@ export function componer(
 ): void {
   ctx.imageSmoothingEnabled = false
   const pantalla = (c: CanvasRenderingContext2D, cual: PrincipalDS) => c.drawImage(fuente, 0, cual === 'arriba' ? 0 : ALTO, ANCHO, ALTO, 0, 0, ANCHO, ALTO)
+  if (d === 'lado') {
+    pantalla(ctx, 'arriba')
+    ctx.drawImage(fuente, 0, ALTO, ANCHO, ALTO, ANCHO, 0, ANCHO, ALTO)
+    return
+  }
   if (d === 'grande') {
     pantalla(ctx, principal)
     if (mini) {
