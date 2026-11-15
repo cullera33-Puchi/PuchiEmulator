@@ -215,10 +215,14 @@ export class Sesion {
     // Cuántos fotogramas tocan en este refresco: fijo si la consola va casi al ritmo de la pantalla
     // (movimiento regular), o por tiempo si no
     let toca: number
+    // Lo rápido que va el juego de verdad: en sincronía con la pantalla, un poco más o menos que la
+    // consola (por ejemplo, 60 Hz frente a 59,73 en GBA); el sonido se ajusta a eso desde el principio
+    let ritmoReal = 1
     const plan = planRitmo(1000 / this.paso, this.refresco.ms)
     if (plan.modo === 'sincronizado' && dt < this.refresco.ms * 3) {
       this.acumulado = 0
       toca = ++this.refrescos % plan.cadaRefrescos === 0 ? plan.porRefresco * this.velocidad : 0
+      ritmoReal = ((1000 / this.refresco.ms) * plan.porRefresco) / plan.cadaRefrescos / (1000 / this.paso)
     } else {
       this.acumulado += dt * this.velocidad
       toca = Math.min(Math.floor(this.acumulado / this.paso), MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad)
@@ -230,7 +234,7 @@ export class Sesion {
       this.nucleo.botones(mascara)
       if (this.nucleo.fotograma()) hayImagen = true
       // En avance rápido el sonido se acelera (más agudo) en lugar de cortarse
-      this.altavoz.enviar(this.nucleo.audio(), this.frecuencia * this.velocidad)
+      this.altavoz.enviar(this.nucleo.audio(), this.frecuencia * this.velocidad * ritmoReal)
       if (this.conRebobinado && ++this.fotogramas % FOTOGRAMAS_POR_ESTADO === 0) {
         // Solo se copia el estado; compararlo y comprimirlo lo hace otro hilo
         const estado = this.nucleo.guardarEstado()

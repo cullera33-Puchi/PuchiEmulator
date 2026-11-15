@@ -53,3 +53,57 @@ export function factorRitmo(lleno: number, objetivo: number): number {
   const desvio = Math.max(-1, Math.min(1, (objetivo - lleno) / objetivo))
   return 1 + desvio * 0.01
 }
+
+/**
+ * Control del ritmo del sonido. El procesador de audio avisa de lo que le queda en cola cada 50 ms;
+ * entre aviso y aviso se estima restando lo que ya ha sonado por el tiempo pasado (si solo se
+ * sumara lo enviado, el tono subiría y bajaría 20 veces por segundo: suena metálico). El factor se
+ * suaviza para que tarde en torno a un segundo en cambiar.
+ */
+export class ControlRitmo {
+  private reportado = 0
+  private momento = 0
+  private enviados = 0
+  private factor = 1
+  private ultimo = 0
+  private readonly frecuenciaSalida: number
+  private readonly objetivo: number
+
+  constructor(frecuenciaSalida: number, objetivo: number) {
+    this.frecuenciaSalida = frecuenciaSalida
+    this.objetivo = objetivo
+  }
+
+  /** Aviso del procesador: pares que le quedan en cola, recibido en el momento `t` (ms). */
+  aviso(lleno: number, t: number): void {
+    this.reportado = lleno
+    this.momento = t
+    this.enviados = 0
+  }
+
+  /** Pares enviados al procesador después del último aviso. */
+  enviado(pares: number): void {
+    this.enviados += pares
+  }
+
+  /** Lo que se estima que queda en cola en el momento `t`. */
+  estimado(t: number): number {
+    return Math.max(0, this.reportado + this.enviados - ((t - this.momento) / 1000) * this.frecuenciaSalida)
+  }
+
+  /** Factor de ritmo para el bloque que se va a enviar en `t`, suavizado. */
+  siguiente(t: number): number {
+    const dt = this.ultimo ? Math.min(t - this.ultimo, 100) : 0
+    this.ultimo = t
+    const meta = factorRitmo(this.estimado(t), this.objetivo)
+    this.factor += (meta - this.factor) * Math.min(1, dt / 1000)
+    return this.factor
+  }
+
+  reiniciar(): void {
+    this.reportado = 0
+    this.enviados = 0
+    this.factor = 1
+    this.ultimo = 0
+  }
+}

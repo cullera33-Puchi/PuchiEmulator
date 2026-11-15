@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.11.1",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Arreglado el sonido metálico en GBA y Super Nintendo: el tono ya no tiembla.",
+      "El sonido de GBA suena más suave, como el altavoz de la consola."
+    ]
+  },
+  {
     "version": "0.11.0",
     "fecha": "15/11/2026",
     "cambios": [

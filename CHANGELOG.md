@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.11.1 (15/11/2026)
+
+- Sonido metálico en GBA y Super Nintendo (desde la 0.10.0): la cola del altavoz solo se conocía cada 50 ms y entre medias solo se sumaba lo enviado, así que el ajuste de ritmo bajaba y subía el tono unas 20 veces por segundo (0,47 %, unos 8 cents, en la simulación). Ahora `ControlRitmo` estima la cola de forma continua (restando lo que ya ha sonado) y suaviza el ajuste (en torno a un segundo); en sincronía con la pantalla, el altavoz recibe la velocidad real del juego desde el principio. Variación del tono en la simulación: menos del 0,02 %.
+- GBA: filtro de agudos de mGBA activado (60 %), como el altavoz de la consola.
+
 ## 0.11.0 (15/11/2026)
 
 - Nintendo DS en pruebas (paso 1 del plan: viabilidad). melonDS (libretro, commit `4081e835`, GPLv3) compilado a WebAssembly en un solo hilo, sin OpenGL y con su BIOS libre (1,4 MB). Medido en este servidor: 10,3 ms por fotograma en Node y 7,6 ms de media en el navegador, a 60 Hz sincronizados, con una ROM de prueba propia que mantiene el procesador al 100 %.

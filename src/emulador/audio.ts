@@ -3,7 +3,7 @@
  * deja sonar sin un gesto). Con «sonar en silencio», la sesión de audio de iOS pasa a reproducción
  * y suena aunque el interruptor de silencio esté activado.
  */
-import { factorRitmo, Remuestreador } from './remuestreo'
+import { ControlRitmo, Remuestreador } from './remuestreo'
 
 type SesionAudio = { type: string }
 
@@ -12,8 +12,8 @@ export class Altavoz {
   private nodo: AudioWorkletNode | null = null
   private ganancia: GainNode | null = null
   private remuestreo = new Remuestreador()
-  private lleno = 0
   private objetivo = 0
+  private ritmo: ControlRitmo | null = null
   private listo: Promise<void> | null = null
   silenciado = false
 
@@ -31,12 +31,13 @@ export class Altavoz {
       const ctx = this.contexto
       // Unos 70 ms en la cola: sin cortes y sin retraso que se note
       this.objetivo = Math.round(ctx.sampleRate * 0.07)
+      this.ritmo = new ControlRitmo(ctx.sampleRate, this.objetivo)
       this.listo = ctx.audioWorklet
         .addModule(`${import.meta.env.BASE_URL}procesador-audio.js`)
         .then(() => {
           this.nodo = new AudioWorkletNode(ctx, 'procesador-audio', { numberOfInputs: 0, outputChannelCount: [2] })
           this.nodo.port.onmessage = (e) => {
-            this.lleno = e.data as number
+            this.ritmo?.aviso(e.data as number, performance.now())
           }
           this.nodo.port.postMessage({ tipo: 'maximo', pares: this.objetivo * 4 })
           this.ganancia = ctx.createGain()
@@ -60,20 +61,23 @@ export class Altavoz {
     if (this.ganancia) this.ganancia.gain.value = silencio ? 0 : 1
   }
 
-  /** Muestras de un fotograma, a la frecuencia del núcleo. */
+  /**
+   * Muestras de un fotograma. `frecuencia` es la del núcleo multiplicada por lo rápido que va de
+   * verdad (avance rápido, o el ajuste a la pantalla cuando va sincronizado).
+   */
   enviar(muestras: Int16Array, frecuencia: number): void {
-    if (!this.nodo || !this.contexto || muestras.length === 0) return
-    const paso = (frecuencia / this.contexto.sampleRate) / factorRitmo(this.lleno, this.objetivo)
+    if (!this.nodo || !this.contexto || !this.ritmo || muestras.length === 0) return
+    const paso = frecuencia / this.contexto.sampleRate / this.ritmo.siguiente(performance.now())
     const salida = this.remuestreo.procesar(muestras, paso)
     if (salida.length) {
-      this.lleno += salida.length >> 1
+      this.ritmo.enviado(salida.length >> 1)
       this.nodo.port.postMessage({ tipo: 'muestras', muestras: salida }, [salida.buffer])
     }
   }
 
   vaciar(): void {
     this.remuestreo.reiniciar()
-    this.lleno = 0
+    this.ritmo?.reiniciar()
     this.nodo?.port.postMessage({ tipo: 'vaciar' })
   }
 

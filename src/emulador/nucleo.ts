@@ -61,6 +61,9 @@ const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     mgba_gb_model: 'Autodetect',
     mgba_idle_optimization: 'Remove Known',
     mgba_frameskip: 'disabled',
+    // Filtro de agudos, como el altavoz de la consola: sin él, el sonido de GBA es chillón
+    mgba_audio_low_pass_filter: 'enabled',
+    mgba_audio_low_pass_range: '60',
   },
   snes9x: {
     snes9x_region: 'auto',
