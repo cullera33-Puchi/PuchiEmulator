@@ -7,7 +7,7 @@
  *   segundo), al pausar y al salir.
  * - Al salir o al pasar la app a segundo plano se guarda un estado «auto» para seguir donde se dejó.
  */
-import { guardarEstado, guardarPartida, leerEstado, leerPartida, type Juego, type Ranura } from '../lib/almacen'
+import { guardarEstado, guardarPartida, guardarSesionJuego, leerEstado, leerPartida, type Juego, type Ranura } from '../lib/almacen'
 import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
@@ -20,6 +20,10 @@ const MAX_FOTOGRAMAS_SEGUIDOS = 4
 const FOTOGRAMAS_POR_ESTADO = 10
 /** Al rebobinar, un estado cada 50 ms: va unas tres veces más rápido que el juego */
 const MS_POR_ESTADO_ATRAS = 50
+/** Sin tocar ningún botón durante este tiempo, el reloj de tiempo jugado se para */
+export const INACTIVIDAD_MS = 10 * 60_000
+/** Cada cuánto se guarda el tiempo jugado mientras se juega */
+const GUARDAR_TIEMPO_MS = 30_000
 
 function iguales(a: Uint8Array, b: Uint8Array | null): boolean {
   if (!b || a.length !== b.length) return false
@@ -63,6 +67,14 @@ export class Sesion {
   private readonly rebobinado = new Rebobinado()
   /** Estado de justo antes de la última carga, para «Deshacer» */
   private antesDeCargar: Uint8Array | null = null
+  /** Tiempo jugado en esta sesión (sin pausas ni inactividad) */
+  private msJugados = 0
+  private inicioSesion = 0
+  private ultimaActividad = 0
+  private ultimaMascara = 0
+  private idSesion: number | undefined
+  private ultimoGuardadoTiempo = 0
+  private guardandoTiempo: Promise<void> = Promise.resolve()
 
   private readonly o: OpcionesSesion
 
@@ -119,6 +131,8 @@ export class Sesion {
     void this.altavoz.activar(sonarEnSilencio)
     if (this.corriendo) return
     this.corriendo = true
+    this.ultimaActividad = Date.now()
+    this.inicioSesion ||= Date.now()
     this.ultimo = performance.now()
     this.acumulado = 0
     this.peticion = requestAnimationFrame(this.bucle)
@@ -133,6 +147,44 @@ export class Sesion {
     this.corriendo = false
     cancelAnimationFrame(this.peticion)
     this.altavoz.pausar()
+    void this.guardarTiempo()
+  }
+
+  /** Tiempo jugado en esta sesión, en ms. */
+  get tiempoJugado(): number {
+    return this.msJugados
+  }
+
+  private contarTiempo(dt: number, mascara: number): void {
+    const ahora = Date.now()
+    if (mascara !== this.ultimaMascara) {
+      this.ultimaMascara = mascara
+      this.ultimaActividad = ahora
+    }
+    // Con el juego abierto pero sin tocarlo un buen rato (por ejemplo, el iPhone en la mesa), no cuenta
+    if (ahora - this.ultimaActividad < INACTIVIDAD_MS) this.msJugados += dt
+    if (ahora - this.ultimoGuardadoTiempo > GUARDAR_TIEMPO_MS) void this.guardarTiempo()
+  }
+
+  /** Guarda (o actualiza) la sesión de juego con el tiempo jugado hasta ahora. */
+  guardarTiempo(): Promise<void> {
+    if (this.msJugados < 1000 || !this.inicioSesion) return this.guardandoTiempo
+    this.ultimoGuardadoTiempo = Date.now()
+    const { juego } = this.o
+    this.guardandoTiempo = this.guardandoTiempo
+      .then(async () => {
+        this.idSesion = await guardarSesionJuego({
+          id: this.idSesion,
+          juegoId: juego.id,
+          nombre: juego.nombre,
+          sistema: juego.sistema,
+          inicio: this.inicioSesion,
+          fin: Date.now(),
+          ms: Math.round(this.msJugados),
+        })
+      })
+      .catch((e) => registrar('error', 'No se pudo guardar el tiempo jugado', (e as Error)?.message))
+    return this.guardandoTiempo
   }
 
   private bucle = (ahora: number) => {
@@ -141,12 +193,13 @@ export class Sesion {
     // Tras un parón largo (la app en segundo plano) no se intenta recuperar el tiempo perdido
     const dt = Math.min(ahora - this.ultimo, 250)
     this.ultimo = ahora
+    const mascara = this.botonesTactil | this.botonesTeclado | this.botonesMandos()
+    this.contarTiempo(dt, mascara | (this.rebobinando ? 1 << 30 : 0) | (this.velocidad > 1 ? 1 << 29 : 0))
     if (this.rebobinando) {
       this.irAtras(dt)
       return
     }
     this.acumulado += dt * this.velocidad
-    const mascara = this.botonesTactil | this.botonesTeclado | this.botonesMandos()
     let hayImagen = false
     let hechos = 0
     while (this.acumulado >= this.paso && hechos < MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad) {
@@ -306,7 +359,7 @@ export class Sesion {
   /** Al pasar a segundo plano: partida y estado «auto» al iPhone. */
   async guardarTodo(): Promise<void> {
     if (this.cerrada) return
-    await Promise.all([this.guardarPartidaSiCambia(), this.guardarEstado('auto').catch(() => false)])
+    await Promise.all([this.guardarPartidaSiCambia(), this.guardarEstado('auto').catch(() => false), this.guardarTiempo()])
   }
 
   async cerrar(): Promise<void> {

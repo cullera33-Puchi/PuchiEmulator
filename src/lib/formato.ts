@@ -23,3 +23,17 @@ export function cuando(fecha: number, ahora = Date.now()): string {
   if (d.getFullYear() !== hoy.getFullYear()) opciones.year = 'numeric'
   return `${d.toLocaleDateString('es-ES', opciones)} a las ${hora}`
 }
+
+/** «hoy», «ayer» o «12 nov.». */
+export function cuandoCorto(fecha: number, ahora = Date.now()): string {
+  const d = new Date(fecha)
+  const hoy = new Date(ahora)
+  const mismoDia = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+  if (mismoDia(d, hoy)) return 'hoy'
+  const ayer = new Date(hoy)
+  ayer.setDate(hoy.getDate() - 1)
+  if (mismoDia(d, ayer)) return 'ayer'
+  const opciones: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }
+  if (d.getFullYear() !== hoy.getFullYear()) opciones.year = 'numeric'
+  return d.toLocaleDateString('es-ES', opciones)
+}

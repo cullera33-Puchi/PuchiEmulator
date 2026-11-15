@@ -95,7 +95,7 @@ test('teclado, estados guardados, salir y seguir donde se dejó', async ({ page 
 
   await page.getByRole('button', { name: 'Menú' }).click()
   await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
-  await expect(page.getByText(/Jugado hoy/)).toBeVisible()
+  await expect(page.getByText(/(\d+ s|min), hoy|Jugado hoy/)).toBeVisible()
 
   // Opciones del juego: hay estado «auto» para seguir
   await page.getByRole('button', { name: /Opciones de/ }).click()
@@ -521,4 +521,43 @@ test('pantalla grande: en vertical, la imagen de GBA de borde a borde; sin ella,
   await page.getByRole('button', { name: 'Volver al menú' }).click()
   await page.getByRole('button', { name: 'Seguir jugando' }).click()
   expect((await page.getByTestId('pantalla').boundingBox())!.width).toBeLessThan(ancho - 30)
+})
+
+test('tiempo jugado: se cuenta al jugar y se ve en la biblioteca, el detalle y las estadísticas', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Estadísticas' })).toHaveCount(0)
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await pulsar(page, 'A', 3000)
+  await page.mouse.up()
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await expect(page.getByText(/Llevas \d+ s en esta partida/)).toBeVisible()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+
+  // En la ficha del juego y en su detalle
+  await expect(page.getByTestId('biblioteca').getByText(/^\d+ s, hoy$/)).toBeVisible()
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  await expect(page.getByText(/^\d+ s en 1 partida$/)).toBeVisible()
+  // Pasada la guardia contra toques fantasma, tocar el fondo cierra la hoja
+  await page.waitForTimeout(500)
+  await page.mouse.click(200, 40)
+  await expect(page.getByRole('dialog')).toBeHidden()
+
+  // En las estadísticas
+  await page.getByRole('button', { name: 'Consolas' }).click()
+  await page.getByRole('button', { name: 'Estadísticas' }).click()
+  await expect(page.getByTestId('total')).toContainText(/\d+ s/)
+  await expect(page.getByText('1', { exact: true }).first()).toBeVisible()
+  await expect(page.getByTestId('tus-juegos')).toContainText('prueba')
+  await expect(page.getByTestId('por-consola')).toContainText('Game Boy Advance')
+  // Al tocar la columna de hoy se ve su tiempo
+  await page.getByTestId('grafico-tiempo').getByRole('button').last().click()
+  await expect(page.getByTestId('grafico-tiempo')).toContainText(/: \d+ s/)
+  for (const periodo of ['Mes', 'Año', 'Siempre']) {
+    await page.getByRole('radio', { name: periodo }).click()
+    await expect(page.getByTestId('total')).toContainText(/\d+ s/)
+  }
+  await page.getByRole('button', { name: 'Consolas' }).click()
+  await expect(page.getByRole('button', { name: 'Estadísticas' })).toContainText(/Esta semana, \d+ s jugadas/)
 })

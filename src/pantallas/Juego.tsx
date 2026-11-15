@@ -12,6 +12,7 @@ import { Sesion } from '../emulador/sesion'
 import { aplicarTema, cambiarAjustes, useAjustes } from '../lib/ajustes'
 import { actualizarJuego, estadosDe, leerEstado, leerJuego, leerRomGuardada, type Estado, type Ranura } from '../lib/almacen'
 import { cuando } from '../lib/formato'
+import { duracion } from '../lib/estadisticas'
 import { registrar } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { paletaPara, temaPara } from '../lib/temas'
@@ -354,7 +355,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             <RotateCcw size={20} className="text-acento dark:text-acento-oscuro" /> Reiniciar
           </button>
         </div>
-        <p className="pie-grupo">La partida que guardas dentro del juego se guarda sola en el iPhone.</p>
+        <p className="pie-grupo">
+          {menu && (sesion.current?.tiempoJugado ?? 0) >= 1000 ? `Llevas ${duracion(sesion.current?.tiempoJugado ?? 0)} en esta partida. ` : ''}
+          La partida que guardas dentro del juego se guarda sola en el iPhone.
+        </p>
         <div className="lista mt-4">
           <button className="fila text-red-600 dark:text-red-500" onClick={salir}>
             <X size={20} /> Salir a la biblioteca

@@ -8,6 +8,7 @@
  * El identificador de un juego es el SHA-1 de su ROM: si se quita de la biblioteca y se vuelve a
  * añadir, encuentra su partida.
  */
+import type { SesionJuego } from './estadisticas'
 import type { Sistema } from './sistemas'
 
 export interface Juego {
@@ -51,8 +52,8 @@ export interface Caratula {
 }
 
 const NOMBRE = 'puchiemulator'
-/** 1: juegos, roms, partidas y estados. 2: carátulas. */
-const VERSION = 2
+/** 1: juegos, roms, partidas y estados. 2: carátulas. 3: sesiones de juego (tiempo jugado). */
+const VERSION = 3
 
 let abierta: Promise<IDBDatabase> | null = null
 
@@ -69,6 +70,10 @@ function abrir(): Promise<IDBDatabase> {
         estados.createIndex('id', 'id')
       }
       if (!bd.objectStoreNames.contains('caratulas')) bd.createObjectStore('caratulas', { keyPath: 'id' })
+      if (!bd.objectStoreNames.contains('sesiones')) {
+        const sesiones = bd.createObjectStore('sesiones', { keyPath: 'id', autoIncrement: true })
+        sesiones.createIndex('juegoId', 'juegoId')
+      }
     }
     peticion.onsuccess = () => {
       const bd = peticion.result
@@ -178,6 +183,34 @@ export async function borrarCaratula(id: string): Promise<void> {
   const tx = bd.transaction('caratulas', 'readwrite')
   tx.objectStore('caratulas').delete(id)
   await terminar(tx)
+}
+
+/* ---- Sesiones de juego (tiempo jugado) ---- */
+
+export function listarSesiones(): Promise<SesionJuego[]> {
+  return todos<SesionJuego>('sesiones')
+}
+
+/** Guarda o actualiza una sesión y devuelve su identificador. */
+export async function guardarSesionJuego(s: SesionJuego): Promise<number> {
+  const bd = await abrir()
+  const tx = bd.transaction('sesiones', 'readwrite')
+  const valor = s.id === undefined ? (({ id: _id, ...resto }) => resto)(s) : s
+  const p = tx.objectStore('sesiones').put(valor)
+  await terminar(tx)
+  return p.result as number
+}
+
+/** Añade sesiones de una copia sin repetir las que ya están (mismo juego y misma hora de inicio). */
+export async function importarSesiones(sesiones: SesionJuego[]): Promise<number> {
+  const existentes = new Set((await listarSesiones()).map((s) => `${s.juegoId}:${s.inicio}`))
+  const nuevas = sesiones.filter((s) => !existentes.has(`${s.juegoId}:${s.inicio}`))
+  if (!nuevas.length) return 0
+  const bd = await abrir()
+  const tx = bd.transaction('sesiones', 'readwrite')
+  for (const { id: _id, ...s } of nuevas) tx.objectStore('sesiones').add(s)
+  await terminar(tx)
+  return nuevas.length
 }
 
 /* ---- Partidas ---- */

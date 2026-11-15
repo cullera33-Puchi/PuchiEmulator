@@ -4,13 +4,16 @@
  */
 import {
   importarProgreso,
+  importarSesiones,
   listarEstados,
   listarJuegos,
   listarPartidas,
+  listarSesiones,
   type Estado,
   type Partida,
   type Ranura,
 } from './almacen'
+import type { SesionJuego } from './estadisticas'
 import type { Sistema } from './sistemas'
 
 export const FORMATO = 'puchiemulator-partidas'
@@ -40,6 +43,8 @@ export interface ArchivoPartidas {
   app: string
   partidas: PartidaArchivo[]
   estados: EstadoArchivo[]
+  /** Tiempo jugado (desde la v0.6.0; los archivos anteriores no lo traen) */
+  sesiones?: SesionJuego[]
 }
 
 export function aBase64(buffer: ArrayBuffer): string {
@@ -59,7 +64,7 @@ export function deBase64(texto: string): ArrayBuffer {
 }
 
 export async function crearArchivo(conEstados: boolean, version: string): Promise<ArchivoPartidas> {
-  const [juegos, partidas, estados] = await Promise.all([listarJuegos(), listarPartidas(), conEstados ? listarEstados() : Promise.resolve([])])
+  const [juegos, partidas, estados, sesiones] = await Promise.all([listarJuegos(), listarPartidas(), conEstados ? listarEstados() : Promise.resolve([]), listarSesiones()])
   const porId = new Map(juegos.map((j) => [j.id, j]))
   return {
     formato: FORMATO,
@@ -81,6 +86,7 @@ export async function crearArchivo(conEstados: boolean, version: string): Promis
       fecha: e.fecha,
       captura: e.captura ? aBase64(e.captura) : undefined,
     })),
+    sesiones: sesiones.map(({ id: _id, ...s }) => s),
   }
 }
 
@@ -89,7 +95,7 @@ export class ErrorArchivo extends Error {}
 const RANURAS: Ranura[] = ['auto', 'rapida', '1', '2', '3']
 
 /** Comprueba y convierte un archivo leído. Lanza ErrorArchivo con un mensaje para el usuario. */
-export function leerArchivo(texto: string): { partidas: Partida[]; estados: Estado[] } {
+export function leerArchivo(texto: string): { partidas: Partida[]; estados: Estado[]; sesiones: SesionJuego[] } {
   let datos: unknown
   try {
     datos = JSON.parse(texto)
@@ -117,14 +123,20 @@ export function leerArchivo(texto: string): { partidas: Partida[]; estados: Esta
       captura: e.captura ? deBase64(e.captura) : undefined,
     })
   }
-  return { partidas, estados }
+  const sesiones: SesionJuego[] = []
+  for (const x of a.sesiones ?? []) {
+    if (!valido(x.juegoId) || !Number.isFinite(x.inicio) || !Number.isFinite(x.fin) || !Number.isFinite(x.ms) || x.ms < 0) throw new ErrorArchivo('La copia está dañada.')
+    sesiones.push({ juegoId: x.juegoId, nombre: String(x.nombre ?? ''), sistema: x.sistema, inicio: x.inicio, fin: x.fin, ms: x.ms })
+  }
+  return { partidas, estados, sesiones }
 }
 
 /** Importa una copia: sustituye la partida y los estados de los juegos que vienen en ella. */
-export async function importarArchivo(texto: string): Promise<{ partidas: number; estados: number }> {
-  const { partidas, estados } = leerArchivo(texto)
+export async function importarArchivo(texto: string): Promise<{ partidas: number; estados: number; sesiones: number }> {
+  const { partidas, estados, sesiones } = leerArchivo(texto)
   await importarProgreso(partidas, estados)
-  return { partidas: partidas.length, estados: estados.length }
+  const nuevas = await importarSesiones(sesiones)
+  return { partidas: partidas.length, estados: estados.length, sesiones: nuevas }
 }
 
 export function nombreArchivo(fecha = new Date()): string {

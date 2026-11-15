@@ -12,12 +12,13 @@ import { registrar } from './lib/registro'
 import { cargarNovedades, novedadesPosteriores, type Novedad } from './lib/version'
 import { Ajustes } from './pantallas/Ajustes'
 import { Biblioteca } from './pantallas/Biblioteca'
+import { Estadisticas } from './pantallas/Estadisticas'
 import { Inicio } from './pantallas/Inicio'
 import { Juego } from './pantallas/Juego'
 import type { Juego as TipoJuego } from './lib/almacen'
 import type { Sistema } from './lib/sistemas'
 
-type Pantalla = { tipo: 'inicio' } | { tipo: 'biblioteca'; sistema: Sistema } | { tipo: 'ajustes' } | { tipo: 'juego'; id: string; reanudar: boolean; sistema: Sistema }
+type Pantalla = { tipo: 'inicio' } | { tipo: 'estadisticas' } | { tipo: 'biblioteca'; sistema: Sistema } | { tipo: 'ajustes' } | { tipo: 'juego'; id: string; reanudar: boolean; sistema: Sistema }
 
 const DOS_HORAS = 2 * 60 * 60 * 1000
 
@@ -139,9 +140,10 @@ function Pantallas() {
   return (
     <>
       {pantalla.tipo === 'inicio' && (
-        <Inicio alAbrirConsola={(sistema) => setPantalla({ tipo: 'biblioteca', sistema })} alJugar={jugar} alAjustes={() => setPantalla({ tipo: 'ajustes' })} />
+        <Inicio alEstadisticas={() => setPantalla({ tipo: 'estadisticas' })} alAbrirConsola={(sistema) => setPantalla({ tipo: 'biblioteca', sistema })} alJugar={jugar} alAjustes={() => setPantalla({ tipo: 'ajustes' })} />
       )}
       {pantalla.tipo === 'biblioteca' && <Biblioteca sistema={pantalla.sistema} alJugar={jugar} alVolver={() => setPantalla({ tipo: 'inicio' })} />}
+      {pantalla.tipo === 'estadisticas' && <Estadisticas alVolver={() => setPantalla({ tipo: 'inicio' })} />}
       {pantalla.tipo === 'ajustes' && <Ajustes alVolver={() => setPantalla({ tipo: 'inicio' })} />}
       {pantalla.tipo === 'juego' && <Juego id={pantalla.id} reanudar={pantalla.reanudar} alSalir={() => setPantalla({ tipo: 'biblioteca', sistema: pantalla.sistema })} />}
       <AvisoVersion visible={pantalla.tipo !== 'juego'} />

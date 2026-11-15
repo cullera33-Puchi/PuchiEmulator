@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { _reiniciarConexion, guardarEstado, guardarPartida, leerEstado, leerPartida, leerRomGuardada, listarJuegos, quitarJuego } from './almacen'
+import { _reiniciarConexion, guardarEstado, guardarPartida, guardarSesionJuego, leerEstado, leerPartida, leerRomGuardada, listarJuegos, listarSesiones, quitarJuego } from './almacen'
 import { anadirFichero, sha1 } from './biblioteca'
 import { crearArchivo, ErrorArchivo, importarArchivo, leerArchivo } from './copias'
 
@@ -67,13 +67,31 @@ describe('copia de partidas', () => {
     })
     expect(await leerPartida(id)).toBeUndefined()
 
-    expect(await importarArchivo(texto)).toEqual({ partidas: 1, estados: 1 })
+    expect(await importarArchivo(texto)).toEqual({ partidas: 1, estados: 1, sesiones: 0 })
     const p = await leerPartida(id)
     expect(new Uint8Array(p!.datos)).toEqual(new Uint8Array([9, 8, 7]))
     expect(new Uint8Array(p!.rtc!)).toEqual(new Uint8Array([1]))
     const e = await leerEstado(id, '2')
     expect(e?.datos.byteLength).toBe(70000)
     expect(new Uint8Array(e!.datos)[69999]).toBe(5)
+  })
+
+  it('la copia lleva el tiempo jugado y al recuperarla no se duplican sesiones', async () => {
+    const s = { juegoId: id, nombre: 'Juego', sistema: 'gba' as const, inicio: 1000, fin: 61000, ms: 60000 }
+    const nuevo = await guardarSesionJuego(s)
+    expect(typeof nuevo).toBe('number')
+    // Actualizar la misma sesión no crea otra
+    await guardarSesionJuego({ ...s, id: nuevo, fin: 91000, ms: 90000 })
+    expect(await listarSesiones()).toHaveLength(1)
+    const texto = JSON.stringify(await crearArchivo(false, '0.6.0'))
+    expect((await importarArchivo(texto)).sesiones).toBe(0)
+    _reiniciarConexion()
+    await new Promise<void>((r) => {
+      const p = indexedDB.deleteDatabase('puchiemulator')
+      p.onsuccess = () => r()
+    })
+    expect((await importarArchivo(texto)).sesiones).toBe(1)
+    expect((await listarSesiones())[0]).toMatchObject({ juegoId: id, ms: 90000 })
   })
 
   it('sin estados, la copia solo lleva las partidas', async () => {

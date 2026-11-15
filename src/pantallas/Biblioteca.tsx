@@ -26,11 +26,13 @@ import {
   leerRomGuardada,
   listarCaratulas,
   listarJuegos,
+  listarSesiones,
   quitarJuego,
   type Juego,
 } from '../lib/almacen'
 import { ordenarJuegos } from '../lib/biblioteca'
-import { cuando, tamano } from '../lib/formato'
+import { duracion, porJuego } from '../lib/estadisticas'
+import { cuando, cuandoCorto, plural, tamano } from '../lib/formato'
 import { vibrar } from '../lib/vibracion'
 import { registrar } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
@@ -41,8 +43,14 @@ interface Props {
   alVolver: () => void
 }
 
+interface Tiempo {
+  ms: number
+  sesiones: number
+}
+
 interface Detalle {
   juego: Juego
+  tiempo?: Tiempo
   partida?: number
   estado?: number
   caratula: boolean
@@ -79,7 +87,7 @@ function usePulsacionLarga(alMantener: () => void) {
   }
 }
 
-function Ficha({ juego, caratula, alJugar, alOpciones }: { juego: Juego; caratula?: string; alJugar: () => void; alOpciones: () => void }) {
+function Ficha({ juego, caratula, tiempo, alJugar, alOpciones }: { juego: Juego; caratula?: string; tiempo?: Tiempo; alJugar: () => void; alOpciones: () => void }) {
   const s = SISTEMAS[juego.sistema]
   const larga = usePulsacionLarga(alOpciones)
   const { fueLarga, ...gestos } = larga
@@ -107,7 +115,7 @@ function Ficha({ juego, caratula, alJugar, alOpciones }: { juego: Juego; caratul
       <div className="mt-1.5 flex items-start gap-0.5">
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-[13px] leading-tight">{juego.nombre}</p>
-          <p className="truncate text-[11px] text-zinc-500">{juego.ultimaVez ? `Jugado ${cuando(juego.ultimaVez)}` : 'Sin jugar'}</p>
+          <p className="truncate text-[11px] text-zinc-500">{tiempo?.ms ? `${duracion(tiempo.ms)}${juego.ultimaVez ? `, ${cuandoCorto(juego.ultimaVez)}` : ''}` : juego.ultimaVez ? `Jugado ${cuandoCorto(juego.ultimaVez)}` : 'Sin jugar'}</p>
         </div>
         <button className="-mt-2 -mr-2 grid size-10 shrink-0 place-items-center text-zinc-500 active:opacity-50" aria-label={`Opciones de ${juego.nombre}`} onClick={alOpciones}>
           <Ellipsis size={18} />
@@ -122,6 +130,7 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
   const [juegos, setJuegos] = useState<Juego[] | null>(null)
   const [conEstado, setConEstado] = useState<Set<string>>(new Set())
   const [caratulas, setCaratulas] = useState<Map<string, string>>(new Map())
+  const [tiempos, setTiempos] = useState<Map<string, Tiempo>>(new Map())
   const [detalle, setDetalle] = useState<Detalle | null>(null)
   const [eligiendoCaratula, setEligiendoCaratula] = useState<Juego | null>(null)
   const pantalla = useRef<HTMLDivElement>(null)
@@ -130,7 +139,8 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
 
   const recargar = useCallback(async () => {
     const lista = ordenarJuegos((await listarJuegos()).filter((j) => j.sistema === sistema))
-    const [estados, imagenes] = await Promise.all([Promise.all(lista.map((j) => leerEstado(j.id, 'auto'))), listarCaratulas()])
+    const [estados, imagenes, sesiones] = await Promise.all([Promise.all(lista.map((j) => leerEstado(j.id, 'auto'))), listarCaratulas(), listarSesiones()])
+    setTiempos(new Map(porJuego(sesiones).map((f) => [f.juegoId, { ms: f.ms, sesiones: f.sesiones }])))
     setConEstado(new Set(lista.filter((_, i) => estados[i]).map((j) => j.id)))
     setCaratulas((antes) => {
       antes.forEach((u) => URL.revokeObjectURL(u))
@@ -154,7 +164,7 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
 
   const abrirDetalle = async (juego: Juego) => {
     const [p, e, c] = await Promise.all([leerPartida(juego.id), leerEstado(juego.id, 'auto'), leerCaratula(juego.id)])
-    setDetalle({ juego, partida: p?.fecha, estado: e?.fecha, caratula: !!c })
+    setDetalle({ juego, partida: p?.fecha, estado: e?.fecha, caratula: !!c, tiempo: tiempos.get(juego.id) })
   }
 
   const renombrar = async (j: Juego) => {
@@ -231,6 +241,7 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
                 key={j.id}
                 juego={j}
                 caratula={caratulas.get(j.id)}
+                tiempo={tiempos.get(j.id)}
                 alJugar={() => jugar(j, conEstado.has(j.id))}
                 alOpciones={() => void abrirDetalle(j)}
               />
@@ -289,6 +300,8 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
               <Dato titulo="Tamaño" valor={tamano(detalle.juego.tam)} />
               <div className="separador" />
               <Dato titulo="Partida guardada" valor={detalle.partida ? cuando(detalle.partida) : 'Ninguna'} />
+              <div className="separador" />
+              <Dato titulo="Tiempo jugado" valor={detalle.tiempo?.ms ? `${duracion(detalle.tiempo.ms)} en ${plural(detalle.tiempo.sesiones, 'partida', 'partidas')}` : 'Aún nada'} />
             </div>
 
             <div className="lista mt-5">

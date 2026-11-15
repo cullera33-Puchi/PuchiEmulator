@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.6.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Tiempo jugado en cada juego: lo ves debajo de su carátula y en sus opciones.",
+      "Nueva pantalla de Estadísticas, desde el inicio: tiempo por semana, mes o año, tus juegos más jugados, por consola, a qué hora juegas, rachas y récords.",
+      "El reloj solo cuenta con el juego en marcha y se para si pasas 10 minutos sin tocar nada.",
+      "La copia de partidas en Archivos lleva también el tiempo jugado."
+    ]
+  },
+  {
     "version": "0.5.0",
     "fecha": "15/11/2026",
     "cambios": [

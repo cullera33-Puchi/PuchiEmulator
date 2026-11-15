@@ -2,14 +2,15 @@
  * Pantalla de inicio: «Seguir jugando» con el último juego y una tarjeta por consola, con su dibujo
  * o una foto del usuario y cuántos juegos tiene. Tocar una consola abre su biblioteca.
  */
-import { ChevronRight, Ellipsis, Play, Plus, Settings } from 'lucide-react'
+import { BarChart3, ChevronRight, Ellipsis, Play, Plus, Settings } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAnadirJuegos } from '../componentes/AnadirJuegos'
 import { DibujoConsola } from '../componentes/Consolas'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
 import { altavoz } from '../emulador/audio'
 import { leerAjustes } from '../lib/ajustes'
-import { borrarCaratula, guardarCaratula, leerCaratula, leerEstado, listarCaratulas, listarJuegos, type Juego } from '../lib/almacen'
+import { borrarCaratula, guardarCaratula, leerCaratula, leerEstado, listarCaratulas, listarJuegos, listarSesiones, type Juego } from '../lib/almacen'
+import { delPeriodo, duracion, total, type SesionJuego } from '../lib/estadisticas'
 import { reducirImagen } from '../lib/caratulas'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { cuando, plural } from '../lib/formato'
@@ -17,6 +18,7 @@ import { registrar } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
 
 interface Props {
+  alEstadisticas: () => void
   alAbrirConsola: (s: Sistema) => void
   alJugar: (juego: Juego, reanudar: boolean) => void
   alAjustes: () => void
@@ -25,16 +27,18 @@ interface Props {
 const CONSOLAS: Sistema[] = ['gb', 'gbc', 'gba']
 export const claveFotoConsola = (s: Sistema) => `consola-${s}`
 
-export function Inicio({ alAbrirConsola, alJugar, alAjustes }: Props) {
+export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: Props) {
   const { avisar } = useInterfaz()
   const [juegos, setJuegos] = useState<Juego[] | null>(null)
   const [ultimo, setUltimo] = useState<{ juego: Juego; caratula?: string; reanudar: boolean } | null>(null)
   const [fotos, setFotos] = useState<Map<string, string>>(new Map())
   const [opciones, setOpciones] = useState<Sistema | null>(null)
+  const [sesiones, setSesiones] = useState<SesionJuego[]>([])
   const selectorFoto = useRef<HTMLInputElement>(null)
 
   const recargar = useCallback(async () => {
-    const [lista, imagenes] = await Promise.all([listarJuegos(), listarCaratulas()])
+    const [lista, imagenes, ses] = await Promise.all([listarJuegos(), listarCaratulas(), listarSesiones()])
+    setSesiones(ses)
     const urls = new Map(imagenes.map((c) => [c.id, URL.createObjectURL(new Blob([c.datos], { type: 'image/jpeg' }))]))
     setFotos((antes) => {
       antes.forEach((u) => URL.revokeObjectURL(u))
@@ -59,6 +63,8 @@ export function Inicio({ alAbrirConsola, alJugar, alAjustes }: Props) {
   }, [recargar])
 
   const anadir = useAnadirJuegos(recargar)
+
+  const tiempoDe = (id: string) => sesiones.filter((x) => x.juegoId === id).reduce((a, x) => a + x.ms, 0)
 
   const cuantos = (s: Sistema) => juegos?.filter((j) => j.sistema === s).length ?? 0
 
@@ -120,12 +126,26 @@ export function Inicio({ alAbrirConsola, alJugar, alAjustes }: Props) {
               <span className="block truncate text-[13px] text-zinc-500">
                 {SISTEMAS[ultimo.juego.sistema].nombre}, {cuando(ultimo.juego.ultimaVez ?? 0)}
               </span>
+              {tiempoDe(ultimo.juego.id) > 0 && <span className="block truncate text-[13px] text-zinc-500">{duracion(tiempoDe(ultimo.juego.id))} jugadas</span>}
             </span>
             <span className="grid size-10 shrink-0 place-items-center rounded-full bg-acento text-white dark:bg-acento-oscuro">
               <Play size={20} fill="currentColor" />
             </span>
           </button>
         </>
+      )}
+
+      {sesiones.length > 0 && (
+        <button className="lista mb-6 flex w-full items-center gap-3 p-3 text-left active:opacity-70" onClick={alEstadisticas} aria-label="Estadísticas">
+          <span className="grid size-11 shrink-0 place-items-center rounded-[10px] bg-acento text-white dark:bg-acento-oscuro">
+            <BarChart3 size={24} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[17px] font-semibold">Estadísticas</span>
+            <span className="block truncate text-[13px] text-zinc-500">Esta semana, {duracion(total(delPeriodo(sesiones, 'semana', Date.now())))} jugadas</span>
+          </span>
+          <ChevronRight size={18} className="text-zinc-400" />
+        </button>
       )}
 
       <div className="flex flex-col gap-3" data-testid="consolas">
