@@ -13,7 +13,8 @@ import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
 import { botonesDeMando } from './botones'
 import { Nucleo } from './nucleo'
-import { Rebobinado } from './rebobinado'
+import { Historial } from './historial'
+import { planRitmo, Refresco } from './ritmo'
 
 const MAX_FOTOGRAMAS_SEGUIDOS = 4
 /** Cada cuántos fotogramas se guarda un estado para rebobinar (unos 6 por segundo) */
@@ -64,7 +65,13 @@ export class Sesion {
   private rebobinando = false
   private acumuladoAtras = 0
   private fotogramas = 0
-  private readonly rebobinado = new Rebobinado()
+  private readonly historial = new Historial()
+  /** Hay una petición de estado anterior en marcha (rebobinar va al ritmo al que responde el hilo) */
+  private pidiendoAnterior = false
+  private readonly refresco = new Refresco()
+  private refrescos = 0
+  /** Medidas de rendimiento, para el registro */
+  private medida = { inicio: 0, refrescos: 0, trabajo: 0, maximo: 0, largos: 0 }
   /** Estado de justo antes de la última carga, para «Deshacer» */
   private antesDeCargar: Uint8Array | null = null
   /** Tiempo jugado en esta sesión (sin pausas ni inactividad) */
@@ -135,6 +142,7 @@ export class Sesion {
     this.inicioSesion ||= Date.now()
     this.ultimo = performance.now()
     this.acumulado = 0
+    this.medida = { inicio: performance.now(), refrescos: 0, trabajo: 0, maximo: 0, largos: 0 }
     this.peticion = requestAnimationFrame(this.bucle)
   }
 
@@ -193,49 +201,82 @@ export class Sesion {
     // Tras un parón largo (la app en segundo plano) no se intenta recuperar el tiempo perdido
     const dt = Math.min(ahora - this.ultimo, 250)
     this.ultimo = ahora
+    this.refresco.medir(dt)
     const mascara = this.botonesTactil | this.botonesTeclado | this.botonesMandos()
     this.contarTiempo(dt, mascara | (this.rebobinando ? 1 << 30 : 0) | (this.velocidad > 1 ? 1 << 29 : 0))
     if (this.rebobinando) {
       this.irAtras(dt)
       return
     }
-    this.acumulado += dt * this.velocidad
+    const t0 = performance.now()
+
+    // Cuántos fotogramas tocan en este refresco: fijo si la consola va casi al ritmo de la pantalla
+    // (movimiento regular), o por tiempo si no
+    let toca: number
+    const plan = planRitmo(1000 / this.paso, this.refresco.ms)
+    if (plan.modo === 'sincronizado' && dt < this.refresco.ms * 3) {
+      this.acumulado = 0
+      toca = ++this.refrescos % plan.cadaRefrescos === 0 ? plan.porRefresco * this.velocidad : 0
+    } else {
+      this.acumulado += dt * this.velocidad
+      toca = Math.min(Math.floor(this.acumulado / this.paso), MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad)
+      this.acumulado = toca === MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad ? 0 : this.acumulado - toca * this.paso
+    }
+
     let hayImagen = false
-    let hechos = 0
-    while (this.acumulado >= this.paso && hechos < MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad) {
+    for (let i = 0; i < toca; i++) {
       this.nucleo.botones(mascara)
       if (this.nucleo.fotograma()) hayImagen = true
       // En avance rápido el sonido se acelera (más agudo) en lugar de cortarse
       this.altavoz.enviar(this.nucleo.audio(), this.frecuencia * this.velocidad)
-      this.acumulado -= this.paso
-      hechos++
       if (++this.fotogramas % FOTOGRAMAS_POR_ESTADO === 0) {
+        // Solo se copia el estado; compararlo y comprimirlo lo hace otro hilo
         const estado = this.nucleo.guardarEstado()
-        if (estado) this.rebobinado.guardar(estado, mascara)
+        if (estado) this.historial.guardar(estado, mascara)
       }
     }
-    if (this.acumulado >= this.paso) this.acumulado = 0
     if (this.nucleo.avCambiado()) this.leerTiempos()
     if (hayImagen) this.dibujar()
+    this.medir(performance.now() - t0, plan.modo)
+  }
+
+  /** Cada 30 s de juego, al registro: lo que tarda cada refresco y cuántos se pasan del tiempo. */
+  private medir(trabajo: number, modo: string): void {
+    const m = this.medida
+    m.refrescos++
+    m.trabajo += trabajo
+    if (trabajo > m.maximo) m.maximo = trabajo
+    const presupuesto = this.refresco.ms || 1000 / 60
+    if (trabajo > presupuesto * 0.8) m.largos++
+    const ahora = performance.now()
+    if (ahora - m.inicio < 30_000) return
+    registrar('info', 'Rendimiento', {
+      sistema: this.o.juego.sistema,
+      pantallaHz: Math.round(1000 / presupuesto),
+      consolaHz: Math.round(100_000 / this.paso) / 100,
+      ritmo: modo,
+      mediaMs: Math.round((m.trabajo / m.refrescos) * 10) / 10,
+      maxMs: Math.round(m.maximo * 10) / 10,
+      largos: m.largos,
+      refrescos: m.refrescos,
+    })
+    this.medida = { inicio: ahora, refrescos: 0, trabajo: 0, maximo: 0, largos: 0 }
   }
 
   private irAtras(dt: number): void {
     this.acumuladoAtras += dt
-    let hayImagen = false
-    while (this.acumuladoAtras >= MS_POR_ESTADO_ATRAS) {
-      this.acumuladoAtras -= MS_POR_ESTADO_ATRAS
-      const anterior = this.rebobinado.atras()
-      if (!anterior) {
-        this.acumuladoAtras = 0
-        break
-      }
+    if (this.pidiendoAnterior || this.acumuladoAtras < MS_POR_ESTADO_ATRAS) return
+    this.acumuladoAtras = Math.min(this.acumuladoAtras - MS_POR_ESTADO_ATRAS, MS_POR_ESTADO_ATRAS)
+    this.pidiendoAnterior = true
+    void this.historial.anterior().then((anterior) => {
+      this.pidiendoAnterior = false
+      if (!anterior || !this.rebobinando || this.cerrada) return
       this.nucleo.cargarEstado(anterior.estado)
       // Un fotograma con los botones de entonces para tener la imagen de ese momento
       this.nucleo.botones(anterior.botones)
       this.nucleo.fotograma()
-      hayImagen = true
-    }
-    if (hayImagen) this.dibujar()
+      this.dibujar()
+    })
   }
 
   /** Rebobinar mientras se mantiene pulsado. */
@@ -245,10 +286,6 @@ export class Sesion {
     this.acumuladoAtras = MS_POR_ESTADO_ATRAS
     this.acumulado = 0
     this.altavoz.vaciar()
-  }
-
-  get puedeRebobinar(): boolean {
-    return this.rebobinado.cuantos > 1
   }
 
   /** Avance rápido: 1 (normal), 2 o 4 veces más rápido. */
@@ -368,6 +405,7 @@ export class Sesion {
     await this.guardarTodo()
     this.cerrada = true
     clearInterval(this.temporizadorGuardado)
+    this.historial.cerrar()
     try {
       this.nucleo.descargar()
     } catch {

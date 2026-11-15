@@ -15,6 +15,9 @@ export default defineConfig({
     browserName: 'chromium',
     baseURL: 'http://localhost:4173',
     trace: 'off',
+    // Sin animaciones de navegación (dos pantallas a la vez durante medio segundo); la prueba
+    // «transiciones» las activa para comprobarlas
+    reducedMotion: 'reduce',
   },
   webServer: {
     command: 'npx vite preview --port 4173 --strictPort',

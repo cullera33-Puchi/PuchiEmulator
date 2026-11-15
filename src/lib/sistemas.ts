@@ -27,11 +27,11 @@ export const SISTEMAS: Record<Sistema, InfoSistema> = {
 }
 
 /**
- * Consolas tal como se enseñan en la app (inicio, bibliotecas y estadísticas). Game Boy, Game Boy
- * Color y Game Boy Advance van juntas; por dentro siguen siendo tres sistemas, cada uno con su tema
- * y sus opciones.
+ * Consolas tal como se enseñan en la app (inicio, bibliotecas y estadísticas). Game Boy y Game Boy
+ * Color van juntas; por dentro siguen siendo dos sistemas, cada uno con su tema y sus opciones.
+ * Game Boy Advance va aparte (decisión del usuario).
  */
-export type Consola = 'gb' | 'snes'
+export type Consola = 'gb' | 'gba' | 'snes'
 
 export interface InfoConsola {
   nombre: string
@@ -45,21 +45,15 @@ export interface InfoConsola {
 }
 
 export const CONSOLAS_APP: Record<Consola, InfoConsola> = {
-  gb: {
-    nombre: 'Game Boy',
-    titulo: 'Game Boy',
-    descripcion: 'Clásica, Color y Advance',
-    sistemas: ['gb', 'gbc', 'gba'],
-    color: '#5856D6',
-    extensiones: '.gb, .gbc, .gba',
-  },
+  gb: { nombre: 'Game Boy y Game Boy Color', titulo: 'Game Boy y Color', sistemas: ['gb', 'gbc'], color: '#AF52DE', extensiones: '.gb, .gbc' },
+  gba: { nombre: 'Game Boy Advance', titulo: 'Game Boy Advance', sistemas: ['gba'], color: '#5856D6', extensiones: '.gba' },
   snes: { nombre: 'Super Nintendo', titulo: 'Super Nintendo', sistemas: ['snes'], color: '#6E6E80', extensiones: '.sfc, .smc' },
 }
 
 /** Orden en el que se enseñan las consolas */
-export const CONSOLAS: Consola[] = ['gb', 'snes']
+export const CONSOLAS: Consola[] = ['gb', 'gba', 'snes']
 
-export const consolaDe = (s: Sistema): Consola => (s === 'snes' ? 'snes' : 'gb')
+export const consolaDe = (s: Sistema): Consola => (s === 'gbc' ? 'gb' : s)
 
 const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba', sfc: 'snes', smc: 'snes', swc: 'snes', fig: 'snes' }
 

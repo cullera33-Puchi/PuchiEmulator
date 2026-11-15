@@ -40,9 +40,9 @@ describe('Remuestreador', () => {
 })
 
 describe('factorRitmo', () => {
-  it('genera más si la cola se vacía y menos si se llena, como mucho un 0,5 %', () => {
-    expect(factorRitmo(0, 1000)).toBeCloseTo(1.005)
+  it('genera más si la cola se vacía y menos si se llena, como mucho un 1 %', () => {
+    expect(factorRitmo(0, 1000)).toBeCloseTo(1.01)
     expect(factorRitmo(1000, 1000)).toBe(1)
-    expect(factorRitmo(5000, 1000)).toBeCloseTo(0.995)
+    expect(factorRitmo(5000, 1000)).toBeCloseTo(0.99)
   })
 })

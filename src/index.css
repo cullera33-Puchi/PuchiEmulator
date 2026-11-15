@@ -653,6 +653,87 @@ body.en-juego .aviso {
   }
 }
 
+/* ---------- Navegación entre pantallas (guía 4.2 y 5) ---------- */
+
+/* Cada pantalla en su capa, con su propio desplazamiento: así pueden convivir dos durante la animación */
+.capa {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: #f2f2f7;
+}
+[data-theme='dark'] .capa {
+  background: #000;
+}
+.capa.arriba {
+  z-index: 1;
+}
+.capa[data-saliendo] {
+  pointer-events: none;
+}
+
+@keyframes entra-desde-derecha {
+  from {
+    transform: translate3d(100%, 0, 0);
+    box-shadow: -12px 0 32px rgb(0 0 0 / 0.12);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    box-shadow: -12px 0 32px rgb(0 0 0 / 0.12);
+  }
+}
+@keyframes sale-a-izquierda {
+  to {
+    transform: translate3d(-33%, 0, 0);
+    filter: brightness(0.94);
+  }
+}
+@keyframes entra-desde-izquierda {
+  from {
+    transform: translate3d(-33%, 0, 0);
+    filter: brightness(0.94);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    filter: none;
+  }
+}
+@keyframes sale-a-derecha {
+  from {
+    box-shadow: -12px 0 32px rgb(0 0 0 / 0.12);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+    box-shadow: -12px 0 32px rgb(0 0 0 / 0.12);
+  }
+}
+@keyframes aparece {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.capa.entra-desde-derecha {
+  animation: entra-desde-derecha 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.capa.sale-a-izquierda {
+  animation: sale-a-izquierda 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.capa.entra-desde-izquierda {
+  animation: entra-desde-izquierda 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.capa.sale-a-derecha {
+  animation: sale-a-derecha 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.capa.aparece {
+  animation: aparece 450ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.capa.aparece-suave {
+  animation: aparecer 400ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
 /* Hojas y avisos */
 @keyframes subir {
   from {
@@ -679,6 +760,9 @@ body.en-juego .aviso {
 
 /* Reducir movimiento: fundidos cortos en lugar de desplazamientos */
 @media (prefers-reduced-motion: reduce) {
+  .capa {
+    animation: none !important;
+  }
   .hoja {
     animation: aparecer 200ms ease-out;
   }

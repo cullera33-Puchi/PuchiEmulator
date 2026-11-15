@@ -4,8 +4,9 @@
  * horas fuera (salvo en un juego). Al salir de un juego se vuelve a la biblioteca de su consola.
  */
 import { Gamepad2, Hand, Rewind } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import { seVolvioDeslizando } from './componentes/gestos'
 import { Hoja, ProveedorInterfaz, useInterfaz } from './componentes/Interfaz'
 import { cambiarAjustes, useAjustes } from './lib/ajustes'
 import { registrar } from './lib/registro'
@@ -116,18 +117,68 @@ function Bienvenida() {
   )
 }
 
+type Transicion = 'entrar' | 'volver' | 'volver-deslizando' | 'abrir-juego' | 'cerrar-juego' | 'ninguna'
+
+interface Vista {
+  actual: Pantalla
+  /** La pantalla que se va, mientras dura la animación */
+  saliente: Pantalla | null
+  transicion: Transicion
+}
+
+const DURACION_MS = 520
+
+const clave = (p: Pantalla) => (p.tipo === 'biblioteca' ? `biblioteca-${p.consola}` : p.tipo === 'juego' ? `juego-${p.id}` : p.tipo)
+
+/** Clases de cada capa según la transición (animaciones en index.css). */
+function clases(t: Transicion, rol: 'actual' | 'saliente'): string {
+  if (t === 'entrar') return rol === 'actual' ? 'entra-desde-derecha arriba' : 'sale-a-izquierda'
+  if (t === 'volver') return rol === 'actual' ? 'entra-desde-izquierda' : 'sale-a-derecha arriba'
+  if (t === 'volver-deslizando') return 'entra-desde-izquierda'
+  if (t === 'abrir-juego') return rol === 'actual' ? 'aparece arriba' : ''
+  if (t === 'cerrar-juego') return 'aparece-suave'
+  return ''
+}
+
 function Pantallas() {
-  const [pantalla, setPantalla] = useState<Pantalla>({ tipo: 'inicio' })
+  const [vista, setVista] = useState<Vista>({ actual: { tipo: 'inicio' }, saliente: null, transicion: 'ninguna' })
+  const ocupadoHasta = useRef(0)
+  const temporizador = useRef(0)
   const ocultaDesde = useRef(0)
+
+  /** Navega con su animación. Mientras dura, se ignoran más toques (guía 4.2). */
+  const ir = useCallback((nueva: Pantalla, transicion: Transicion) => {
+    const ahora = Date.now()
+    if (ahora < ocupadoHasta.current) return
+    let reducir = false
+    try {
+      reducir = matchMedia('(prefers-reduced-motion: reduce)').matches
+    } catch {
+      reducir = false
+    }
+    const t: Transicion = reducir ? 'ninguna' : transicion
+    setVista((v) => ({
+      actual: nueva,
+      // El juego que se cierra no se queda dibujado: su sesión se cierra al desmontarlo
+      saliente: t === 'ninguna' || t === 'volver-deslizando' || t === 'cerrar-juego' || v.actual.tipo === 'juego' ? null : v.actual,
+      transicion: t,
+    }))
+    if (t === 'ninguna') return
+    ocupadoHasta.current = ahora + DURACION_MS
+    clearTimeout(temporizador.current)
+    temporizador.current = window.setTimeout(() => setVista((v) => ({ ...v, saliente: null, transicion: 'ninguna' })), DURACION_MS)
+  }, [])
+
+  const volver = useCallback((destino: Pantalla) => ir(destino, seVolvioDeslizando() ? 'volver-deslizando' : 'volver'), [ir])
 
   useEffect(() => {
     const alCambiar = () => {
       if (document.visibilityState === 'hidden') ocultaDesde.current = Date.now()
       else if (ocultaDesde.current && Date.now() - ocultaDesde.current > DOS_HORAS) {
-        setPantalla((p) => {
-          if (p.tipo === 'juego' || p.tipo === 'inicio') return p
+        setVista((v) => {
+          if (v.actual.tipo === 'juego' || v.actual.tipo === 'inicio') return v
           registrar('info', 'Vuelta al inicio tras dos horas fuera')
-          return { tipo: 'inicio' }
+          return { actual: { tipo: 'inicio' }, saliente: null, transicion: 'ninguna' }
         })
       }
     }
@@ -135,19 +186,59 @@ function Pantallas() {
     return () => document.removeEventListener('visibilitychange', alCambiar)
   }, [])
 
-  const jugar = (j: TipoJuego, reanudar: boolean) => setPantalla({ tipo: 'juego', id: j.id, reanudar, consola: consolaDe(j.sistema) })
+  const jugar = (j: TipoJuego, reanudar: boolean) => ir({ tipo: 'juego', id: j.id, reanudar, consola: consolaDe(j.sistema) }, 'abrir-juego')
+
+  const dibujar = (p: Pantalla) => {
+    switch (p.tipo) {
+      case 'inicio':
+        return (
+          <Inicio
+            alEstadisticas={() => ir({ tipo: 'estadisticas' }, 'entrar')}
+            alAbrirConsola={(consola) => ir({ tipo: 'biblioteca', consola }, 'entrar')}
+            alJugar={jugar}
+            alAjustes={() => ir({ tipo: 'ajustes' }, 'entrar')}
+          />
+        )
+      case 'biblioteca':
+        return <Biblioteca consola={p.consola} alJugar={jugar} alVolver={() => volver({ tipo: 'inicio' })} />
+      case 'estadisticas':
+        return <Estadisticas alVolver={() => volver({ tipo: 'inicio' })} />
+      case 'ajustes':
+        return <Ajustes alVolver={() => volver({ tipo: 'inicio' })} />
+      case 'juego':
+        return <Juego id={p.id} reanudar={p.reanudar} alSalir={() => ir({ tipo: 'biblioteca', consola: p.consola }, 'cerrar-juego')} />
+    }
+  }
+
+  const { actual, saliente, transicion } = vista
+  // La que está encima en la animación se dibuja la última
+  const capas: { p: Pantalla; rol: 'actual' | 'saliente' }[] = saliente
+    ? transicion === 'volver'
+      ? [
+          { p: actual, rol: 'actual' },
+          { p: saliente, rol: 'saliente' },
+        ]
+      : [
+          { p: saliente, rol: 'saliente' },
+          { p: actual, rol: 'actual' },
+        ]
+    : [{ p: actual, rol: 'actual' }]
 
   return (
     <>
-      {pantalla.tipo === 'inicio' && (
-        <Inicio alEstadisticas={() => setPantalla({ tipo: 'estadisticas' })} alAbrirConsola={(consola) => setPantalla({ tipo: 'biblioteca', consola })} alJugar={jugar} alAjustes={() => setPantalla({ tipo: 'ajustes' })} />
-      )}
-      {pantalla.tipo === 'biblioteca' && <Biblioteca consola={pantalla.consola} alJugar={jugar} alVolver={() => setPantalla({ tipo: 'inicio' })} />}
-      {pantalla.tipo === 'estadisticas' && <Estadisticas alVolver={() => setPantalla({ tipo: 'inicio' })} />}
-      {pantalla.tipo === 'ajustes' && <Ajustes alVolver={() => setPantalla({ tipo: 'inicio' })} />}
-      {pantalla.tipo === 'juego' && <Juego id={pantalla.id} reanudar={pantalla.reanudar} alSalir={() => setPantalla({ tipo: 'biblioteca', consola: pantalla.consola })} />}
-      <AvisoVersion visible={pantalla.tipo !== 'juego'} />
-      {pantalla.tipo === 'inicio' && <Bienvenida />}
+      {capas.map(({ p, rol }) => (
+        <div
+          key={clave(p)}
+          className={`capa ${clases(transicion, rol)}`}
+          data-saliendo={rol === 'saliente' ? '' : undefined}
+          aria-hidden={rol === 'saliente' ? true : undefined}
+          inert={rol === 'saliente' ? true : undefined}
+        >
+          {dibujar(p)}
+        </div>
+      ))}
+      <AvisoVersion visible={actual.tipo !== 'juego'} />
+      {actual.tipo === 'inicio' && <Bienvenida />}
     </>
   )
 }

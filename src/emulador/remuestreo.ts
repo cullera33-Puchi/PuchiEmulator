@@ -45,10 +45,11 @@ export class Remuestreador {
 
 /**
  * Ajuste del ritmo según lo que queda en la cola del altavoz: si se vacía, se generan algo más de
- * muestras; si se llena, algo menos. Como mucho un 0,5 %, que no se oye.
+ * muestras; si se llena, algo menos. Como mucho un 1 %, que no se oye: cubre la diferencia entre
+ * la consola y la pantalla cuando el juego va sincronizado con ella (ver ritmo.ts).
  */
 export function factorRitmo(lleno: number, objetivo: number): number {
   if (objetivo <= 0) return 1
   const desvio = Math.max(-1, Math.min(1, (objetivo - lleno) / objetivo))
-  return 1 + desvio * 0.005
+  return 1 + desvio * 0.01
 }

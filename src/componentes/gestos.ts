@@ -7,6 +7,14 @@ import { vibrar } from '../lib/vibracion'
 
 const BORDE = 28
 
+/** Momento del último «volver» hecho deslizando: la navegación no repite la animación de salida */
+let volvioDeslizando = 0
+export function seVolvioDeslizando(): boolean {
+  const si = Date.now() - volvioDeslizando < 400
+  volvioDeslizando = 0
+  return si
+}
+
 export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver: () => void): void {
   useEffect(() => {
     const el = ref.current
@@ -59,7 +67,10 @@ export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver
       if (e.type === 'touchend' && (dx > window.innerWidth / 3 || (v > 0.4 && dx > 30))) {
         el.style.transform = 'translate3d(100%, 0, 0)'
         vibrar()
-        window.setTimeout(alVolver, 260)
+        window.setTimeout(() => {
+          volvioDeslizando = Date.now()
+          alVolver()
+        }, 260)
       } else {
         el.style.transform = ''
       }

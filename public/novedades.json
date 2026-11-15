@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.10.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Transiciones más suaves: las pantallas entran desde la derecha y vuelven deslizándose, como en el iPhone, y el juego se abre con un fundido.",
+      "Super Nintendo más fluida: el rebobinado ya no frena el juego y el ritmo va acompasado con la pantalla.",
+      "Game Boy Advance vuelve a tener su propia consola; Game Boy y Color siguen juntas.",
+      "Si notas tirones, copia el registro en Ajustes y pásamelo: ahora anota cómo va el rendimiento."
+    ]
+  },
+  {
     "version": "0.9.0",
     "fecha": "15/11/2026",
     "cambios": [
