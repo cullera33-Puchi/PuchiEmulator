@@ -12,6 +12,8 @@ export interface Tema {
   nombre: string
   /** Color de arriba del fondo: también para la barra de estado */
   arriba: string
+  /** Color de abajo del fondo: también para el fondo de la página (franja de iOS) */
+  abajo: string
   vars: Record<string, string>
 }
 
@@ -36,15 +38,17 @@ const color = (id: IdTema, nombre: string, arriba: string, abajo: string): Tema 
   id,
   nombre,
   arriba,
+  abajo,
   vars: { ...BOTONES_OSCUROS, '--fondo': `linear-gradient(180deg, ${arriba}, ${abajo})` },
 })
 
 export const TEMAS: Tema[] = [
-  { id: 'oscuro', nombre: 'Oscuro', arriba: '#000000', vars: {} },
+  { id: 'oscuro', nombre: 'Oscuro', arriba: '#000000', abajo: '#000000', vars: {} },
   {
     id: 'clasica',
     nombre: 'Clásica',
     arriba: '#d6d4cf',
+    abajo: '#c2bfb9',
     vars: {
       '--fondo': 'linear-gradient(180deg, #d6d4cf, #c2bfb9)',
       '--marco': '#5d6070',
@@ -69,6 +73,7 @@ export const TEMAS: Tema[] = [
     id: 'advance',
     nombre: 'Advance',
     arriba: '#5247aa',
+    abajo: '#3a308e',
     vars: {
       '--fondo': 'linear-gradient(180deg, #5247aa, #3a308e)',
       '--marco': '#16161c',

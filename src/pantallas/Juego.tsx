@@ -105,6 +105,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     document.body.classList.add('en-juego')
     return () => {
       document.body.classList.remove('en-juego')
+      document.documentElement.style.background = ''
+      document.body.style.background = ''
       aplicarTema()
     }
   }, [])
@@ -112,6 +114,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   // La barra de estado toma el color de arriba del tema; la paleta de Game Boy sigue al tema
   useEffect(() => {
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', tema.arriba))
+    // En la app instalada, iOS deja a veces una franja abajo con el fondo de la página: del color del tema
+    document.documentElement.style.background = tema.abajo
+    document.body.style.background = tema.abajo
     sesion.current?.opcion('mgba_gb_colors', paletaPara(tema, ajustes.paletaGb))
   }, [tema, ajustes.paletaGb])
 
@@ -229,7 +234,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   return (
     <div
-      className={`juego ${ajustes.nitido ? '' : 'suave'} ${ajustes.modoMando === 'una-mano' ? 'una-mano' : ''}`}
+      className={`juego ${ajustes.nitido ? '' : 'suave'} ${ajustes.modoMando === 'una-mano' ? 'una-mano' : ''} ${ajustes.pantallaGrande ? 'grande' : ''}`}
       data-tema={tema.id}
       data-mano={ajustes.mano}
       style={{ ...tema.vars, '--proporcion': proporcion, '--opacidad-horizontal': ajustes.opacidadMando, '--escala': ajustes.escalaMando } as React.CSSProperties}

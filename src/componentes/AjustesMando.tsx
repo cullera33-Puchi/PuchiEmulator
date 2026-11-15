@@ -1,6 +1,6 @@
 /** Tamaño de los botones, distribución en vertical (dos manos o una) y opacidad en horizontal. */
 import { cambiarAjustes, useAjustes } from '../lib/ajustes'
-import { Segmentado } from './Interfaz'
+import { Interruptor, Segmentado } from './Interfaz'
 
 export const ESCALAS: [number, string][] = [
   [0.8, 'Pequeños'],
@@ -14,15 +14,20 @@ export function AjustesMando() {
   return (
     <>
       <div className="lista">
+        <div className="fila justify-between">
+          <span>Pantalla lo más grande posible</span>
+          <Interruptor etiqueta="Pantalla lo más grande posible" activo={a.pantallaGrande} alCambiar={(v) => cambiarAjustes({ pantallaGrande: v })} />
+        </div>
+        <div className="separador" />
         <div className="fila flex-col items-stretch gap-2 py-3">
           <span>Tamaño de los botones</span>
           <Segmentado etiqueta="Tamaño de los botones" valor={a.escalaMando} opciones={ESCALAS} alCambiar={(v) => cambiarAjustes({ escalaMando: v })} />
         </div>
         <div className="separador" />
         <div className="fila flex-col items-stretch gap-2 py-3">
-          <span>En vertical</span>
+          <span>Distribución</span>
           <Segmentado
-            etiqueta="Distribución en vertical"
+            etiqueta="Distribución del mando"
             valor={a.modoMando}
             opciones={[
               ['dos-manos', 'Dos manos'],
@@ -57,7 +62,9 @@ export function AjustesMando() {
           />
         </div>
       </div>
-      <p className="pie-grupo">Con «Una mano», en vertical todo queda abajo, al alcance del pulgar: cómodo para juegos de rol y de estrategia. En horizontal se juega siempre con las dos manos.</p>
+      <p className="pie-grupo">
+        Pantalla grande: sin margen ni marco, de borde a borde en vertical y a toda la altura en horizontal. Con «Una mano», en vertical todo queda abajo, al alcance del pulgar; en horizontal, la pantalla se pega al otro lado y los botones van en una columna translúcida. Cómodo para juegos de rol y de estrategia.
+      </p>
     </>
   )
 }

@@ -31,6 +31,8 @@ export interface Ajustes {
   mano: 'derecha' | 'izquierda'
   /** Buscar y poner la carátula al añadir un juego, si el nombre coincide con seguridad */
   caratulasAuto: boolean
+  /** Pantalla del juego lo más grande posible: sin margen ni marco */
+  pantallaGrande: boolean
 }
 
 export const POR_DEFECTO: Ajustes = {
@@ -47,6 +49,7 @@ export const POR_DEFECTO: Ajustes = {
   modoMando: 'dos-manos',
   mano: 'derecha',
   caratulasAuto: true,
+  pantallaGrande: true,
 }
 
 const CLAVE = 'puchiemulator-ajustes'

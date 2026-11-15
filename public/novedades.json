@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.5.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Pantalla más grande: en vertical va de borde a borde y en horizontal ocupa toda la altura.",
+      "Modo una mano también en horizontal: la pantalla a un lado y los botones en una columna al otro.",
+      "Con la mano derecha la pantalla va a la izquierda, y al revés con la izquierda.",
+      "Arreglada la franja negra que podía quedar abajo mientras juegas.",
+      "Si prefieres el marco, desactiva «Pantalla lo más grande posible» en Mando."
+    ]
+  },
+  {
     "version": "0.4.0",
     "fecha": "15/11/2026",
     "cambios": [

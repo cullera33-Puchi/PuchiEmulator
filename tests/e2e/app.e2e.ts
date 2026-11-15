@@ -474,3 +474,51 @@ test('carátulas automáticas: se ponen al añadir, no vuelven si se quitan y se
   await entrar(page, 'Game Boy')
   await expect(page.getByTestId('biblioteca').locator('img')).toHaveCount(1)
 })
+
+test.describe('una mano en horizontal', () => {
+  test.use({ viewport: { width: 844, height: 390 } })
+
+  for (const mano of ['derecha', 'izquierda'] as const) {
+    test(`mano ${mano}: la pantalla a un lado a toda la altura y los controles en columna al otro`, async ({ page }) => {
+      await page.addInitScript((m) => {
+        localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ bienvenidaVista: true, modoMando: 'una-mano', mano: m }))
+      }, mano)
+      await page.goto('/')
+      await anadir(page, 'prueba.gba')
+      await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+      await expect(page.getByText('Cargando…')).toBeHidden()
+      // La imagen de GBA a toda la altura (3:2) pegada al lado contrario a la mano
+      const lienzo = (await page.getByTestId('pantalla').boundingBox())!
+      expect(lienzo.height).toBe(390)
+      const posicion = await page.getByTestId('pantalla').evaluate((c) => getComputedStyle(c).objectPosition)
+      expect(posicion).toMatch(mano === 'derecha' ? /^0%|left/ : /^100%|right/)
+      const finImagen = mano === 'derecha' ? lienzo.x + 390 * 1.5 : lienzo.x + lienzo.width - 390 * 1.5
+      const mando = page.getByTestId('mando')
+      for (const n of ['Cruceta', 'A', 'B', 'L', 'R', 'Start', 'Select']) {
+        const c = (await (n === 'Cruceta' ? mando.getByLabel('Cruceta') : mando.getByRole('button', { name: n, exact: true })).boundingBox())!
+        if (mano === 'derecha') expect(c.x, n).toBeGreaterThanOrEqual(finImagen - 1)
+        else expect(c.x + c.width, n).toBeLessThanOrEqual(finImagen + 1)
+        expect(c.y, n).toBeGreaterThanOrEqual(0)
+        expect(c.y + c.height, n).toBeLessThanOrEqual(390)
+      }
+      await pulsar(page, 'A')
+      await expect.poll(() => colorCentral(page)).toEqual([0, 251, 0])
+      await page.mouse.up()
+    })
+  }
+})
+
+test('pantalla grande: en vertical, la imagen de GBA de borde a borde; sin ella, con marco', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  const ancho = page.viewportSize()!.width
+  expect((await page.getByTestId('pantalla').boundingBox())!.width).toBe(ancho)
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: /^Mando/ }).click()
+  await page.getByRole('switch', { name: 'Pantalla lo más grande posible' }).click()
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  expect((await page.getByTestId('pantalla').boundingBox())!.width).toBeLessThan(ancho - 30)
+})

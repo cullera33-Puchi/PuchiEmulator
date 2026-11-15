@@ -420,6 +420,17 @@ body.en-juego .aviso {
   }
 }
 
+/* Pantalla lo más grande posible: sin margen ni marco (en vertical, de borde a borde) */
+.juego.grande .zona-pantalla {
+  margin: 0 !important;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.juego.grande canvas {
+  background: transparent;
+}
+
 /* Horizontal: la pantalla en el centro a toda la altura y los controles a los lados */
 @media (orientation: landscape) {
   .juego {
@@ -483,6 +494,126 @@ body.en-juego .aviso {
   /* En horizontal los controles quedan encima del borde de la imagen: se hacen translúcidos */
   .juego {
     --opacidad-mando: var(--opacidad-horizontal, 0.6);
+  }
+
+  /* Pantalla grande: a toda la altura; los controles quedan encima de los bordes */
+  .juego.grande .zona-pantalla {
+    left: var(--seguro-izq);
+    right: var(--seguro-der);
+  }
+
+  /* Una mano en horizontal: la pantalla pegada a un lado y una columna de controles al otro.
+     De arriba abajo: L y R, A y B, la cruceta y Select y Start. Herramientas en columna junto a ella. */
+  .juego.una-mano {
+    --col: min(calc(150px * var(--escala)), 34vw, calc((100dvh - 136px) / 1.8));
+    --lado-col: 8px;
+  }
+  .juego.una-mano .zona-pantalla {
+    top: 0;
+    bottom: 0;
+  }
+  .juego.una-mano .hombro {
+    top: 10px;
+    bottom: auto;
+    height: 34px;
+    width: calc(var(--col) / 2 - 4px);
+  }
+  .juego.una-mano .botones-accion {
+    width: calc(var(--col) * 0.8);
+    height: calc(var(--col) * 0.8);
+    top: 52px;
+    bottom: auto;
+  }
+  .juego.una-mano .cruceta {
+    width: var(--col);
+    height: var(--col);
+    top: calc(60px + var(--col) * 0.8);
+    bottom: auto;
+  }
+  .juego.una-mano .pequeno {
+    width: calc(var(--col) / 2 - 4px);
+    height: 28px;
+    bottom: calc(var(--seguro-abajo) + 12px);
+  }
+  .juego.una-mano .herramientas {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .juego.una-mano .boton-menu {
+    background: var(--herramienta, rgb(255 255 255 / 0.08));
+  }
+  .juego.una-mano .herramientas.izquierda {
+    top: 10px;
+  }
+  .juego.una-mano .boton-menu {
+    top: 114px;
+  }
+  .juego.una-mano .herramientas.derecha {
+    top: 166px;
+  }
+
+  /* Mano derecha: pantalla a la izquierda */
+  .juego.una-mano[data-mano='derecha'] .zona-pantalla {
+    left: var(--seguro-izq);
+    right: calc(var(--seguro-der) + var(--col) * 0.6);
+  }
+  .juego.una-mano[data-mano='derecha'] canvas {
+    object-position: left center;
+  }
+  .juego.una-mano[data-mano='derecha'] .hombro.l,
+  .juego.una-mano[data-mano='derecha'] .pequeno.select {
+    left: auto;
+    right: calc(var(--seguro-der) + var(--lado-col) + var(--col) / 2 + 4px);
+  }
+  .juego.una-mano[data-mano='derecha'] .hombro.r,
+  .juego.una-mano[data-mano='derecha'] .pequeno.start {
+    left: auto;
+    right: calc(var(--seguro-der) + var(--lado-col));
+  }
+  .juego.una-mano[data-mano='derecha'] .botones-accion {
+    left: auto;
+    right: calc(var(--seguro-der) + var(--lado-col));
+  }
+  .juego.una-mano[data-mano='derecha'] .cruceta {
+    left: auto;
+    right: calc(var(--seguro-der) + var(--lado-col));
+  }
+  .juego.una-mano[data-mano='derecha'] .herramientas,
+  .juego.una-mano[data-mano='derecha'] .boton-menu {
+    left: auto;
+    right: calc(var(--seguro-der) + var(--lado-col) + var(--col) + 10px);
+  }
+
+  /* Mano izquierda: pantalla a la derecha */
+  .juego.una-mano[data-mano='izquierda'] .zona-pantalla {
+    left: calc(var(--seguro-izq) + var(--col) * 0.6);
+    right: var(--seguro-der);
+  }
+  .juego.una-mano[data-mano='izquierda'] canvas {
+    object-position: right center;
+  }
+  .juego.una-mano[data-mano='izquierda'] .hombro.l,
+  .juego.una-mano[data-mano='izquierda'] .pequeno.select {
+    right: auto;
+    left: calc(var(--seguro-izq) + var(--lado-col));
+  }
+  .juego.una-mano[data-mano='izquierda'] .hombro.r,
+  .juego.una-mano[data-mano='izquierda'] .pequeno.start {
+    right: auto;
+    left: calc(var(--seguro-izq) + var(--lado-col) + var(--col) / 2 + 4px);
+  }
+  .juego.una-mano[data-mano='izquierda'] .botones-accion,
+  .juego.una-mano[data-mano='izquierda'] .cruceta {
+    right: auto;
+    left: calc(var(--seguro-izq) + var(--lado-col));
+  }
+  .juego.una-mano[data-mano='izquierda'] .botones-accion {
+    left: calc(var(--seguro-izq) + var(--lado-col) + var(--col) * 0.2);
+  }
+  .juego.una-mano[data-mano='izquierda'] .herramientas,
+  .juego.una-mano[data-mano='izquierda'] .boton-menu {
+    right: auto;
+    left: calc(var(--seguro-izq) + var(--lado-col) + var(--col) + 10px);
   }
 }
 
