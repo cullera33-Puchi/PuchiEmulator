@@ -104,6 +104,17 @@
   image-rendering: auto;
 }
 
+/* Modo noche (v0.16.0): una capa que multiplica toda la pantalla del juego (imagen, botones y
+   herramientas) por un color oscuro y cálido. No recoge toques; el menú, que va en una hoja aparte,
+   no se oscurece. */
+.capa-noche {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
 /* Filtros de imagen (v0.15.0): una capa encima de la imagen con un dibujo del tamaño de cada píxel
    del juego (--px y --py, que pone Juego.tsx). La rejilla oscurece el borde de cada píxel, como
    la pantalla LCD de las portátiles; las líneas oscurecen la parte de abajo de cada fila, como una

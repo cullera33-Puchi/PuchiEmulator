@@ -7,7 +7,7 @@
 import { Footprints } from 'lucide-react'
 import { useEffect, useRef, type PointerEvent as EventoPuntero, type RefObject } from 'react'
 import { bit, direccionCruceta, type NombreBoton } from '../emulador/botones'
-import { leerAjustes } from '../lib/ajustes'
+import { vibracionActiva } from '../lib/ajustes'
 import { NOMBRE_BOTON, type BotonMenu } from '../lib/mandoJuego'
 import { vibrar } from '../lib/vibracion'
 
@@ -76,7 +76,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     for (const d of dedos.current.values()) m |= d.mascara
     if (m !== mascara.current) {
       // Vibración breve solo al pulsar un botón nuevo, no al soltar
-      if (m & ~mascara.current && leerAjustes().vibracion) vibrar()
+      if (m & ~mascara.current && vibracionActiva()) vibrar()
       mascara.current = m
       pintar(m)
       alCambiarRef.current(m)
@@ -130,7 +130,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     if (d.tactil) tocar(e.clientX, e.clientY)
     if (d.accion) {
       correr?.alCambiar()
-      if (leerAjustes().vibracion) vibrar()
+      if (vibracionActiva()) vibrar()
     }
     recalcular()
   }

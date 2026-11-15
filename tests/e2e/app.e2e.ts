@@ -1040,3 +1040,27 @@ test('filtro de imagen: según la consola, rejilla en GBA y líneas en Super Nin
   await pulsar(page, 'A')
   await expect.poll(() => colorCentral(page)).toEqual([0, 251, 0])
 })
+
+test('modo noche: se enciende en el menú, oscurece la pantalla sin tapar los toques y se recuerda', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByTestId('modo-noche')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('switch', { name: 'Modo noche' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  const capa = page.getByTestId('modo-noche')
+  await expect(capa).toBeVisible()
+  expect(await capa.evaluate((e) => [getComputedStyle(e).mixBlendMode, getComputedStyle(e).pointerEvents])).toEqual(['multiply', 'none'])
+  // Los botones siguen respondiendo a través de la capa
+  await pulsar(page, 'A')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 251, 0])
+  await page.mouse.up()
+  // Se recuerda en la siguiente partida
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByTestId('modo-noche')).toBeVisible()
+})

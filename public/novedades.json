@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.16.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Modo noche para jugar en la cama: en el menú del juego, oscurece la pantalla más que el brillo mínimo y la vuelve más cálida.",
+      "Con el modo noche no vibra, para no molestar a quien duerme al lado.",
+      "La intensidad (suave, media o muy oscura) se elige en Ajustes, Imagen."
+    ]
+  },
+  {
     "version": "0.15.0",
     "fecha": "15/11/2026",
     "cambios": [

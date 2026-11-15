@@ -249,12 +249,26 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
             <Interruptor etiqueta="Colores como en la consola" activo={a.coloresConsola} alCambiar={(v) => cambiar({ coloresConsola: v })} />
           </div>
           <div className="separador" />
+          <div className="fila flex-col items-stretch gap-2 py-3">
+            <span>Modo noche</span>
+            <Segmentado
+              etiqueta="Intensidad del modo noche"
+              valor={a.intensidadNoche}
+              opciones={[
+                ['suave', 'Suave'],
+                ['media', 'Media'],
+                ['fuerte', 'Muy oscuro'],
+              ]}
+              alCambiar={(v) => cambiar({ intensidadNoche: v })}
+            />
+          </div>
+          <div className="separador" />
           <div className="fila justify-between">
             <span>Vibrar al pulsar</span>
             <Interruptor etiqueta="Vibrar al pulsar" activo={a.vibracion} alCambiar={(v) => cambiar({ vibracion: v })} />
           </div>
         </div>
-        <p className="pie-grupo">Colores como en la consola: la GBA y la Game Boy Color tenían pantallas apagadas y los juegos se pintaron con colores muy vivos para compensarlo. Con esta opción se ven como en la consola, sin colores chillones.</p>
+        <p className="pie-grupo">Modo noche: se enciende en el menú de cada partida. Oscurece la pantalla más que el brillo mínimo del iPhone, la vuelve más cálida y quita la vibración. Colores como en la consola: la GBA y la Game Boy Color tenían pantallas apagadas y los juegos se pintaron con colores muy vivos para compensarlo. Con esta opción se ven como en la consola, sin colores chillones.</p>
         <p className="cabecera-grupo mt-6">Mando</p>
         <AjustesMando />
         <p className="pie-grupo">También funcionan un teclado y los mandos de PlayStation, Xbox o MFi conectados al iPhone.</p>

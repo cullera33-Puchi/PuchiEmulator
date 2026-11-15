@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.16.0 (15/11/2026)
+
+- Modo noche, para jugar en la cama (petición del usuario): interruptor en el menú del juego que se recuerda entre partidas. Una capa encima de la pantalla del juego la multiplica por un color oscuro y cálido (`COLOR_NOCHE`): oscurece más que el brillo mínimo del iPhone y quita luz azul, con imagen, botones y herramientas a la vez. No recoge toques y el menú no se oscurece. Intensidad suave, media o muy oscura en Ajustes, Imagen. Sin vibración mientras está encendido (`vibracionActiva`).
+- Hoja de ruta: el resto de propuestas de usabilidad y para jugar en la cama, anotadas en las filas «Mejoras» de `CLAUDE.md`.
+- Pruebas: 112 unitarias y 36 de navegador.
+
 ## 0.15.0 (15/11/2026)
 
 Tres mejoras de usabilidad aprobadas por el usuario (8, 9 y 11 de la lista).

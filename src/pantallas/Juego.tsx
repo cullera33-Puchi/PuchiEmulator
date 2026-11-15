@@ -3,13 +3,13 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { FastForward, FolderOpen, Gamepad2, Menu, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
+import { FastForward, FolderOpen, Gamepad2, Menu, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
-import { Hoja, useInterfaz } from '../componentes/Interfaz'
+import { Hoja, Interruptor, useInterfaz } from '../componentes/Interfaz'
 import { bit, TECLAS } from '../emulador/botones'
 import { cargaAutoFallida, Sesion } from '../emulador/sesion'
-import { aplicarTema, cambiarAjustes, useAjustes } from '../lib/ajustes'
+import { aplicarTema, cambiarAjustes, COLOR_NOCHE, useAjustes } from '../lib/ajustes'
 import { actualizarJuego, estadosDe, leerEstado, leerJuego, leerRomGuardada, type Estado, type Ranura } from '../lib/almacen'
 import { cuando } from '../lib/formato'
 import { duracion } from '../lib/estadisticas'
@@ -388,6 +388,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         </button>
       </div>
 
+      {ajustes.modoNoche && <div className="capa-noche" style={{ background: COLOR_NOCHE[ajustes.intensidadNoche] }} data-testid="modo-noche" aria-hidden />}
+
       {(cargando || error) && (
         <div className="absolute inset-0 z-10 grid place-items-center bg-black/80 p-8 text-center">
           {error ? (
@@ -445,6 +447,13 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           <button className="fila" onClick={() => setVerNotas(true)}>
             <NotebookPen size={20} className="text-acento dark:text-acento-oscuro" /> Notas
           </button>
+          <div className="separador" />
+          <div className="fila justify-between">
+            <span className="flex flex-1 items-center gap-3">
+              <Moon size={20} className="text-acento dark:text-acento-oscuro" /> Modo noche
+            </span>
+            <Interruptor etiqueta="Modo noche" activo={ajustes.modoNoche} alCambiar={(v) => cambiarAjustes({ modoNoche: v })} />
+          </div>
           <div className="separador" />
           <button className="fila" onClick={() => cambiarAjustes({ sonido: !ajustes.sonido })}>
             {ajustes.sonido ? <Volume2 size={20} className="text-acento dark:text-acento-oscuro" /> : <VolumeX size={20} className="text-zinc-400" />}

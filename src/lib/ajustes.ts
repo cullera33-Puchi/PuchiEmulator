@@ -21,6 +21,9 @@ export interface Ajustes {
   tema: 'auto' | 'claro' | 'oscuro'
   /** Vibración breve al pulsar los botones del mando */
   vibracion: boolean
+  /** Modo noche en el juego (v0.16.0): imagen y botones más oscuros y cálidos, sin vibración */
+  modoNoche: boolean
+  intensidadNoche: IntensidadNoche
   /** Hoja de bienvenida ya vista */
   bienvenidaVista: boolean
   /** Tema de la pantalla de juego por consola («auto»: el de esa consola) */
@@ -51,6 +54,23 @@ export interface Ajustes {
   copiaAplazada?: number
 }
 
+export type IntensidadNoche = 'suave' | 'media' | 'fuerte'
+
+/**
+ * Color con el que se multiplica la pantalla del juego en el modo noche: oscurece (como un brillo
+ * por debajo del mínimo del iPhone) y quita azul (más cálido) a la vez, con una sola capa.
+ */
+export const COLOR_NOCHE: Record<IntensidadNoche, string> = {
+  suave: 'rgb(191 161 128)',
+  media: 'rgb(140 107 77)',
+  fuerte: 'rgb(97 68 46)',
+}
+
+/** Vibrar al pulsar: si está activado y no es de noche (para no molestar a quien duerme al lado). */
+export function vibracionActiva(a: Ajustes = actuales): boolean {
+  return a.vibracion && !a.modoNoche
+}
+
 export const POR_DEFECTO: Ajustes = {
   sonido: true,
   sonarEnSilencio: false,
@@ -59,6 +79,8 @@ export const POR_DEFECTO: Ajustes = {
   opacidadMando: 0.6,
   tema: 'auto',
   vibracion: true,
+  modoNoche: false,
+  intensidadNoche: 'media',
   bienvenidaVista: false,
   temas: {},
   paletaGb: 'auto',
