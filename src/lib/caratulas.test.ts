@@ -8,7 +8,7 @@ const buscar = (q: string) => buscarEn(nombres, normalizados, q)
 
 describe('palabras', () => {
   it('quita acentos, signos, etiquetas y palabras vacías', () => {
-    expect(palabras('Pokémon - Edición Esmeralda (Spain) [!]')).toEqual(['pokemon', 'edicion', 'esmeralda'])
+    expect(palabras('Pokémon - Edición Esmeralda (Spain) [!]')).toEqual(['pokemon', 'esmeralda'])
     expect(palabras('The Legend of Zelda: The Minish Cap')).toEqual(['legend', 'zelda', 'minish', 'cap'])
   })
 })

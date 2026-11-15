@@ -19,6 +19,8 @@ export interface Juego {
   tam: number
   anadido: number
   ultimaVez?: number
+  /** Ya se buscó su carátula automáticamente (se busca una sola vez) */
+  caratulaBuscada?: boolean
 }
 
 export interface Partida {

@@ -4,7 +4,7 @@
  */
 import { Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { borrarCaratula, guardarCaratula, leerCaratula, type Caratula, type Juego } from '../lib/almacen'
+import { actualizarJuego, borrarCaratula, guardarCaratula, leerCaratula, leerJuego, type Caratula, type Juego } from '../lib/almacen'
 import { buscarCaratulas, descargarCaratula, nombreVisible, reducirImagen, urlCaratula, type Candidato } from '../lib/caratulas'
 import { registrar } from '../lib/registro'
 import { Hoja, useInterfaz } from './Interfaz'
@@ -47,8 +47,15 @@ export function HojaCaratula({ juego, alCerrar, alCambiar }: Props) {
 
   if (!juego) return null
 
+  /** Lo que elige el usuario manda: la búsqueda automática ya no toca este juego. */
+  const marcarElegida = async () => {
+    const j = await leerJuego(juego.id)
+    if (j && !j.caratulaBuscada) await actualizarJuego({ ...j, caratulaBuscada: true })
+  }
+
   const poner = async (c: Omit<Caratula, 'fecha'>, anterior: Caratula | undefined) => {
     await guardarCaratula({ ...c, fecha: Date.now() })
+    await marcarElegida()
     alCambiar()
     alCerrar()
     avisar('Carátula puesta', {
@@ -88,6 +95,7 @@ export function HojaCaratula({ juego, alCerrar, alCambiar }: Props) {
   const quitar = async () => {
     const anterior = await leerCaratula(juego.id)
     await borrarCaratula(juego.id)
+    await marcarElegida()
     alCambiar()
     alCerrar()
     if (anterior) avisar('Carátula quitada', { fn: () => void guardarCaratula(anterior).then(alCambiar) })

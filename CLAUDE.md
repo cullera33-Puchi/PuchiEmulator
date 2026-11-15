@@ -50,6 +50,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 - **Guardar y cargar rápido** (v0.2.0): botones fijos en la pantalla de juego, en vertical bajo la pantalla y en horizontal bajo L y R. Ranura `rapida`. Cargar deja «Deshacer» (`Sesion.deshacerCarga`).
 - **Rebobinar y avance rápido** (v0.2.0): `src/emulador/rebobinado.ts` guarda un estado cada 10 fotogramas como diferencia XOR comprimida con el siguiente, con los botones de ese momento; hasta 180 estados (unos 30 s) o 48 MB. Rebobinar va a unas tres veces la velocidad del juego mientras se mantiene pulsado. Avance rápido x2 y x4, con el sonido acelerado.
 - **Carátulas** (v0.2.0): índice de nombres del archivo público libretro-thumbnails en `public/caratulas/*.json` (se regenera con `npm run indice:caratulas`). La búsqueda se hace en el iPhone; se descargan las miniaturas de los resultados y se guarda la elegida reducida a JPEG de 400 px (almacén `caratulas`, IndexedDB versión 2). También foto propia. La copia de partidas no lleva carátulas.
+- **Carátulas automáticas** (v0.4.0, `src/lib/caratulasAuto.ts`): interruptor en Ajustes, activado por defecto. Al añadir un juego (y al abrir la app, para los pendientes) se pone la carátula solo si la coincidencia es segura (`elegirAutomatica`). Una búsqueda por juego (`caratulaBuscada`): lo que el usuario elige o quita no se vuelve a tocar. «Buscar ahora las que faltan» busca de nuevo en todos los que no tienen carátula.
 - **Temas** (v0.2.0): `src/lib/temas.ts`, variables CSS en `.juego`. Diseños propios inspirados en las consolas, sin logotipos, marcas ni imágenes oficiales (regla). Por consola, con «Según la consola» por defecto (Game Boy, Clásica; Color, Uva; Advance, Advance). La paleta de Game Boy (`mgba_gb_colors`) sigue al tema o se elige a mano y se aplica en marcha.
 - **Registro y copias de seguridad** (v0.2.0): `src/lib/registro.ts` (400 entradas, sin nombres de juegos ni partidas) y `src/lib/seguridad.ts` (copia diaria de las partidas, las 7 más recientes, y previa antes de recuperar o restaurar). Toda operación nueva relevante se registra.
 
@@ -75,6 +76,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 | --- | --- | --- |
 | Fase 1 | PWA, biblioteca desde Archivos, Game Boy, Game Boy Color y GBA con mGBA, controles táctiles en vertical y horizontal, partidas guardadas en el iPhone | Hecha (v0.1.0) y publicada; carga en el iPhone, pendiente de probar con juegos reales |
 | v0.2.0 | Guardar y cargar rápido, rebobinar, avance rápido, carátulas, temas de consola y guía de usabilidad | Hecha, pendiente de validar en el iPhone |
+| v0.4.0 | Carátulas automáticas al añadir un juego, con opción en Ajustes | Hecha, pendiente de validar con los juegos del usuario |
 | v0.3.0 | Inicio con las consolas y biblioteca por consola, tamaño de los botones y modo una mano en vertical | Hecha, pendiente de validar en el iPhone |
 | 2 | Super Nintendo con Snes9x (no comercial) y su disposición de botones (X, Y, L y R). Esfuerzo medio | Pendiente, no empezar sin indicación del usuario |
 | 3 | Mega Drive con Genesis Plus GX (no comercial). Esfuerzo bajo | Pendiente, no empezar sin indicación del usuario |
@@ -86,6 +88,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; PCSX R
 
 ## Estado
 
+- v0.4.0 (15/11/2026): carátulas automáticas al añadir un juego, pedidas por el usuario (antes había elegido búsqueda manual): solo con coincidencia segura, una vez por juego, con interruptor y «Buscar ahora las que faltan» en Ajustes. 55 pruebas unitarias y 16 de navegador.
 - v0.3.0 (15/11/2026): inicio con las consolas (dibujo propio o foto del usuario, recuento y «Seguir jugando»), biblioteca por consola, tamaño de los botones y modo una mano en vertical (derecha o izquierda), pedidos por el usuario. 50 pruebas unitarias y 15 de navegador. Pendiente de validar en el iPhone, sobre todo la comodidad del modo una mano.
 - v0.2.0 (15/11/2026): guardar y cargar rápido, rebobinar, avance rápido x2 y x4, carátulas (búsqueda en libretro y foto propia, biblioteca en cuadrícula), temas de consola con paleta verde para Game Boy, y la guía de usabilidad (registro, copias diarias, Deshacer, hojas arrastrables, bienvenida). 50 pruebas unitarias y 13 de navegador. Pendiente de validar en el iPhone, sobre todo la vibración al pulsar (iOS 17.4 o posterior) y el arrastre de las hojas.
 - v0.1.0 (15/11/2026): fase 1 construida y publicada en `https://cullera33-puchi.github.io/PuchiEmulator/`.

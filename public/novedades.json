@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.4.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Las carátulas se ponen solas al añadir un juego, si el nombre coincide con seguridad.",
+      "Si duda, no pone ninguna: la eliges tú desde el juego, como hasta ahora.",
+      "Cada juego se busca una sola vez: si quitas una carátula, no vuelve a aparecer.",
+      "En Ajustes, Carátulas: activarlo o no, y «Buscar ahora las que faltan» para los juegos que ya tenías."
+    ]
+  },
+  {
     "version": "0.3.0",
     "fecha": "15/11/2026",
     "cambios": [

@@ -29,6 +29,8 @@ export interface Ajustes {
   modoMando: 'dos-manos' | 'una-mano'
   /** Mano del modo una mano */
   mano: 'derecha' | 'izquierda'
+  /** Buscar y poner la carátula al añadir un juego, si el nombre coincide con seguridad */
+  caratulasAuto: boolean
 }
 
 export const POR_DEFECTO: Ajustes = {
@@ -44,6 +46,7 @@ export const POR_DEFECTO: Ajustes = {
   escalaMando: 1,
   modoMando: 'dos-manos',
   mano: 'derecha',
+  caratulasAuto: true,
 }
 
 const CLAVE = 'puchiemulator-ajustes'

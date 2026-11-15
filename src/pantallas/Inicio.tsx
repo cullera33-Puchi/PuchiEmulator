@@ -11,6 +11,7 @@ import { altavoz } from '../emulador/audio'
 import { leerAjustes } from '../lib/ajustes'
 import { borrarCaratula, guardarCaratula, leerCaratula, leerEstado, listarCaratulas, listarJuegos, type Juego } from '../lib/almacen'
 import { reducirImagen } from '../lib/caratulas'
+import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { cuando, plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
@@ -49,6 +50,12 @@ export function Inicio({ alAbrirConsola, alJugar, alAjustes }: Props) {
 
   useEffect(() => {
     void recargar()
+    // Las que quedaron pendientes (por ejemplo, sin conexión al añadir)
+    if (leerAjustes().caratulasAuto && navigator.onLine !== false) {
+      void buscarCaratulasPendientes().then((r) => {
+        if (r.puestas) void recargar()
+      })
+    }
   }, [recargar])
 
   const anadir = useAnadirJuegos(recargar)

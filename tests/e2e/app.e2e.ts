@@ -3,6 +3,7 @@
  * añadir juegos, jugar, botones, estados, salir y seguir, y la distribución en horizontal.
  */
 import { expect, test, type Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const rom = (n: string) => fileURLToPath(new URL(`../fixtures/${n}`, import.meta.url))
@@ -426,4 +427,50 @@ test.describe('mando', () => {
     await page.getByRole('button', { name: 'Seguir jugando' }).click()
     expect((await caja('Cruceta'))!.width).toBeGreaterThan(tamNormal)
   })
+})
+
+test('carátulas automáticas: se ponen al añadir, no vuelven si se quitan y se pueden buscar las que faltan', async ({ page }) => {
+  const descargas: string[] = []
+  await page.route('https://raw.githubusercontent.com/**', (r) => {
+    descargas.push(decodeURIComponent(r.request().url()))
+    return r.fulfill({ path: rom('../../public/icono-512.png'), contentType: 'image/png', headers: { 'access-control-allow-origin': '*' } })
+  })
+  await page.goto('/')
+  // Un fichero con el nombre habitual: la carátula se pone sola
+  await page.getByTestId('selector').setInputFiles({ name: 'Advance Wars (Europe) (En,Fr,De,Es).gba', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba.gba')) })
+  await expect(page.getByText('Carátula puesta')).toBeVisible()
+  expect(descargas.at(-1)).toContain('Nintendo_-_Game_Boy_Advance/master/Named_Boxarts/Advance Wars (Europe) (En,Fr,De,Es).png')
+  await entrar(page, 'Game Boy Advance')
+  await expect(page.getByTestId('biblioteca').locator('img')).toHaveCount(1)
+
+  // Si se quita, no vuelve a ponerse sola al abrir la app otra vez
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  await page.getByRole('button', { name: 'Cambiar la carátula' }).click()
+  await page.getByRole('button', { name: 'Quitar la carátula' }).click()
+  await expect(page.getByTestId('biblioteca').locator('img')).toHaveCount(0)
+  await page.reload()
+  await page.waitForTimeout(1000)
+  await entrar(page, 'Game Boy Advance')
+  await expect(page.getByTestId('biblioteca').getByRole('button', { name: /^Advance Wars/ })).toBeVisible()
+  await page.waitForTimeout(500)
+  await expect(page.getByTestId('biblioteca').locator('img')).toHaveCount(0)
+
+  // Con el interruptor apagado no se busca al añadir
+  await page.getByRole('button', { name: 'Consolas' }).click()
+  await page.getByRole('button', { name: 'Ajustes' }).click()
+  await page.getByRole('switch', { name: 'Poner la carátula al añadir un juego' }).click()
+  await page.getByRole('button', { name: 'Consolas' }).click()
+  const antes = descargas.length
+  await page.getByTestId('selector').setInputFiles({ name: 'Tetris (World) (Rev 1).gb', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba.gb')) })
+  await expect(page.getByText(/Juego añadido/)).toBeVisible()
+  await page.waitForTimeout(1000)
+  expect(descargas.length).toBe(antes)
+
+  // «Buscar ahora las que faltan» pone las dos
+  await page.getByRole('button', { name: 'Ajustes' }).click()
+  await page.getByRole('button', { name: 'Buscar ahora las que faltan' }).click()
+  await expect(page.getByText('2 carátulas puestas')).toBeVisible()
+  await page.getByRole('button', { name: 'Consolas' }).click()
+  await entrar(page, 'Game Boy')
+  await expect(page.getByTestId('biblioteca').locator('img')).toHaveCount(1)
 })

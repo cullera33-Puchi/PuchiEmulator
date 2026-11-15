@@ -10,6 +10,8 @@ import type { Sistema } from './sistemas'
 export interface Candidato {
   nombre: string
   puntos: number
+  /** El título coincide entero con lo buscado (sin etiquetas, signos ni palabras vacías) */
+  exacto?: boolean
 }
 
 interface Indice {
@@ -20,7 +22,7 @@ interface Indice {
 
 const indices = new Map<Sistema, Promise<Indice>>()
 
-const PALABRAS_VACIAS = new Set(['the', 'a', 'an', 'el', 'la', 'los', 'las', 'of', 'de', 'and', 'y', 'version'])
+const PALABRAS_VACIAS = new Set(['the', 'a', 'an', 'el', 'la', 'los', 'las', 'of', 'de', 'and', 'y', 'version', 'edicion'])
 
 /** Palabras de un título sin acentos, signos, etiquetas entre paréntesis ni palabras vacías. */
 export function palabras(titulo: string): string[] {
@@ -34,8 +36,10 @@ export function palabras(titulo: string): string[] {
     .filter((p) => p && !PALABRAS_VACIAS.has(p))
 }
 
-/** Preferencia por la edición europea o española, que es la que suele tener el usuario. */
+/** Preferencia por la edición europea o española, que es la que suele tener el usuario, y por la
+ * versión comercial frente a demos, prototipos o reediciones. */
 function bonusRegion(nombre: string): number {
+  if (/\((Beta|Proto|Demo|Sample|Pirate|Unl|Alternate|Virtual Console|Kiosk)[^)]*\)/i.test(nombre)) return -0.04
   if (/\(([^)]*\b)?(Spain|Europe)\b/.test(nombre)) return 0.06
   if (/\(([^)]*\b)?World\b/.test(nombre)) return 0.04
   if (/\(([^)]*\b)?USA\b/.test(nombre)) return 0.02
@@ -65,11 +69,38 @@ export function buscarEn(nombres: string[], normalizados: string[][], consulta: 
     }
     if (!comunes) continue
     let puntos = (2 * comunes) / (qSet.size + new Set(c).size)
-    if (c.join(' ') === qTexto) puntos += 0.5
+    const exacto = c.join(' ') === qTexto
+    if (exacto) puntos += 0.5
     puntos += bonusRegion(nombres[i])
-    resultado.push({ nombre: nombres[i], puntos })
+    resultado.push({ nombre: nombres[i], puntos, exacto })
   }
   return resultado.sort((a, b) => b.puntos - a.puntos || a.nombre.localeCompare(b.nombre)).slice(0, maximo)
+}
+
+/** Etiquetas entre paréntesis de un nombre, en minúsculas: «(USA, Europe) (Rev 1)» da usa, europe, rev 1. */
+function etiquetas(nombre: string): Set<string> {
+  const r = new Set<string>()
+  for (const m of nombre.matchAll(/\(([^)]*)\)/g)) for (const t of m[1].split(',')) r.add(t.trim().toLowerCase())
+  return r
+}
+
+/**
+ * Elección sin preguntar, solo si es segura: el mismo nombre de fichero que la carátula o el mismo
+ * título. Entre varias con el mismo título, la que comparte región con el fichero o, si el fichero
+ * no la dice, la europea o española. Si no hay coincidencia segura, null (la elige el usuario).
+ */
+export function elegirAutomatica(consulta: string, candidatos: Candidato[]): Candidato | null {
+  const limpia = consulta.trim().toLowerCase()
+  const igual = candidatos.find((c) => nombreVisible(c.nombre).toLowerCase() === limpia)
+  if (igual) return igual
+  const exactos = candidatos.filter((c) => c.exacto)
+  if (!exactos.length) return null
+  const propias = etiquetas(consulta)
+  if (propias.size) {
+    const conRegion = exactos.find((c) => [...etiquetas(nombreVisible(c.nombre))].some((t) => propias.has(t)))
+    if (conRegion) return conRegion
+  }
+  return exactos[0]
 }
 
 function cargarIndice(sistema: Sistema): Promise<Indice> {

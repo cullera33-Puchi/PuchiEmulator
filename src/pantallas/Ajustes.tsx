@@ -16,6 +16,7 @@ import { espacioUsado, listarJuegos, listarPartidas, pedirPersistencia, sustitui
 import { compartirArchivo, crearArchivo, ErrorArchivo, importarArchivo, nombreArchivo } from '../lib/copias'
 import { cuando, plural, tamano } from '../lib/formato'
 import { borrarRegistro, copiarTexto, leerRegistro, registrar, suscribirRegistro, textoRegistro } from '../lib/registro'
+import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { borrarCopia, borrarTodasLasCopias, crearCopia, listarCopias, restaurarCopia, type MetaCopia } from '../lib/seguridad'
 import { APP_VERSION, cargarNovedades, type Novedad } from '../lib/version'
 
@@ -39,6 +40,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   const [verRegistro, setVerRegistro] = useState(false)
   const [novedades, setNovedades] = useState<Novedad[] | null>(null)
   const [temaDe, setTemaDe] = useState<Sistema | null>(null)
+  const [buscandoCaratulas, setBuscandoCaratulas] = useState(false)
   const entradas = useRegistro()
   const selector = useRef<HTMLInputElement>(null)
 
@@ -55,6 +57,22 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   const cambiar = (c: Partial<TipoAjustes>) => {
     cambiarAjustes(c)
     if (c.tema) aplicarTema(c.tema)
+  }
+
+  /* ---- Carátulas ---- */
+
+  const buscarFaltan = async () => {
+    setBuscandoCaratulas(true)
+    try {
+      const r = await buscarCaratulasPendientes(true)
+      const partes: string[] = []
+      if (r.puestas) partes.push(plural(r.puestas, 'carátula puesta', 'carátulas puestas'))
+      if (r.sinCoincidencia) partes.push(`${r.sinCoincidencia} sin coincidencia segura`)
+      if (r.fallidas) partes.push(`${r.fallidas} sin conexión`)
+      avisar(partes.length ? partes.join(', ').replace(/^./, (c) => c.toUpperCase()) : 'No falta ninguna carátula')
+    } finally {
+      setBuscandoCaratulas(false)
+    }
   }
 
   /* ---- Datos ---- */
@@ -239,6 +257,19 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
         <p className="cabecera-grupo mt-6">Mando</p>
         <AjustesMando />
         <p className="pie-grupo">También funcionan un teclado y los mandos de PlayStation, Xbox o MFi conectados al iPhone.</p>
+
+        <p className="cabecera-grupo mt-6">Carátulas</p>
+        <div className="lista">
+          <div className="fila justify-between">
+            <span>Poner la carátula al añadir un juego</span>
+            <Interruptor etiqueta="Poner la carátula al añadir un juego" activo={a.caratulasAuto} alCambiar={(v) => cambiar({ caratulasAuto: v })} />
+          </div>
+          <div className="separador" />
+          <button className="fila text-acento disabled:opacity-40 dark:text-acento-oscuro" disabled={buscandoCaratulas} onClick={() => void buscarFaltan()}>
+            {buscandoCaratulas ? 'Buscando…' : 'Buscar ahora las que faltan'}
+          </button>
+        </div>
+        <p className="pie-grupo">La app busca la carátula en el archivo de libretro la primera vez y solo la pone si el nombre coincide con seguridad; si no, la eliges tú desde el juego. Se descarga la imagen elegida; nada más sale del iPhone.</p>
 
         <p className="cabecera-grupo mt-6">Temas del juego</p>
         <div className="lista">

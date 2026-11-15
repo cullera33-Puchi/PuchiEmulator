@@ -3,7 +3,9 @@
  * a su consola, aunque se añada desde otra.
  */
 import { useRef, useState } from 'react'
+import { leerAjustes } from '../lib/ajustes'
 import { anadirFichero } from '../lib/biblioteca'
+import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
@@ -49,6 +51,14 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
     if (fallidos.length) partes.push(fallidos.length === 1 ? `«${fallidos[0]}» no es un juego que se pueda abrir` : `${fallidos.length} ficheros no se han reconocido`)
     const texto = partes.join(', ')
     avisar(texto.charAt(0).toUpperCase() + texto.slice(1))
+    // Carátulas de los nuevos, por detrás
+    if (nuevos && leerAjustes().caratulasAuto) {
+      const r = await buscarCaratulasPendientes()
+      if (r.puestas) {
+        await alTerminar()
+        avisar(r.puestas === 1 ? 'Carátula puesta' : plural(r.puestas, 'carátula puesta', 'carátulas puestas'))
+      }
+    }
   }
 
   const elementos = (
