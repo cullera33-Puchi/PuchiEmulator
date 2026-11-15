@@ -49,6 +49,10 @@ const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     mgba_idle_optimization: 'Remove Known',
     mgba_frameskip: 'disabled',
   },
+  snes9x: {
+    snes9x_region: 'auto',
+    snes9x_overscan: 'enabled',
+  },
 }
 
 export class Nucleo {

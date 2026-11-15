@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.7.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Llega la Super Nintendo: añade tus juegos .sfc o .smc (también en .zip) y tendrás su consola en el inicio.",
+      "Mando con A, B, X e Y en rombo, y L y R, en vertical, en horizontal y con una mano.",
+      "Tema Super con los cuatro botones de colores; puedes elegir cualquier otro.",
+      "Funciona todo lo demás: partidas guardadas, estados, rebobinar, avance rápido, carátulas y estadísticas."
+    ]
+  },
+  {
     "version": "0.6.0",
     "fecha": "15/11/2026",
     "cambios": [

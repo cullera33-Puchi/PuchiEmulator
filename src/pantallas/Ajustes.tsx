@@ -412,6 +412,11 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
             <span className="text-zinc-500">mGBA (MPL 2.0)</span>
           </a>
           <div className="separador" />
+          <a className="fila justify-between" href="https://github.com/snes9xgit/snes9x" target="_blank" rel="noreferrer">
+            <span>Núcleo de Super Nintendo</span>
+            <span className="text-zinc-500">Snes9x (no comercial)</span>
+          </a>
+          <div className="separador" />
           <a className="fila justify-between" href="https://github.com/libretro-thumbnails/libretro-thumbnails" target="_blank" rel="noreferrer">
             <span>Carátulas</span>
             <span className="text-zinc-500">libretro-thumbnails</span>

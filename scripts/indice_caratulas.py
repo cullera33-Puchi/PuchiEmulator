@@ -14,6 +14,7 @@ REPOS = {
     'gb': 'Nintendo_-_Game_Boy',
     'gbc': 'Nintendo_-_Game_Boy_Color',
     'gba': 'Nintendo_-_Game_Boy_Advance',
+    'snes': 'Nintendo_-_Super_Nintendo_Entertainment_System',
 }
 SALIDA = pathlib.Path(__file__).resolve().parent.parent / 'public' / 'caratulas'
 

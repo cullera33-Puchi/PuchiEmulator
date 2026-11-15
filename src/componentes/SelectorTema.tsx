@@ -15,8 +15,8 @@ function Muestra({ tema }: { tema: Tema }) {
       </span>
       <span className="absolute bottom-[22%] left-[12%] h-[20%] w-[8%] rounded-sm" style={{ background: v['--cruceta'] ?? '#444' }} />
       <span className="absolute bottom-[28%] left-[4%] h-[8%] w-[24%] rounded-sm" style={{ background: v['--cruceta'] ?? '#444' }} />
-      <span className="absolute right-[10%] bottom-[30%] size-[16%] rounded-full" style={{ background: v['--ab'] ?? '#444' }} />
-      <span className="absolute right-[30%] bottom-[22%] size-[16%] rounded-full" style={{ background: v['--ab'] ?? '#444' }} />
+      <span className="absolute right-[10%] bottom-[30%] size-[16%] rounded-full" style={{ background: v['--boton-a'] ?? v['--ab'] ?? '#444' }} />
+      <span className="absolute right-[30%] bottom-[22%] size-[16%] rounded-full" style={{ background: v['--boton-b'] ?? v['--ab'] ?? '#444' }} />
     </span>
   )
 }

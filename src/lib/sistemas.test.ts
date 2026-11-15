@@ -24,6 +24,11 @@ describe('detectarSistema', () => {
     expect(detectarSistema(new Uint8Array(16), 'algo.GBA')).toBe('gba')
   })
 
+  it('reconoce la Super Nintendo por la extensión', () => {
+    expect(detectarSistema(fixture('prueba.sfc'), 'Juego (Europe).sfc')).toBe('snes')
+    expect(detectarSistema(fixture('prueba.sfc'), 'juego.SMC')).toBe('snes')
+  })
+
   it('no reconoce otros ficheros', () => {
     expect(detectarSistema(new Uint8Array(512), 'foto.jpg')).toBeNull()
   })
@@ -51,5 +56,10 @@ describe('nombres', () => {
   it('lee el título interno', () => {
     expect(tituloInterno(fixture('prueba.gba'), 'gba')).toBe('PUCHIPRUEBA')
     expect(tituloInterno(fixture('prueba.gb'), 'gb')).toBe('PUCHIPRUEBA')
+    expect(tituloInterno(fixture('prueba.sfc'), 'snes')).toBe('PUCHIPRUEBA')
+    // Con la cabecera de 512 bytes de las copiadoras antiguas
+    const conCabecera = new Uint8Array(512 + 32768)
+    conCabecera.set(fixture('prueba.sfc'), 512)
+    expect(tituloInterno(conCabecera, 'snes')).toBe('PUCHIPRUEBA')
   })
 })

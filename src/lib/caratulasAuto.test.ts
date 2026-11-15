@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import indiceGba from '../../public/caratulas/gba.json'
+import indiceSnes from '../../public/caratulas/snes.json'
 import { buscarEn, elegirAutomatica, palabras } from './caratulas'
 
 const nombres = (indiceGba as { nombres: string[] }).nombres
@@ -29,5 +30,20 @@ describe('elegirAutomatica', () => {
     expect(auto('Wars')).toBeNull()
     expect(auto('prueba')).toBeNull()
     expect(auto('Advance Wars 3')).toBeNull()
+  })
+})
+
+describe('elegirAutomatica en Super Nintendo', () => {
+  const n = (indiceSnes as { nombres: string[] }).nombres
+  const norm = n.map(palabras)
+  const auto = (q: string) => elegirAutomatica(q, buscarEn(n, norm, q))?.nombre ?? null
+
+  it('con el artículo delante o detrás y la región del fichero', () => {
+    expect(auto('The Legend of Zelda - A Link to the Past (Europe)')).toBe('Legend of Zelda, The - A Link to the Past (Europe)')
+  })
+
+  it('sin región prefiere la europea y nunca una muestra ni la reedición de Switch Online', () => {
+    expect(auto('Legend of Zelda, The - A Link to the Past')).toBe('Legend of Zelda, The - A Link to the Past (Europe)')
+    expect(auto('Chrono Trigger')).toBe('Chrono Trigger (USA)')
   })
 })

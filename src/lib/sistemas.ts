@@ -4,8 +4,8 @@
  */
 import { unzipSync } from 'fflate'
 
-export type Sistema = 'gb' | 'gbc' | 'gba'
-export type NombreNucleo = 'mgba'
+export type Sistema = 'gb' | 'gbc' | 'gba' | 'snes'
+export type NombreNucleo = 'mgba' | 'snes9x'
 
 export interface InfoSistema {
   nombre: string
@@ -14,16 +14,22 @@ export interface InfoSistema {
   extension: string
   /** Botones que tiene la consola, para dibujar el mando */
   hombros: boolean
+  /** A, B, X e Y en rombo (Super Nintendo) en lugar de solo A y B */
+  cuatroBotones: boolean
   color: string
 }
 
 export const SISTEMAS: Record<Sistema, InfoSistema> = {
-  gb: { nombre: 'Game Boy', corto: 'GB', nucleo: 'mgba', extension: 'gb', hombros: false, color: '#8E8E93' },
-  gbc: { nombre: 'Game Boy Color', corto: 'GBC', nucleo: 'mgba', extension: 'gbc', hombros: false, color: '#AF52DE' },
-  gba: { nombre: 'Game Boy Advance', corto: 'GBA', nucleo: 'mgba', extension: 'gba', hombros: true, color: '#5856D6' },
+  gb: { nombre: 'Game Boy', corto: 'GB', nucleo: 'mgba', extension: 'gb', hombros: false, cuatroBotones: false, color: '#8E8E93' },
+  gbc: { nombre: 'Game Boy Color', corto: 'GBC', nucleo: 'mgba', extension: 'gbc', hombros: false, cuatroBotones: false, color: '#AF52DE' },
+  gba: { nombre: 'Game Boy Advance', corto: 'GBA', nucleo: 'mgba', extension: 'gba', hombros: true, cuatroBotones: false, color: '#5856D6' },
+  snes: { nombre: 'Super Nintendo', corto: 'SNES', nucleo: 'snes9x', extension: 'sfc', hombros: true, cuatroBotones: true, color: '#6E6E80' },
 }
 
-const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba' }
+/** Orden en el que se enseñan las consolas */
+export const CONSOLAS: Sistema[] = ['gb', 'gbc', 'gba', 'snes']
+
+const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba', sfc: 'snes', smc: 'snes', swc: 'snes', fig: 'snes' }
 
 export function extensionDe(nombre: string): string {
   const i = nombre.lastIndexOf('.')
@@ -56,8 +62,29 @@ function texto(bytes: Uint8Array, desde: number, hasta: number): string {
   return s.trim()
 }
 
+/**
+ * Cabecera de un cartucho de Super Nintendo: en 0x7FC0 (LoROM) o 0xFFC0 (HiROM), más 512 bytes si el
+ * fichero trae la cabecera de las copiadoras antiguas. Se elige la que tiene la suma de control
+ * coherente con su complemento.
+ */
+function cabeceraSnes(b: Uint8Array): number | null {
+  const extra = b.length % 1024 === 512 ? 512 : 0
+  for (const base of [0x7fc0, 0xffc0, 0x40ffc0]) {
+    const o = base + extra
+    if (o + 0x20 > b.length) continue
+    const complemento = b[o + 0x1c] | (b[o + 0x1d] << 8)
+    const suma = b[o + 0x1e] | (b[o + 0x1f] << 8)
+    if ((complemento ^ suma) === 0xffff) return o
+  }
+  return null
+}
+
 /** Título interno del cartucho (en mayúsculas y recortado), si lo tiene. */
 export function tituloInterno(bytes: Uint8Array, sistema: Sistema): string {
+  if (sistema === 'snes') {
+    const o = cabeceraSnes(bytes)
+    return o === null ? '' : texto(bytes, o, o + 21)
+  }
   if (sistema === 'gba') return texto(bytes, 0xa0, 0xac)
   // En Game Boy Color el título ocupa menos: los últimos bytes son el código y el indicador de color
   return texto(bytes, 0x134, sistema === 'gbc' ? 0x143 : 0x144)

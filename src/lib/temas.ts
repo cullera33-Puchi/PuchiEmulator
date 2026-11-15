@@ -5,7 +5,7 @@
  */
 import type { Sistema } from './sistemas'
 
-export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
+export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'super' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
 
 export interface Tema {
   id: IdTema
@@ -93,6 +93,35 @@ export const TEMAS: Tema[] = [
       '--borde': 'transparent',
     },
   },
+  {
+    id: 'super',
+    nombre: 'Super',
+    arriba: '#d9d9de',
+    abajo: '#bdbdc6',
+    vars: {
+      '--fondo': 'linear-gradient(180deg, #d9d9de, #bdbdc6)',
+      '--marco': '#2c2c34',
+      '--marco-relleno': '10px',
+      '--marco-radio': '14px',
+      // Cuatro botones de colores; en el resto de temas, X e Y van como A y B
+      '--ab': '#5b5b68',
+      '--boton-a': '#c8282f',
+      '--boton-b': '#e3ac12',
+      '--boton-x': '#2f62b6',
+      '--boton-y': '#2f8c56',
+      '--ab-texto': 'rgb(255 255 255 / 0.9)',
+      '--ab-pulsado': '#7a7a88',
+      '--cruceta': '#2c2c34',
+      '--cruceta-pulsado': '#55555f',
+      '--pequeno': '#8d8d9a',
+      '--pequeno-texto': 'rgb(255 255 255 / 0.9)',
+      '--hombro': '#a9a9b5',
+      '--hombro-texto': '#33333c',
+      '--herramienta': 'rgb(0 0 0 / 0.07)',
+      '--herramienta-texto': '#3c3c46',
+      '--borde': 'transparent',
+    },
+  },
   color('baya', 'Baya', '#c8265e', '#a51a4b'),
   color('kiwi', 'Kiwi', '#9fc93f', '#84ab2d'),
   color('turquesa', 'Turquesa', '#25aaa3', '#1a8b86'),
@@ -101,7 +130,7 @@ export const TEMAS: Tema[] = [
 ]
 
 /** Tema que se usa con «Según la consola». */
-export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance' }
+export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', snes: 'super' }
 
 export function temaPorId(id: IdTema): Tema {
   return TEMAS.find((t) => t.id === id) ?? TEMAS[0]

@@ -5,6 +5,9 @@ La app usa núcleos libretro existentes compilados a WebAssembly. El resultado e
 | Núcleo | Consolas | Licencia | Código fuente | Versión |
 | --- | --- | --- | --- | --- |
 | mGBA | Game Boy, Game Boy Color, Game Boy Advance | MPL 2.0 | https://github.com/libretro/mgba | `7a12d6d4b9acb14c0ae62c9166b6a2f3d08007f6` |
+| Snes9x | Super Nintendo | Propia, solo uso no comercial | https://github.com/libretro/snes9x | `fae2fea08f74180759ef540ee94259213f503480` |
+
+Snes9x es C++ y se enlaza con `em++`. En su modo estático espera que la aplicación aporte zlib y las funciones de ficheros de libretro-common; el script las compila aparte (zlib 1.3.1, `51b7f2ab`, licencia zlib; libretro-common, licencia MIT) y las añade al enlace. El puente se compila siempre como C.
 
 El código fuente de cada núcleo está en el repositorio y el commit indicados; el binario se ha compilado de él sin cambios, con `nucleos/compilar.sh`.
 
@@ -14,7 +17,7 @@ El código fuente de cada núcleo está en el repositorio y el commit indicados;
 git clone https://github.com/emscripten-core/emsdk.git
 ./emsdk/emsdk install 4.0.10 && ./emsdk/emsdk activate 4.0.10
 source ./emsdk/emsdk_env.sh
-npm run nucleos            # o: bash nucleos/compilar.sh mgba
+npm run nucleos            # o: bash nucleos/compilar.sh mgba snes9x
 ```
 
 El script descarga el núcleo en `.nucleos/` (ignorado por git), lo compila como biblioteca estática y lo enlaza con `puente.c`.

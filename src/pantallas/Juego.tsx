@@ -34,6 +34,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const sesion = useRef<Sesion | null>(null)
   const [nombre, setNombre] = useState('')
   const [hombros, setHombros] = useState(false)
+  const [cuatro, setCuatro] = useState(false)
   const [proporcion, setProporcion] = useState(2 / 3)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -70,6 +71,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         setNombre(juego.nombre)
         setSistema(juego.sistema)
         setHombros(SISTEMAS[juego.sistema].hombros)
+        setCuatro(SISTEMAS[juego.sistema].cuatroBotones)
         const temaJuego = temaPara(juego.sistema, ajustesRef.current.temas[juego.sistema])
         creada = await Sesion.iniciar({
           juego,
@@ -245,7 +247,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         <canvas ref={lienzo} width={240} height={160} aria-label="Pantalla del juego" data-testid="pantalla" />
       </div>
 
-      <Mando hombros={hombros} alCambiar={(m) => sesion.current?.ponerBotonesTactil(m)} alToque={() => {
+      <Mando hombros={hombros} cuatro={cuatro} alCambiar={(m) => sesion.current?.ponerBotonesTactil(m)} alToque={() => {
         // Safari solo deja sonar después de un toque: se reintenta en cada uno hasta que suena
         if (!sesion.current?.altavoz.activo) void sesion.current?.altavoz.activar(ajustesRef.current.sonarEnSilencio)
       }} />

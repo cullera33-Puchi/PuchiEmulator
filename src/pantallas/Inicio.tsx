@@ -15,7 +15,7 @@ import { reducirImagen } from '../lib/caratulas'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { cuando, plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
-import { SISTEMAS, type Sistema } from '../lib/sistemas'
+import { CONSOLAS, SISTEMAS, type Sistema } from '../lib/sistemas'
 
 interface Props {
   alEstadisticas: () => void
@@ -24,7 +24,6 @@ interface Props {
   alAjustes: () => void
 }
 
-const CONSOLAS: Sistema[] = ['gb', 'gbc', 'gba']
 export const claveFotoConsola = (s: Sistema) => `consola-${s}`
 
 export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: Props) {

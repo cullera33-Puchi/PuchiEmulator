@@ -4,14 +4,14 @@ Versión del 15 de noviembre de 2026 (revisada en la v0.2.0).
 
 ## Qué es
 
-App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Color y Game Boy Advance, y más adelante de Super Nintendo. Un único usuario. Los juegos están en una carpeta de Archivos; las partidas se guardan en el propio iPhone. Se juega en vertical y en horizontal.
+App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Color, Game Boy Advance y Super Nintendo. Un único usuario. Los juegos están en una carpeta de Archivos; las partidas se guardan en el propio iPhone. Se juega en vertical y en horizontal.
 
 ## Stack
 
 - React, TypeScript y Vite, con Tailwind CSS. PWA instalable, diseñada para el iPhone (en un ordenador se ve igual, a pantalla completa).
 - Núcleos de emulación existentes compilados a WebAssembly con Emscripten, en un solo hilo (sin SharedArrayBuffer, que GitHub Pages no permite):
   - mGBA (MPL 2.0) para Game Boy, Game Boy Color y Game Boy Advance.
-  - Snes9x para Super Nintendo (fase 2). Su licencia solo permite uso no comercial: la app es y seguirá siendo gratuita.
+  - Snes9x para Super Nintendo (v0.7.0). Su licencia solo permite uso no comercial: la app es y seguirá siendo gratuita. Es C++: se enlaza con `em++` y necesita zlib y piezas de libretro-common, que `nucleos/compilar.sh` compila aparte.
 - Puente propio entre el núcleo y la app: `nucleos/puente.c` implementa la parte de libretro que necesitamos y expone funciones `pf_*`. Es el mismo para todos los núcleos.
 - Datos: solo en el iPhone (IndexedDB). Sin servidor, cuentas ni bases de datos externas.
 - Despliegue: GitHub Pages, publicado por `.github/workflows/publicar.yml` en cada envío a `main` (tests, build, pruebas de navegador y publicación).
@@ -39,10 +39,11 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 ## Cómo funciona
 
 - **Inicio** (v0.3.0, `src/pantallas/Inicio.tsx`): «Seguir jugando» con el último juego y una tarjeta por consola con su dibujo propio (`src/componentes/Consolas.tsx`) o una foto del usuario (almacén `caratulas`, clave `consola-<sistema>`). Tocar una consola abre su biblioteca, que es una pantalla apilada. Al salir de un juego se vuelve a la biblioteca de su consola.
-- **Biblioteca** (`src/pantallas/Biblioteca.tsx`, una por consola): «+» (aquí o en el inicio, `useAnadirJuegos`) abre Archivos (varios ficheros a la vez, `.gb`, `.gbc`, `.gba` o `.zip`). Sin filtro de tipo en el selector, porque Archivos no deja elegir extensiones que no conoce. La consola se reconoce por la cabecera y, si no, por la extensión (`src/lib/sistemas.ts`). La ROM se copia en IndexedDB; el identificador del juego es el SHA-1 de la ROM, así que una partida encuentra su juego aunque se quite y se vuelva a añadir.
+- **Biblioteca** (`src/pantallas/Biblioteca.tsx`, una por consola): «+» (aquí o en el inicio, `useAnadirJuegos`) abre Archivos (varios ficheros a la vez, `.gb`, `.gbc`, `.gba`, `.sfc`, `.smc` o `.zip`). Sin filtro de tipo en el selector, porque Archivos no deja elegir extensiones que no conoce. La consola se reconoce por la cabecera y, si no, por la extensión (`src/lib/sistemas.ts`). La ROM se copia en IndexedDB; el identificador del juego es el SHA-1 de la ROM, así que una partida encuentra su juego aunque se quite y se vuelva a añadir.
 - **Almacenamiento** (`src/lib/almacen.ts`): colecciones `juegos`, `roms`, `partidas`, `estados`, `caratulas` (v2) y `sesiones` (v3). Las partidas van por juego; los estados, por juego y ranura (`auto`, `1`, `2` y `3`).
 - **Guardado**: la partida del juego (SRAM, Flash o EEPROM y el reloj del cartucho) se guarda en cuanto cambia (se comprueba cada segundo), al abrir el menú, al pasar a segundo plano y al salir. Al pasar a segundo plano y al salir se guarda además el estado `auto`, que permite seguir donde se dejó.
 - **Juego** (`src/pantallas/Juego.tsx`, `src/emulador/sesion.ts`): ritmo por tiempo (el iPhone puede ir a 60, 120 o 30 Hz), como mucho 4 fotogramas seguidos para recuperar. La distribución en vertical y en horizontal la decide el CSS (`.juego` en `src/index.css`) con la orientación.
+- **Super Nintendo** (v0.7.0): sistema `snes` en `src/lib/sistemas.ts` (orden de las consolas en `CONSOLAS`), núcleo `snes9x`, mando con X e Y en rombo (`cuatroBotones`, `.botones-accion.cuatro`) y tema Super con los botones de colores. La imagen se ve a 8:7, píxel a píxel.
 - **Mando táctil** (`src/componentes/Mando.tsx`): tamaño de los botones con `--escala` (0,8, 1, 1,15 y 1,3) y modo una mano para la derecha o la izquierda (`.juego.una-mano[data-mano]` en `src/index.css`): en vertical todo abajo (v0.3.0) y en horizontal la pantalla pegada al lado contrario a la mano con una columna de controles (v0.5.0). «Pantalla lo más grande posible» (`.juego.grande`, v0.5.0) quita margen y marco. Varios dedos, deslizar entre botones, la cruceta es del dedo que empieza en ella y da ocho direcciones por ángulo (`direccionCruceta`). También teclado y mandos físicos (Gamepad API, distribución de Nintendo).
 - **Sonido** (`src/emulador/audio.ts`, `public/procesador-audio.js`): AudioWorklet con cola de unos 70 ms y remuestreo lineal con ajuste de ritmo de hasta un 0,5 % según la cola (`src/emulador/remuestreo.ts`). El altavoz es único y se activa en el toque que abre el juego (Safari lo exige). «Sonar con el iPhone en silencio» usa `navigator.audioSession`.
 - **Copia de partidas** (`src/lib/copias.ts`): archivo JSON con partidas y, opcionalmente, estados; se comparte con la hoja del iPhone (Guardar en Archivos). Recuperarla sustituye la partida de esos juegos y no toca el resto.
@@ -65,7 +66,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 
 - Una fase cada vez. Al terminar, resumir qué se ha hecho, qué queda y cómo probarlo, y esperar la validación del usuario.
 - Si una decisión no está en esta especificación, preguntar antes de asumir.
-- Tests unitarios (`npm test`) para lo que no se ve en pantalla: reconocimiento de ROMs, remuestreo, cruceta, rebobinado, búsqueda de carátulas, biblioteca, copias, copias de seguridad y registro. Pruebas de navegador (`npm run build` y después `npm run e2e`) en un iPhone simulado, en vertical y en horizontal, con las ROMs de prueba: imagen, botones, estados, partida guardada tras cerrar la app. Toda pantalla o gesto nuevo importante se añade a `tests/e2e/app.e2e.ts`.
+- Tests unitarios (`npm test`) para lo que no se ve en pantalla: reconocimiento de ROMs (también de Super Nintendo), remuestreo, cruceta, rebobinado, búsqueda de carátulas, biblioteca, copias, copias de seguridad y registro. Pruebas de navegador (`npm run build` y después `npm run e2e`) en un iPhone simulado, en vertical y en horizontal, con las ROMs de prueba: imagen, botones, estados, partida guardada tras cerrar la app. Toda pantalla o gesto nuevo importante se añade a `tests/e2e/app.e2e.ts`.
 - Cada versión publicada sube `version` en `package.json`, añade su entrada a `CHANGELOG.md` y de 3 a 5 líneas para el usuario en `public/novedades.json` (la más reciente arriba).
 - Si cambia el modelo de IndexedDB, subir `VERSION` en `src/lib/almacen.ts` con su paso en `onupgradeneeded`, sin perder partidas. Si cambia el formato de la copia, subir `VERSION_FORMATO` en `src/lib/copias.ts` y seguir leyendo las anteriores.
 - Mantener actualizado el apartado Estado.
@@ -81,7 +82,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 | v0.5.0 | Pantalla más grande, una mano también en horizontal y franja negra de iOS | Hecha, pendiente de validar en el iPhone |
 | v0.4.0 | Carátulas automáticas al añadir un juego, con opción en Ajustes | Hecha, pendiente de validar con los juegos del usuario |
 | v0.3.0 | Inicio con las consolas y biblioteca por consola, tamaño de los botones y modo una mano en vertical | Hecha, pendiente de validar en el iPhone |
-| 2 | Super Nintendo con Snes9x (no comercial) y su disposición de botones (X, Y, L y R). Esfuerzo medio | Pendiente, no empezar sin indicación del usuario |
+| 2 (v0.7.0) | Super Nintendo con Snes9x (no comercial) y su disposición de botones (X, Y, L y R) | Hecha, pendiente de probar con juegos reales |
 | 3 | Mega Drive con Genesis Plus GX (no comercial). Esfuerzo bajo | Pendiente, no empezar sin indicación del usuario |
 | 4 | PlayStation con PCSX ReARMed (GPL). Esfuerzo alto: imágenes de CD de 300 a 700 MB que hay que guardar y leer sin cargarlas enteras en memoria; BIOS opcional | Pendiente, no empezar sin indicación del usuario |
 | 5 | Nintendo DS con melonDS o DeSmuME. Esfuerzo muy alto y sin garantía de velocidad completa en el iPhone sin hilos; dos pantallas, la de abajo táctil | Pendiente, no empezar sin indicación del usuario |
@@ -91,6 +92,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; PCSX R
 
 ## Estado
 
+- v0.7.0 (15/11/2026): Super Nintendo con Snes9x, pedida por el usuario (fase 2 de la hoja de ruta). Probada con una ROM propia: imagen, botones, partida guardada; todo lo demás (estados, rebobinar, carátulas, estadísticas, temas, una mano) es común. 70 pruebas unitarias y 21 de navegador. Pendiente de probar con juegos reales, sobre todo los que llevan chips especiales (Super FX, SA-1), que exigen más al iPhone.
 - v0.6.0 (15/11/2026): tiempo jugado por juego y pantalla de estadísticas, pedidos por el usuario. 67 pruebas unitarias y 20 de navegador.
 - v0.5.0 (15/11/2026): a partir de una captura del usuario con un juego real de GBA: pantalla de borde a borde en vertical y a toda la altura en horizontal, modo una mano en horizontal (pantalla a la izquierda con la mano derecha, que es la que usa el usuario) y arreglo de la franja negra de abajo en la app instalada (sin poder comprobarlo en el dispositivo). 55 pruebas unitarias y 19 de navegador.
 - v0.4.0 (15/11/2026): carátulas automáticas al añadir un juego, pedidas por el usuario (antes había elegido búsqueda manual): solo con coincidencia segura, una vez por juego, con interruptor y «Buscar ahora las que faltan» en Ajustes. 55 pruebas unitarias y 16 de navegador.

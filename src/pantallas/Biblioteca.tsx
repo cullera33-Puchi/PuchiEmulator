@@ -226,7 +226,7 @@ export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
         <div className="mt-16 flex flex-col items-center px-6 text-center">
           <Gamepad2 size={56} strokeWidth={1.25} className="text-zinc-400" />
           <p className="mt-4 text-[20px] font-semibold">Aún no hay juegos de {info.nombre}</p>
-          <p className="mt-2 text-[15px] text-zinc-500">Elige tus juegos en Archivos (.gb, .gbc, .gba o .zip). La app guarda una copia y el fichero original se queda donde está.</p>
+          <p className="mt-2 text-[15px] text-zinc-500">Elige tus juegos en Archivos ({sistema === 'snes' ? '.sfc, .smc' : '.gb, .gbc, .gba'} o .zip). La app guarda una copia y el fichero original se queda donde está.</p>
           <button className="boton-lleno mt-6" onClick={anadir.abrir}>
             <Plus size={20} /> Añadir juegos
           </button>

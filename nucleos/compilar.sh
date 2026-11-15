@@ -6,7 +6,7 @@
 #   ./emsdk/emsdk install 4.0.10 && ./emsdk/emsdk activate 4.0.10
 #   source ./emsdk/emsdk_env.sh
 #
-# Uso: nucleos/compilar.sh [mgba]
+# Uso: nucleos/compilar.sh [mgba] [snes9x]
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,6 +17,12 @@ mkdir -p "$TRABAJO" "$SALIDA"
 # Versiones fijadas. Al subir una, anotarlo en nucleos/README.md y en CHANGELOG.md.
 MGBA_REPO="https://github.com/libretro/mgba.git"
 MGBA_COMMIT="7a12d6d4b9acb14c0ae62c9166b6a2f3d08007f6"
+SNES9X_REPO="https://github.com/libretro/snes9x.git"
+SNES9X_COMMIT="fae2fea08f74180759ef540ee94259213f503480"
+# zlib para las piezas de libretro-common que necesita Snes9x (sin el puerto de Emscripten, que
+# se descarga aparte y puede no estar disponible)
+ZLIB_REPO="https://github.com/madler/zlib.git"
+ZLIB_COMMIT="51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"
 
 EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion"]'
 
@@ -29,16 +35,19 @@ traer() { # repo commit carpeta
 	git -C "$3" checkout -q FETCH_HEAD
 }
 
-enlazar() { # nombre biblioteca
-	emcc -O3 "$RAIZ/nucleos/puente.c" "$2" \
-		-I"$RAIZ/nucleos" \
-		-o "$SALIDA/$1.js" \
+enlazar() { # nombre enlazador (emcc, o em++ si el núcleo es C++) bibliotecas...
+	local nombre="$1" enlazador="$2"
+	shift 2
+	# El puente se compila siempre como C, para que sus funciones pf_* conserven el nombre
+	emcc -O3 -c "$RAIZ/nucleos/puente.c" -I"$RAIZ/nucleos" -o "$TRABAJO/puente.o"
+	"$enlazador" -O3 "$TRABAJO/puente.o" "$@" \
+		-o "$SALIDA/$nombre.js" \
 		-sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=crearNucleo \
 		-sENVIRONMENT=web,worker -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864 \
 		-sSTACK_SIZE=1048576 -sFILESYSTEM=1 -sINVOKE_RUN=0 \
 		-sEXPORTED_FUNCTIONS="$EXPORTADAS" \
 		-sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAP16","HEAPU32","stringToNewUTF8"]'
-	echo "Listo: public/nucleos/$1.js y $1.wasm ($(du -h "$SALIDA/$1.wasm" | cut -f1))"
+	echo "Listo: public/nucleos/$nombre.js y $nombre.wasm ($(du -h "$SALIDA/$nombre.wasm" | cut -f1))"
 }
 
 compilar_mgba() {
@@ -55,9 +64,35 @@ compilar_mgba() {
 	)
 	# CMake le pone .bc, pero es un archivo estático (.a).
 	cp "$TRABAJO/mgba/build-wasm/mgba_libretro.bc" "$TRABAJO/mgba_libretro.a"
-	enlazar mgba "$TRABAJO/mgba_libretro.a"
+	enlazar mgba emcc "$TRABAJO/mgba_libretro.a"
 }
 
-for nucleo in "${@:-mgba}"; do
+compilar_snes9x() {
+	traer "$SNES9X_REPO" "$SNES9X_COMMIT" "$TRABAJO/snes9x"
+	traer "$ZLIB_REPO" "$ZLIB_COMMIT" "$TRABAJO/zlib"
+	(cd "$TRABAJO/snes9x/libretro" && emmake make platform=emscripten -j"$(nproc)" >/dev/null)
+	cp "$TRABAJO/snes9x/libretro/snes9x_libretro_emscripten.bc" "$TRABAJO/snes9x_libretro.a"
+
+	# En el modo estático, Snes9x espera que la aplicación aporte zlib y las funciones de
+	# ficheros de libretro-common (en RetroArch las pone el propio RetroArch)
+	local obj="$TRABAJO/snes9x-extra"
+	rm -rf "$obj" && mkdir -p "$obj"
+	for f in adler32 crc32 deflate infback inffast inflate inftrees trees zutil compress uncompr; do
+		emcc -O2 -c "$TRABAJO/zlib/$f.c" -o "$obj/zlib_$f.o"
+	done
+	local comun="$TRABAJO/snes9x/libretro/libretro-common"
+	for f in compat/compat_posix_string.c compat/compat_strcasestr.c compat/compat_snprintf.c \
+		compat/compat_strl.c compat/fopen_utf8.c encodings/encoding_utf.c encodings/encoding_deflate.c \
+		file/file_path.c file/file_path_io.c streams/file_stream.c streams/file_stream_transforms.c \
+		string/stdstring.c time/rtime.c vfs/vfs_implementation.c file/retro_dirent.c; do
+		emcc -O2 -c "$comun/$f" -I"$comun/include" -I"$TRABAJO/snes9x/libretro" -I"$TRABAJO/zlib" \
+			-DHAVE_ZLIB -o "$obj/$(echo "$f" | tr / _ | sed 's/\.c$/.o/')"
+	done
+	rm -f "$TRABAJO/snes9x_extra.a"
+	emar rcs "$TRABAJO/snes9x_extra.a" "$obj"/*.o
+	enlazar snes9x em++ "$TRABAJO/snes9x_libretro.a" "$TRABAJO/snes9x_extra.a"
+}
+
+for nucleo in ${@:-mgba snes9x}; do
 	"compilar_$nucleo"
 done

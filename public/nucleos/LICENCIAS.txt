@@ -7,3 +7,13 @@ mgba.js y mgba.wasm
   Commit: 7a12d6d4b9acb14c0ae62c9166b6a2f3d08007f6
   Compilado sin cambios con Emscripten 4.0.10 junto con el puente de nucleos/puente.c
   (https://github.com/cullera33-Puchi/PuchiEmulator).
+
+snes9x.js y snes9x.wasm
+  Snes9x, Copyright (c) 1996-2023 Gary Henderson, Jerremy Koot y los demás autores de Snes9x.
+  Licencia propia de Snes9x: uso y distribución gratuitos solo con fines no comerciales
+  (https://github.com/snes9xgit/snes9x/blob/master/LICENSE).
+  Código fuente: https://github.com/libretro/snes9x
+  Commit: fae2fea08f74180759ef540ee94259213f503480
+  Incluye zlib 1.3.1 (licencia zlib, https://github.com/madler/zlib) y partes de
+  libretro-common (licencia MIT).
+  Compilado sin cambios con Emscripten 4.0.10 junto con el puente de nucleos/puente.c.

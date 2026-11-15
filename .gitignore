@@ -16,5 +16,6 @@ playwright-report
 *.srm
 !tests/fixtures/prueba.gba
 !tests/fixtures/prueba.gb
+!tests/fixtures/prueba.sfc
 !tests/fixtures/prueba.zip
 juegos_locales/

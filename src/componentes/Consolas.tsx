@@ -88,7 +88,31 @@ function GameBoyAdvance() {
   )
 }
 
+function SuperNintendo() {
+  return (
+    <svg viewBox="0 0 230 150" className="h-full w-auto drop-shadow-md" aria-hidden>
+      {/* Consola de sobremesa: cuerpo gris claro con la ranura del cartucho y dos interruptores */}
+      <path d="M22 14h186c10 0 16 6 16 16v38c0 10-6 16-16 16H22C12 84 6 78 6 68V30c0-10 6-16 16-16z" fill="#d4d4da" />
+      <path d="M6 52h218v16c0 10-6 16-16 16H22C12 84 6 78 6 68z" fill="#bebec8" />
+      <rect x="62" y="22" width="106" height="20" rx="6" fill="#9f9fac" />
+      <rect x="72" y="28" width="86" height="8" rx="4" fill="#6e6e7c" />
+      <rect x="28" y="58" width="22" height="9" rx="4" fill="#7d6fb4" />
+      <rect x="180" y="58" width="22" height="9" rx="4" fill="#7d6fb4" />
+      {/* Mando con forma de hueso, cruceta y cuatro botones de colores */}
+      <path d="M70 100h90c14 0 24 10 24 22s-10 22-24 22c-10 0-16-5-22-10h-46c-6 5-12 10-22 10-14 0-24-10-24-22s10-22 24-22z" fill="#cfcfd6" />
+      <Cruz x={70} y={122} t={8} color="#2c2c34" />
+      <circle cx="162" cy="112" r="5.5" fill="#2f62b6" />
+      <circle cx="173" cy="122" r="5.5" fill="#c8282f" />
+      <circle cx="162" cy="132" r="5.5" fill="#e3ac12" />
+      <circle cx="151" cy="122" r="5.5" fill="#2f8c56" />
+      <rect x="103" y="124" width="10" height="4" rx="2" fill="#8d8d9a" transform="rotate(-30 108 126)" />
+      <rect x="118" y="124" width="10" height="4" rx="2" fill="#8d8d9a" transform="rotate(-30 123 126)" />
+    </svg>
+  )
+}
+
 export function DibujoConsola({ sistema }: { sistema: Sistema }) {
+  if (sistema === 'snes') return <SuperNintendo />
   if (sistema === 'gb') return <GameBoy />
   if (sistema === 'gbc') return <GameBoyColor />
   return <GameBoyAdvance />

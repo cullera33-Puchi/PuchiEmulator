@@ -24,7 +24,7 @@ async function colorCentral(page: Page): Promise<[number, number, number]> {
   })
 }
 
-const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy' }
+const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy', 'prueba.sfc': 'Super Nintendo' }
 
 /** Abre la biblioteca de una consola desde el inicio. */
 async function entrar(page: Page, consola: string) {
@@ -48,7 +48,7 @@ async function pulsar(page: Page, etiqueta: string, ms = 300) {
 test('inicio sin juegos, añadir un juego de GBA y jugar con los botones', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText(/Añade tus juegos con/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(3)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(4)
 
   await anadir(page, 'prueba.gba')
   await expect(page.getByRole('button', { name: /prueba.*Game Boy Advance/i })).toBeVisible()
@@ -133,7 +133,7 @@ test('un fichero que no es un juego se rechaza', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('selector').setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
   await expect(page.getByText(/no es un juego/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(3)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(4)
 })
 
 test.describe('en horizontal', () => {
@@ -560,4 +560,35 @@ test('tiempo jugado: se cuenta al jugar y se ve en la biblioteca, el detalle y l
   }
   await page.getByRole('button', { name: 'Consolas' }).click()
   await expect(page.getByRole('button', { name: 'Estadísticas' })).toContainText(/Esta semana, \d+ s jugadas/)
+})
+
+test('Super Nintendo: cuatro botones, tema Super, botones que responden y partida guardada', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.sfc')
+  await expect(page.getByRole('heading', { name: 'Super Nintendo' })).toBeVisible()
+  await page.getByRole('button', { name: /prueba, Super Nintendo/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByTestId('juego')).toHaveAttribute('data-tema', 'super')
+  const mando = page.getByTestId('mando')
+  for (const n of ['A', 'B', 'X', 'Y', 'L', 'R', 'Start', 'Select']) await expect(mando.getByRole('button', { name: n, exact: true })).toBeVisible()
+  // Rombo: X arriba, B abajo, Y a la izquierda y A a la derecha
+  const caja = async (n: string) => (await mando.getByRole('button', { name: n, exact: true }).boundingBox())!
+  const [a, b, x, y] = [await caja('A'), await caja('B'), await caja('X'), await caja('Y')]
+  expect(x.y).toBeLessThan(a.y)
+  expect(b.y).toBeGreaterThan(a.y)
+  expect(y.x).toBeLessThan(x.x)
+  expect(a.x).toBeGreaterThan(x.x)
+
+  // Azul sin pulsar; con A, verde y la marca en la memoria de partida
+  await expect.poll(() => colorCentral(page)).toEqual([0, 0, 255])
+  await pulsar(page, 'A')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 255, 0])
+  await page.mouse.up()
+  await page.waitForTimeout(1500)
+  await page.reload()
+  await entrar(page, 'Super Nintendo')
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(() => colorCentral(page)).toEqual([255, 0, 0])
 })

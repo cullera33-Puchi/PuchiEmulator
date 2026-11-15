@@ -25,7 +25,7 @@ import {
   type SesionJuego,
 } from '../lib/estadisticas'
 import { cuandoCorto, plural } from '../lib/formato'
-import { SISTEMAS, type Sistema } from '../lib/sistemas'
+import { CONSOLAS, SISTEMAS } from '../lib/sistemas'
 
 const PERIODOS: [Periodo, string][] = [
   ['semana', 'Semana'],
@@ -256,7 +256,7 @@ export function Estadisticas({ alVolver }: { alVolver: () => void }) {
 
             {d.consolas.size > 0 && (
               <Tarjeta titulo="Por consola" testid="por-consola">
-                {(['gb', 'gbc', 'gba'] as Sistema[])
+                {CONSOLAS
                   .filter((s) => d.consolas.get(s))
                   .sort((a, b) => (d.consolas.get(b) ?? 0) - (d.consolas.get(a) ?? 0))
                   .map((s) => {

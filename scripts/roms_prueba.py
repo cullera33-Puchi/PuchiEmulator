@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb y prueba.zip).
+"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc y prueba.zip).
 
 Son programas propios y mínimos, sin código ni gráficos de Nintendo: pintan la pantalla de un
 color y cambian de color mientras se pulsa A. Sirven para comprobar imagen, botones y partida guardada
@@ -85,10 +85,89 @@ def gb() -> bytes:
     return bytes(rom)
 
 
+# Super Nintendo (65816, LoROM). Mismo comportamiento que la de GBA: azul, o rojo si la SRAM ya tiene
+# la marca 0x5A; con A, verde y la marca en la SRAM. El color va en el fondo (color 0 de la CGRAM),
+# que se escribe durante el retrazado vertical. Ensamblado a mano con etiquetas.
+def _snes_codigo() -> bytes:
+    p: list = [
+        0x78,              # sei
+        0x18, 0xFB,        # clc; xce          modo nativo
+        0xE2, 0x30,        # sep #$30          A, X e Y de 8 bits
+        0xA9, 0x8F, 0x8D, 0x00, 0x21,  # lda #$8F; sta $2100   pantalla apagada
+        0xA9, 0x01, 0x8D, 0x00, 0x42,  # lda #$01; sta $4200   lectura automática del mando
+        0xAF, 0x00, 0x00, 0x70,        # lda $700000           primer byte de la SRAM
+        0xC9, 0x5A,        # cmp #$5A
+        0xD0, ('rel', 'azul'),
+        0xA9, 0x1F, 0x85, 0x00,        # rojo: color 0x001F en $00 y $01
+        0xA9, 0x00, 0x85, 0x01,
+        0x80, ('rel', 'encender'),
+        'azul',
+        0xA9, 0x00, 0x85, 0x00,        # azul: color 0x7C00
+        0xA9, 0x7C, 0x85, 0x01,
+        'encender',
+        0xA9, 0x0F, 0x8D, 0x00, 0x21,  # lda #$0F; sta $2100   pantalla encendida
+        'bucle',
+        0xAD, 0x10, 0x42,  # lda $4210         ¿retrazado vertical?
+        0x10, ('rel', 'bucle'),
+        0xAD, 0x18, 0x42,  # lda $4218         mando 1: bit 7 = A
+        0x29, 0x80,        # and #$80
+        0xF0, ('rel', 'sin_a'),
+        0xA9, 0x5A, 0x8F, 0x00, 0x00, 0x70,  # lda #$5A; sta $700000   marca en la SRAM
+        0xA9, 0xE0, 0xA2, 0x03,        # verde: 0x03E0
+        0x80, ('rel', 'escribir'),
+        'sin_a',
+        0xA5, 0x00, 0xA6, 0x01,        # lda $00; ldx $01
+        'escribir',
+        0x9C, 0x21, 0x21,  # stz $2121         CGRAM, color 0
+        0x8D, 0x22, 0x21,  # sta $2122
+        0x8E, 0x22, 0x21,  # stx $2122
+        0x80, ('rel', 'bucle'),
+    ]
+    etiquetas = {}
+    pos = 0
+    for x in p:
+        if isinstance(x, str):
+            etiquetas[x] = pos
+        else:
+            pos += 1
+    out = bytearray()
+    for x in p:
+        if isinstance(x, str):
+            continue
+        if isinstance(x, tuple):
+            destino = etiquetas[x[1]] - (len(out) + 1)
+            assert -128 <= destino <= 127
+            out.append(destino & 0xFF)
+        else:
+            out.append(x)
+    return bytes(out)
+
+
+def snes() -> bytes:
+    rom = bytearray(0x8000)
+    codigo = _snes_codigo()
+    rom[0:len(codigo)] = codigo
+    rom[0x7FC0:0x7FD5] = b'PUCHIPRUEBA'.ljust(21)
+    rom[0x7FD5] = 0x20  # LoROM
+    rom[0x7FD6] = 0x02  # ROM, RAM y pila
+    rom[0x7FD7] = 0x05  # 32 KB
+    rom[0x7FD8] = 0x01  # 2 KB de SRAM
+    rom[0x7FD9] = 0x02  # Europa
+    rom[0x7FDA] = 0x00
+    rom[0x7FDB] = 0x00
+    rom[0x7FFC:0x7FFE] = bytes([0x00, 0x80])  # vector de reinicio: $8000
+    rom[0x7FDC:0x7FE0] = bytes([0xFF, 0xFF, 0x00, 0x00])
+    suma = sum(rom) & 0xFFFF
+    rom[0x7FDC:0x7FDE] = (suma ^ 0xFFFF).to_bytes(2, 'little')
+    rom[0x7FDE:0x7FE0] = suma.to_bytes(2, 'little')
+    return bytes(rom)
+
+
 def main() -> None:
     SALIDA.mkdir(parents=True, exist_ok=True)
     (SALIDA / 'prueba.gba').write_bytes(gba())
     (SALIDA / 'prueba.gb').write_bytes(gb())
+    (SALIDA / 'prueba.sfc').write_bytes(snes())
     with zipfile.ZipFile(SALIDA / 'prueba.zip', 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('LEEME.txt', 'ROM de prueba comprimida')
         z.writestr('Prueba comprimida.gba', gba())

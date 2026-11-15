@@ -39,7 +39,7 @@ export function palabras(titulo: string): string[] {
 /** Preferencia por la edición europea o española, que es la que suele tener el usuario, y por la
  * versión comercial frente a demos, prototipos o reediciones. */
 function bonusRegion(nombre: string): number {
-  if (/\((Beta|Proto|Demo|Sample|Pirate|Unl|Alternate|Virtual Console|Kiosk)[^)]*\)/i.test(nombre)) return -0.04
+  if (/\((Beta|Proto|Demo|Sample|Taikenban|Pirate|Unl|Alternate|Virtual Console|Switch Online|Kiosk)[^)]*\)/i.test(nombre)) return -0.04
   if (/\(([^)]*\b)?(Spain|Europe)\b/.test(nombre)) return 0.06
   if (/\(([^)]*\b)?World\b/.test(nombre)) return 0.04
   if (/\(([^)]*\b)?USA\b/.test(nombre)) return 0.02
@@ -120,7 +120,7 @@ function cargarIndice(sistema: Sistema): Promise<Indice> {
 
 export async function buscarCaratulas(sistema: Sistema, consulta: string): Promise<{ repo: string; candidatos: Candidato[] }> {
   // Un juego de Game Boy puede tener la carátula en la carpeta de Game Boy Color y al revés
-  const sistemas: Sistema[] = sistema === 'gba' ? ['gba'] : sistema === 'gbc' ? ['gbc', 'gb'] : ['gb', 'gbc']
+  const sistemas: Sistema[] = sistema === 'gba' || sistema === 'snes' ? [sistema] : sistema === 'gbc' ? ['gbc', 'gb'] : ['gb', 'gbc']
   const principal = await cargarIndice(sistemas[0])
   let candidatos = buscarEn(principal.nombres, principal.normalizados, consulta)
   if (sistemas[1] && (!candidatos.length || candidatos[0].puntos < 0.8)) {

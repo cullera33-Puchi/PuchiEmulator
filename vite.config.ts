@@ -24,7 +24,7 @@ export default defineConfig({
       manifest: {
         name: 'PuchiEmulator',
         short_name: 'Emulador',
-        description: 'Emulador de Game Boy, Game Boy Color y Game Boy Advance',
+        description: 'Emulador de Game Boy, Game Boy Color, Game Boy Advance y Super Nintendo',
         lang: 'es',
         start_url: base,
         scope: base,

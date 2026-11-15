@@ -11,6 +11,8 @@ import { vibrar } from '../lib/vibracion'
 
 interface Props {
   hombros: boolean
+  /** X e Y además de A y B, en rombo (Super Nintendo) */
+  cuatro?: boolean
   alCambiar: (mascara: number) => void
   /** Cada toque que termina: sirve para activar el sonido en Safari */
   alToque?: () => void
@@ -28,7 +30,7 @@ const BRAZOS: [NombreBoton, string][] = [
   ['DERECHA', 'derecha'],
 ]
 
-export function Mando({ hombros, alCambiar, alToque }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque }: Props) {
   const raiz = useRef<HTMLDivElement>(null)
   const cruceta = useRef<HTMLDivElement>(null)
   const dedos = useRef(new Map<number, Dedo>())
@@ -129,7 +131,17 @@ export function Mando({ hombros, alCambiar, alToque }: Props) {
         <span className="centro" />
       </div>
 
-      <div className="botones-accion">
+      <div className={`botones-accion ${cuatro ? 'cuatro' : ''}`}>
+        {cuatro && (
+          <>
+            <span data-boton="X" className="control x" role="button" aria-label="X">
+              X
+            </span>
+            <span data-boton="Y" className="control y" role="button" aria-label="Y">
+              Y
+            </span>
+          </>
+        )}
         <span data-boton="B" className="control b" role="button" aria-label="B">
           B
         </span>
