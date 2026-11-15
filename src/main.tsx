@@ -6,14 +6,15 @@ import { aplicarTema, leerAjustes } from './lib/ajustes'
 import { listarJuegos, pedirPersistencia } from './lib/almacen'
 import { capturarErrores, modoApp, registrar } from './lib/registro'
 import { copiaDiaria } from './lib/seguridad'
+import { vigilarZonaSegura } from './lib/zonaSegura'
 import { APP_VERSION } from './lib/version'
 
 capturarErrores()
 aplicarTema()
+vigilarZonaSegura()
 try {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (leerAjustes().tema === 'auto') capturarErrores()
-aplicarTema()
+    if (leerAjustes().tema === 'auto') aplicarTema()
   })
 } catch {
   // sin matchMedia

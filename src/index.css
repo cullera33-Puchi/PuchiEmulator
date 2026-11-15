@@ -76,10 +76,11 @@
   color: #fff;
   overflow: hidden;
   touch-action: none;
-  --seguro-arriba: env(safe-area-inset-top);
-  --seguro-abajo: env(safe-area-inset-bottom);
-  --seguro-izq: env(safe-area-inset-left);
-  --seguro-der: env(safe-area-inset-right);
+  /* Lo que dice iOS o, si tras girar lo deja a 0, lo recordado de esa orientación (zonaSegura.ts) */
+  --seguro-arriba: max(env(safe-area-inset-top), var(--zona-arriba, 0px));
+  --seguro-abajo: max(env(safe-area-inset-bottom), var(--zona-abajo, 0px));
+  --seguro-izq: max(env(safe-area-inset-left), var(--zona-izquierda, 0px));
+  --seguro-der: max(env(safe-area-inset-right), var(--zona-derecha, 0px));
   --opacidad-mando: 1;
   /* Tamaño de los botones: 0,8, 1, 1,15 o 1,3 (Ajustes) */
   --escala: 1;

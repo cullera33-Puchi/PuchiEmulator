@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.11.2",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "La pantalla del juego ya no se mete bajo la Dynamic Island al volver a vertical después de girar el iPhone.",
+      "Si te vuelve a pasar, copia el registro en Ajustes y pásamelo: ahora anota la zona segura que da el iPhone."
+    ]
+  },
+  {
     "version": "0.11.1",
     "fecha": "15/11/2026",
     "cambios": [
