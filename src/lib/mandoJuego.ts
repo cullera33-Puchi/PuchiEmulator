@@ -3,7 +3,7 @@
  * JRPG, no para todos los juegos»). A grande donde descansa el pulgar, B y el botón de menú del
  * juego a su alrededor, y «correr fijo»: un toque deja pulsado B o Y (configurable) y otro lo suelta.
  */
-import type { Ajustes } from './ajustes'
+import { cambiarAjustes, leerAjustes, type Ajustes } from './ajustes'
 import { SISTEMAS, type Sistema } from './sistemas'
 import { bit } from '../emulador/botones'
 
@@ -18,6 +18,45 @@ export interface MandoJuego {
   correr: BotonCorrer
   /** Cruceta con diagonales (8) o sin ellas (4), para los juegos que se mueven por casillas */
   direcciones: 8 | 4
+}
+
+/**
+ * Ajustes de pantalla y botones que se guardan por juego (v0.13.3, petición del usuario). Los de
+ * Ajustes son los de por defecto para los juegos que no tienen los suyos.
+ */
+export const CLAVES_CONTROL = ['pantallaGrande', 'snesAspecto', 'escalaMando', 'modoMando', 'mano', 'opacidadMando'] as const
+export type ClaveControl = (typeof CLAVES_CONTROL)[number]
+export type ControlesMando = Pick<Ajustes, ClaveControl>
+
+/** Lo que se guarda de cada juego: el modo JRPG y los ajustes propios de pantalla y botones. */
+export type MandoGuardado = Partial<MandoJuego & ControlesMando>
+
+/** Pantalla y botones de un juego: los suyos o, si no tiene, los generales. */
+export function controlesDe(a: Ajustes, juegoId: string): ControlesMando {
+  const propios = a.mandos[juegoId] ?? {}
+  const r = {} as Record<ClaveControl, unknown>
+  for (const k of CLAVES_CONTROL) r[k] = propios[k] ?? a[k]
+  return r as ControlesMando
+}
+
+/** El juego tiene algún ajuste de pantalla o botones propio. */
+export function tieneControlesPropios(a: Ajustes, juegoId: string): boolean {
+  const propios = a.mandos[juegoId] ?? {}
+  return CLAVES_CONTROL.some((k) => propios[k] !== undefined)
+}
+
+/** Guarda un cambio solo para ese juego. */
+export function cambiarMandoJuego(juegoId: string, cambio: MandoGuardado): void {
+  const mandos = leerAjustes().mandos
+  cambiarAjustes({ mandos: { ...mandos, [juegoId]: { ...mandos[juegoId], ...cambio } } })
+}
+
+/** Quita los ajustes de pantalla y botones propios del juego (conserva el modo JRPG). */
+export function usarControlesGenerales(juegoId: string): void {
+  const mandos = leerAjustes().mandos
+  const propio: MandoGuardado = { ...mandos[juegoId] }
+  for (const k of CLAVES_CONTROL) delete propio[k]
+  cambiarAjustes({ mandos: { ...mandos, [juegoId]: propio } })
 }
 
 export const NOMBRE_BOTON: Record<BotonMenu | BotonCorrer, string> = { X: 'X', Y: 'Y', START: 'Start', SELECT: 'Select', B: 'B' }

@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.13.3 (15/11/2026)
+
+- Ajustes de pantalla y botones por juego (petición del usuario): pantalla grande, imagen de Super Nintendo, tamaño de los botones, una o dos manos, la mano y la opacidad en horizontal. Dentro de un juego, Menú, Mando, se cambian solo para ese juego («Pantalla y botones de este juego»); los de Ajustes, Mando, son los de por defecto para los juegos que no tienen los suyos. «Usar los ajustes generales» quita los propios y conserva el modo JRPG (`controlesDe`, `cambiarMandoJuego`, `usarControlesGenerales` en `src/lib/mandoJuego.ts`; se guardan en `ajustes.mandos`).
+- La imagen de Super Nintendo solo aparece en los juegos de Super Nintendo.
+- Pruebas: 96 unitarias y 29 de navegador.
+
 ## 0.13.2 (15/11/2026)
 
 - Cruceta pensada para el pulgar (el usuario no terminaba de controlarla): las rectas ocupan 60 grados y las diagonales 30 (antes, 45 cada una), lo pulsado se mantiene hasta 10 grados más allá de su sector y la zona muerta del centro tiene margen (pulsar al 22 % del radio, soltar al 12 %), para que no salte entre direcciones en las fronteras ni parpadee al pasar por el medio (`direccionCruceta` con `anterior`). La cruceta recoge los toques hasta un 25 % más allá de su dibujo.

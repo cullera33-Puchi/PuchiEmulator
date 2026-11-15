@@ -5,7 +5,7 @@
 import { useSyncExternalStore } from 'react'
 import type { Sistema } from './sistemas'
 import type { IdTema, PaletaGb } from './temas'
-import type { MandoJuego } from './mandoJuego'
+import type { MandoGuardado } from './mandoJuego'
 
 export interface Ajustes {
   sonido: boolean
@@ -36,8 +36,8 @@ export interface Ajustes {
   pantallaGrande: boolean
   /** Imagen de Super Nintendo: como en la televisión (4:3) o píxel exacto (8:7) */
   snesAspecto: 'tv' | 'pixel'
-  /** Mando de cada juego (modo JRPG, botón de menú y con qué se corre), por identificador del juego */
-  mandos: Record<string, Partial<MandoJuego>>
+  /** Mando de cada juego (modo JRPG y ajustes propios de pantalla y botones), por identificador del juego */
+  mandos: Record<string, MandoGuardado>
 }
 
 export const POR_DEFECTO: Ajustes = {

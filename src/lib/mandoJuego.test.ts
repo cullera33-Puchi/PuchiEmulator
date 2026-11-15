@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { bit } from '../emulador/botones'
-import { correrDe, extrasJrpg, mandoDe, mascaraConCorrer, menusDe } from './mandoJuego'
+import { cambiarAjustes, leerAjustes, POR_DEFECTO } from './ajustes'
+import {
+  cambiarMandoJuego,
+  controlesDe,
+  correrDe,
+  extrasJrpg,
+  mandoDe,
+  mascaraConCorrer,
+  menusDe,
+  tieneControlesPropios,
+  usarControlesGenerales,
+} from './mandoJuego'
 
 describe('mando para JRPG', () => {
   it('menú por defecto: X en Super Nintendo y DS, Start en GBA y Game Boy', () => {
@@ -35,5 +46,31 @@ describe('mando para JRPG', () => {
     expect(mascaraConCorrer(a, 0, false)).toBe(a)
     expect(mascaraConCorrer(a, b, false)).toBe(a | b)
     expect(mascaraConCorrer(a | b, b, true)).toBe(a)
+  })
+})
+
+describe('pantalla y botones por juego', () => {
+  const generales = { ...POR_DEFECTO, escalaMando: 1.15, modoMando: 'una-mano' as const }
+
+  it('sin ajustes propios, el juego usa los generales', () => {
+    expect(controlesDe(generales, 'j')).toMatchObject({ escalaMando: 1.15, modoMando: 'una-mano', pantallaGrande: true })
+    expect(tieneControlesPropios(generales, 'j')).toBe(false)
+  })
+
+  it('lo propio del juego manda y no toca a los demás', () => {
+    const a = { ...generales, mandos: { j: { escalaMando: 0.8, jrpg: true } } }
+    expect(controlesDe(a, 'j').escalaMando).toBe(0.8)
+    expect(controlesDe(a, 'j').modoMando).toBe('una-mano')
+    expect(controlesDe(a, 'otro').escalaMando).toBe(1.15)
+    expect(tieneControlesPropios(a, 'j')).toBe(true)
+  })
+
+  it('volver a los generales quita lo propio y conserva el modo JRPG', () => {
+    cambiarAjustes({ mandos: {} })
+    cambiarMandoJuego('j', { jrpg: true })
+    cambiarMandoJuego('j', { escalaMando: 1.3, mano: 'izquierda' })
+    expect(leerAjustes().mandos.j).toEqual({ jrpg: true, escalaMando: 1.3, mano: 'izquierda' })
+    usarControlesGenerales('j')
+    expect(leerAjustes().mandos.j).toEqual({ jrpg: true })
   })
 })

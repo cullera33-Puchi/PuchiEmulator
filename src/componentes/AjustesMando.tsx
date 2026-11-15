@@ -1,6 +1,17 @@
 /** Tamaño de los botones, distribución en vertical (dos manos o una) y opacidad en horizontal. */
-import { cambiarAjustes, leerAjustes, useAjustes } from '../lib/ajustes'
-import { correrDe, mandoDe, menusDe, NOMBRE_BOTON, type MandoJuego } from '../lib/mandoJuego'
+import { cambiarAjustes, useAjustes } from '../lib/ajustes'
+import {
+  cambiarMandoJuego,
+  controlesDe,
+  correrDe,
+  mandoDe,
+  menusDe,
+  NOMBRE_BOTON,
+  tieneControlesPropios,
+  usarControlesGenerales,
+  type ControlesMando,
+  type MandoJuego,
+} from '../lib/mandoJuego'
 import type { Sistema } from '../lib/sistemas'
 import { Interruptor, Segmentado } from './Interfaz'
 
@@ -15,10 +26,7 @@ export const ESCALAS: [number, string][] = [
 function MandoDelJuego({ id, sistema }: { id: string; sistema: Sistema }) {
   const a = useAjustes()
   const m = mandoDe(a.mandos, id, sistema)
-  const cambiar = (cambio: Partial<MandoJuego>) => {
-    const mandos = leerAjustes().mandos
-    cambiarAjustes({ mandos: { ...mandos, [id]: { ...m, ...cambio } } })
-  }
+  const cambiar = (cambio: Partial<MandoJuego>) => cambiarMandoJuego(id, { ...m, ...cambio })
   const correr = correrDe(sistema)
   return (
     <>
@@ -67,16 +75,26 @@ function MandoDelJuego({ id, sistema }: { id: string; sistema: Sistema }) {
   )
 }
 
+/**
+ * Pantalla y botones. Dentro de un juego, los cambios son solo para ese juego; en Ajustes, son los
+ * de por defecto para los juegos que no tienen los suyos.
+ */
 export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema } } = {}) {
-  const a = useAjustes()
+  const ajustes = useAjustes()
+  const a = juego ? controlesDe(ajustes, juego.id) : ajustes
+  const cambiar = (cambio: Partial<ControlesMando>) => (juego ? cambiarMandoJuego(juego.id, cambio) : cambiarAjustes(cambio))
+  const verSnes = !juego || juego.sistema === 'snes'
   return (
     <>
       {juego && <MandoDelJuego id={juego.id} sistema={juego.sistema} />}
+      {juego && <p className="cabecera-grupo">Pantalla y botones de este juego</p>}
       <div className="lista">
         <div className="fila justify-between">
           <span>Pantalla lo más grande posible</span>
-          <Interruptor etiqueta="Pantalla lo más grande posible" activo={a.pantallaGrande} alCambiar={(v) => cambiarAjustes({ pantallaGrande: v })} />
+          <Interruptor etiqueta="Pantalla lo más grande posible" activo={a.pantallaGrande} alCambiar={(v) => cambiar({ pantallaGrande: v })} />
         </div>
+        {verSnes && (
+          <>
         <div className="separador" />
         <div className="fila flex-col items-stretch gap-2 py-3">
           <span>Imagen de Super Nintendo</span>
@@ -87,13 +105,15 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
               ['tv', 'Como en la tele (4:3)'],
               ['pixel', 'Píxel exacto (8:7)'],
             ]}
-            alCambiar={(v) => cambiarAjustes({ snesAspecto: v })}
+            alCambiar={(v) => cambiar({ snesAspecto: v })}
           />
         </div>
+          </>
+        )}
         <div className="separador" />
         <div className="fila flex-col items-stretch gap-2 py-3">
           <span>Tamaño de los botones</span>
-          <Segmentado etiqueta="Tamaño de los botones" valor={a.escalaMando} opciones={ESCALAS} alCambiar={(v) => cambiarAjustes({ escalaMando: v })} />
+          <Segmentado etiqueta="Tamaño de los botones" valor={a.escalaMando} opciones={ESCALAS} alCambiar={(v) => cambiar({ escalaMando: v })} />
         </div>
         <div className="separador" />
         <div className="fila flex-col items-stretch gap-2 py-3">
@@ -105,7 +125,7 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
               ['dos-manos', 'Dos manos'],
               ['una-mano', 'Una mano'],
             ]}
-            alCambiar={(v) => cambiarAjustes({ modoMando: v })}
+            alCambiar={(v) => cambiar({ modoMando: v })}
           />
           {a.modoMando === 'una-mano' && (
             <Segmentado
@@ -115,7 +135,7 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
                 ['izquierda', 'Mano izquierda'],
                 ['derecha', 'Mano derecha'],
               ]}
-              alCambiar={(v) => cambiarAjustes({ mano: v })}
+              alCambiar={(v) => cambiar({ mano: v })}
             />
           )}
         </div>
@@ -130,11 +150,21 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
               [0.6, 'Normales'],
               [1, 'Opacos'],
             ]}
-            alCambiar={(v) => cambiarAjustes({ opacidadMando: v })}
+            alCambiar={(v) => cambiar({ opacidadMando: v })}
           />
         </div>
       </div>
+      {juego && tieneControlesPropios(ajustes, juego.id) && (
+        <div className="lista mt-3">
+          <button className="fila text-acento dark:text-acento-oscuro" onClick={() => usarControlesGenerales(juego.id)}>
+            Usar los ajustes generales
+          </button>
+        </div>
+      )}
       <p className="pie-grupo">
+        {juego
+          ? 'Solo para este juego; el resto sigue con los suyos. Los de por defecto se cambian en Ajustes, Mando. '
+          : 'Para los juegos que no tengan los suyos: dentro de cada juego, en Menú, Mando, se cambian solo para ese juego. '}
         Pantalla grande: sin margen ni marco, de borde a borde en vertical y a toda la altura en horizontal. Con «Una mano», en vertical todo queda abajo, al alcance del pulgar; en horizontal, la pantalla se pega al otro lado y los botones van en una columna translúcida. Cómodo para juegos de rol y de estrategia.
       </p>
     </>

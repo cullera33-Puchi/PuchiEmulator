@@ -18,7 +18,7 @@ import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { paletaPara, temaPara } from '../lib/temas'
 import { SelectorTema } from '../componentes/SelectorTema'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
-import { bitCorrer, extrasJrpg, mandoDe } from '../lib/mandoJuego'
+import { bitCorrer, controlesDe, extrasJrpg, mandoDe } from '../lib/mandoJuego'
 
 interface Props {
   id: string
@@ -55,6 +55,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const tema = temaPara(sistema, ajustes.temas[sistema])
   // Mando de este juego (modo JRPG) y correr fijo
   const mando = mandoDe(ajustes.mandos, id, sistema)
+  // Pantalla y botones de este juego (los suyos o los generales)
+  const controles = controlesDe(ajustes, id)
   const [corriendo, setCorriendo] = useState(false)
   const ajustesRef = useRef(ajustes)
   ajustesRef.current = ajustes
@@ -278,7 +280,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   // Proporción de la imagen: la del núcleo; en Super Nintendo, la de la televisión (4:3) salvo que
   // se elija el píxel exacto. 256 x 224 a 4:3 ocupa en horizontal un 17 % más de ancho.
-  const aspecto = sistema === 'snes' && ajustes.snesAspecto === 'tv' ? 4 / 3 : nativo.ancho / nativo.alto
+  const aspecto = sistema === 'snes' && controles.snesAspecto === 'tv' ? 4 / 3 : nativo.ancho / nativo.alto
   const proporcion = 1 / aspecto
 
   // El lienzo se dimensiona a mano para poder estirar la imagen a otra proporción; ocupa lo máximo que
@@ -304,11 +306,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   return (
     <div
-      className={`juego ${ajustes.nitido ? '' : 'suave'} ${ajustes.modoMando === 'una-mano' ? 'una-mano' : ''} ${ajustes.pantallaGrande ? 'grande' : ''} ${mando.jrpg ? 'jrpg' : ''}`}
+      className={`juego ${ajustes.nitido ? '' : 'suave'} ${controles.modoMando === 'una-mano' ? 'una-mano' : ''} ${controles.pantallaGrande ? 'grande' : ''} ${mando.jrpg ? 'jrpg' : ''}`}
       data-tema={tema.id}
-      data-mano={ajustes.mano}
+      data-mano={controles.mano}
       data-sistema={sistema}
-      style={{ ...tema.vars, '--proporcion': proporcion, '--opacidad-horizontal': ajustes.opacidadMando, '--escala': ajustes.escalaMando } as React.CSSProperties}
+      style={{ ...tema.vars, '--proporcion': proporcion, '--opacidad-horizontal': controles.opacidadMando, '--escala': controles.escalaMando } as React.CSSProperties}
       data-testid="juego"
     >
       <div ref={zona} className="zona-pantalla">
@@ -420,7 +422,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             <Gamepad2 size={20} className="text-acento dark:text-acento-oscuro" />
             <span className="flex-1">Mando</span>
             <span className="text-zinc-500">
-              {ajustes.modoMando === 'una-mano' ? 'Una mano' : 'Dos manos'}, {ESCALAS.find(([v]) => v === ajustes.escalaMando)?.[1].toLowerCase() ?? 'normales'}
+              {controles.modoMando === 'una-mano' ? 'Una mano' : 'Dos manos'}, {ESCALAS.find(([v]) => v === controles.escalaMando)?.[1].toLowerCase() ?? 'normales'}
             </span>
           </button>
           <div className="separador" />

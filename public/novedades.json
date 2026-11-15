@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.13.3",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Los ajustes del mando se guardan en cada juego: tamaño de los botones, una o dos manos, pantalla grande y opacidad.",
+      "Los de Ajustes, Mando, son los de por defecto para los juegos que no tienen los suyos.",
+      "Dentro de un juego, «Usar los ajustes generales» lo devuelve a los de por defecto."
+    ]
+  },
+  {
     "version": "0.13.2",
     "fecha": "15/11/2026",
     "cambios": [
