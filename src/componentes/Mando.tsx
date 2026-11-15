@@ -4,6 +4,7 @@
  * ángulo respecto al centro (ocho direcciones). Para no redibujar React a cada movimiento, el
  * aspecto de pulsado se cambia directamente en los elementos.
  */
+import { Footprints } from 'lucide-react'
 import { useEffect, useRef, type PointerEvent as EventoPuntero, type RefObject } from 'react'
 import { bit, direccionCruceta, type NombreBoton } from '../emulador/botones'
 import { leerAjustes } from '../lib/ajustes'
@@ -20,6 +21,10 @@ interface Props {
   tactil?: Tactil
   /** Mando para juegos de rol: A grande, B, el botón de menú del juego y los X e Y que sobren */
   jrpg?: { menu: BotonMenu; extras: ('X' | 'Y')[] }
+  /** Cruceta sin diagonales */
+  cuatroDirecciones?: boolean
+  /** Correr fijo (modo JRPG): botón debajo de la A que se activa y se desactiva con un toque */
+  correr?: { activo: boolean; boton: 'B' | 'Y'; alCambiar: () => void }
 }
 
 interface Dedo {
@@ -27,7 +32,12 @@ interface Dedo {
   mascara: number
   /** El dedo empezó en la imagen de una consola táctil: hace de lápiz */
   tactil?: boolean
+  /** Botón de acción (correr): actúa al tocarlo, no se mantiene */
+  accion?: boolean
 }
+
+/** La cruceta recoge los toques hasta un 25 % más allá de su dibujo: el pulgar no siempre cae dentro. */
+const CRUCETA_AMPLIADA = 1.25
 
 /** Pantalla táctil (Nintendo DS): el lienzo y a quién avisar del toque (0 a 1 sobre la imagen, o null) */
 export interface Tactil {
@@ -42,13 +52,15 @@ const BRAZOS: [NombreBoton, string][] = [
   ['DERECHA', 'derecha'],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr }: Props) {
   const raiz = useRef<HTMLDivElement>(null)
   const cruceta = useRef<HTMLDivElement>(null)
   const dedos = useRef(new Map<number, Dedo>())
   const mascara = useRef(0)
   const alCambiarRef = useRef(alCambiar)
   alCambiarRef.current = alCambiar
+  const cuatroRef = useRef(cuatroDirecciones)
+  cuatroRef.current = cuatroDirecciones
 
   const pintar = (m: number) => {
     const r = raiz.current
@@ -71,11 +83,19 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg }: Pro
     }
   }
 
-  const desdeCruceta = (x: number, y: number) => {
+  const desdeCruceta = (x: number, y: number, anterior = 0) => {
     const r = cruceta.current?.getBoundingClientRect()
     if (!r) return 0
     const radio = r.width / 2
-    return direccionCruceta((x - (r.left + radio)) / radio, (y - (r.top + r.height / 2)) / radio)
+    return direccionCruceta((x - (r.left + radio)) / radio, (y - (r.top + r.height / 2)) / radio, anterior, !!cuatroRef.current)
+  }
+
+  /** El punto cae cerca de la cruceta, aunque sea fuera de su dibujo */
+  const cercaDeLaCruceta = (x: number, y: number) => {
+    const r = cruceta.current?.getBoundingClientRect()
+    if (!r) return false
+    const radio = r.width / 2
+    return Math.hypot(x - (r.left + radio), y - (r.top + r.height / 2)) <= radio * CRUCETA_AMPLIADA
   }
 
   const enLaImagen = (x: number, y: number): [number, number] | null => {
@@ -88,9 +108,12 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg }: Pro
     const el = document.elementFromPoint(x, y)
     if (!el || !raiz.current?.contains(el)) return { cruceta: false, mascara: 0 }
     if (cruceta.current?.contains(el)) return { cruceta: true, mascara: desdeCruceta(x, y) }
+    if ((el as HTMLElement).closest('[data-accion]')) return { cruceta: false, mascara: 0, accion: true }
     const boton = (el as HTMLElement).closest<HTMLElement>('[data-boton]')
     if (boton) return { cruceta: false, mascara: bit(boton.dataset.boton as NombreBoton) }
-    return { cruceta: false, mascara: 0, tactil: !!enLaImagen(x, y) }
+    if (enLaImagen(x, y)) return { cruceta: false, mascara: 0, tactil: true }
+    if (cercaDeLaCruceta(x, y)) return { cruceta: true, mascara: desdeCruceta(x, y) }
+    return { cruceta: false, mascara: 0 }
   }
 
   /** Posición del lápiz, limitada a la imagen aunque el dedo se salga */
@@ -105,6 +128,10 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg }: Pro
     const d = bajoElDedo(e.clientX, e.clientY)
     dedos.current.set(e.pointerId, d)
     if (d.tactil) tocar(e.clientX, e.clientY)
+    if (d.accion) {
+      correr?.alCambiar()
+      if (leerAjustes().vibracion) vibrar()
+    }
     recalcular()
   }
 
@@ -116,7 +143,8 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg }: Pro
       tocar(e.clientX, e.clientY)
       return
     }
-    if (d.cruceta) d.mascara = desdeCruceta(e.clientX, e.clientY)
+    if (d.accion) return
+    if (d.cruceta) d.mascara = desdeCruceta(e.clientX, e.clientY, d.mascara)
     else {
       const nuevo = bajoElDedo(e.clientX, e.clientY)
       // Deslizar desde un botón hasta la cruceta no la toma: la cruceta es de quien empieza en ella
@@ -182,6 +210,18 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg }: Pro
           <span data-boton="A" className="control a" role="button" aria-label="A">
             A
           </span>
+          {correr && (
+            <span
+              data-accion="correr"
+              className={`control correr ${correr.activo ? 'activo' : ''}`}
+              role="button"
+              aria-label={`Correr con ${correr.boton} fijo`}
+              aria-pressed={correr.activo}
+            >
+              <Footprints size={15} strokeWidth={2.2} />
+              <span>{correr.activo ? `${correr.boton} fijo` : 'Correr'}</span>
+            </span>
+          )}
         </div>
       ) : (
       <div className={`botones-accion ${cuatro ? 'cuatro' : ''}`}>

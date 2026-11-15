@@ -35,6 +35,19 @@ function MandoDelJuego({ id, sistema }: { id: string; sistema: Sistema }) {
               <span>Botón de menú</span>
               <Segmentado etiqueta="Botón de menú" valor={m.menu} opciones={menusDe(sistema).map((b) => [b, NOMBRE_BOTON[b]])} alCambiar={(v) => cambiar({ menu: v })} />
             </div>
+            <div className="separador" />
+            <div className="fila flex-col items-stretch gap-2 py-3">
+              <span>Cruceta</span>
+              <Segmentado
+                etiqueta="Direcciones de la cruceta"
+                valor={m.direcciones}
+                opciones={[
+                  [8, 'Con diagonales'],
+                  [4, 'Sin diagonales'],
+                ]}
+                alCambiar={(v) => cambiar({ direcciones: v })}
+              />
+            </div>
             {correr.length > 1 && (
               <>
                 <div className="separador" />
@@ -48,7 +61,7 @@ function MandoDelJuego({ id, sistema }: { id: string; sistema: Sistema }) {
         )}
       </div>
       <p className="pie-grupo mb-4">
-        Solo para este juego. A más grande donde descansa el pulgar, y B y el botón de menú a su alrededor. El botón con huellas deja {correr.length > 1 ? 'el botón elegido' : 'B'} pulsado para correr; tócalo otra vez para soltarlo.
+        Solo para este juego. A más grande donde descansa el pulgar, y B y el botón de menú a su alrededor. «Correr», debajo de la A, deja {correr.length > 1 ? 'el botón elegido' : 'B'} pulsado; tócalo otra vez para soltarlo. Sin diagonales, la cruceta solo da arriba, abajo, izquierda y derecha: va mejor en los juegos que se mueven por casillas.
       </p>
     </>
   )

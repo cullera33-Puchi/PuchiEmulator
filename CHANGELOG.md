@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.13.2 (15/11/2026)
+
+- Cruceta pensada para el pulgar (el usuario no terminaba de controlarla): las rectas ocupan 60 grados y las diagonales 30 (antes, 45 cada una), lo pulsado se mantiene hasta 10 grados más allá de su sector y la zona muerta del centro tiene margen (pulsar al 22 % del radio, soltar al 12 %), para que no salte entre direcciones en las fronteras ni parpadee al pasar por el medio (`direccionCruceta` con `anterior`). La cruceta recoge los toques hasta un 25 % más allá de su dibujo.
+- Modo JRPG: opción por juego «Sin diagonales» (cuatro direcciones, 90 grados cada una), para los juegos que se mueven por casillas.
+- Modo JRPG: «Correr» pasa de la fila de herramientas a un botón debajo de la A, dentro del mando (`data-accion`), a petición del usuario. Con correr activo enseña «B fijo» o «Y fijo».
+- Pruebas: 93 unitarias y 28 de navegador.
+
 ## 0.13.1 (15/11/2026)
 
 - Reiniciar un juego de DS lo rompía y después no se podía abrir (informado por el usuario). Causa: el puente liberaba la ROM nada más cargarla, suponiendo que el núcleo tenía su copia; melonDS guarda el puntero y la vuelve a leer al reiniciar, así que leía memoria liberada («Out of bounds memory access»). Al cerrar se guardaba el estado «auto» de ese núcleo roto y, al abrir, ese estado tumbaba el módulo («Aborted()») o la página entera. Ahora la ROM se conserva hasta descargar el juego. Los tres núcleos, recompilados.

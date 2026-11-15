@@ -745,7 +745,7 @@ test('mando para juegos de rol: por juego, A grande, botón de menú elegido y c
   const caja = async (n: string | RegExp) => (await mando.getByRole('button', { name: n, exact: typeof n === 'string' }).boundingBox())!
   const [a, b, menu] = [await caja('A'), await caja('B'), await caja(/^Menú del juego \(Start\)$/)]
   expect(a.width).toBeGreaterThan(b.width * 1.4)
-  expect(menu.y + menu.height).toBeLessThanOrEqual(a.y + 4)
+  expect(menu.y + menu.height / 2).toBeLessThan(a.y)
   await expect(mando.getByRole('button', { name: 'X', exact: true })).toBeVisible()
   await expect(mando.getByRole('button', { name: 'Y', exact: true })).toBeVisible()
   // A responde igual que siempre
@@ -754,8 +754,11 @@ test('mando para juegos de rol: por juego, A grande, botón de menú elegido y c
   await expect.poll(() => colorCentral(page)).toEqual([0, 255, 0])
   await page.mouse.up()
 
-  // Correr fijo con Y: se activa y se suelta con un toque
-  const correr = page.getByRole('button', { name: 'Correr con Y fijo' })
+  // Correr fijo con Y, debajo de la A: se activa y se suelta con un toque
+  const correr = mando.getByRole('button', { name: 'Correr con Y fijo' })
+  const cajaCorrer = (await correr.boundingBox())!
+  expect(cajaCorrer.y).toBeGreaterThanOrEqual(a.y + a.height - 4)
+  expect(cajaCorrer.x + cajaCorrer.width).toBeGreaterThan(a.x + a.width / 2)
   await correr.click()
   await expect(correr).toHaveAttribute('aria-pressed', 'true')
   await correr.click()

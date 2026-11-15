@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.13.2",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Cruceta más precisa con el pulgar: cuesta más irse a la diagonal sin querer y no salta entre direcciones.",
+      "La cruceta responde aunque el pulgar caiga un poco fuera de su dibujo.",
+      "Mando para juegos de rol: «Correr» ahora está debajo de la A, y puedes quitar las diagonales en cada juego."
+    ]
+  },
+  {
     "version": "0.13.1",
     "fecha": "15/11/2026",
     "cambios": [

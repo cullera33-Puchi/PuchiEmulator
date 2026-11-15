@@ -250,18 +250,19 @@
 }
 
 /* Mando para juegos de rol (v0.13.0, por juego): A grande donde descansa el pulgar; B abajo a su
-   izquierda; el botón de menú del juego encima; X e Y que sobren, pequeños a la izquierda. Las
-   posiciones son proporcionales, así que valen igual en vertical, en horizontal y con una mano. */
+   izquierda; el botón de menú del juego encima; X e Y que sobren, pequeños a la izquierda; y
+   «Correr» debajo de la A (v0.13.2). Las posiciones son proporcionales, así que valen igual en
+   vertical, en horizontal y con una mano. */
 .botones-accion.jrpg .control {
   width: 32%;
   height: 32%;
   font-size: calc(18px * var(--escala));
 }
 .botones-accion.jrpg .a {
-  width: 50%;
-  height: 50%;
+  width: 48%;
+  height: 48%;
   right: 0;
-  top: 34%;
+  top: 27%;
   font-size: calc(28px * var(--escala));
   background: var(--boton-a, var(--ab, rgb(255 255 255 / 0.1)));
 }
@@ -271,7 +272,9 @@
   background: var(--boton-b, var(--ab, rgb(255 255 255 / 0.1)));
 }
 .botones-accion.jrpg .menu {
-  left: 45%;
+  width: 30%;
+  height: 30%;
+  left: 38%;
   top: 0;
   display: flex;
   flex-direction: column;
@@ -308,6 +311,21 @@
 }
 .botones-accion.jrpg .control.pulsado {
   filter: brightness(1.3);
+}
+.botones-accion.jrpg .correr {
+  right: 1%;
+  bottom: 0;
+  width: 46%;
+  height: 21%;
+  display: flex;
+  gap: 4px;
+  font-size: calc(12px * min(var(--escala), 1.15));
+  letter-spacing: 0.02em;
+}
+.botones-accion.jrpg .correr.activo {
+  background: var(--ab-pulsado, rgb(255 255 255 / 0.34));
+  color: var(--ab-texto, #fff);
+  box-shadow: inset 0 0 0 2px currentColor;
 }
 
 /* Disposición clásica: B abajo a la izquierda y A arriba a la derecha */
@@ -438,19 +456,6 @@ body.en-juego .aviso {
   }
   .juego.una-mano[data-mano='izquierda'] .herramientas.derecha {
     left: calc(var(--seguro-izq) + var(--lado) + 162px);
-  }
-  /* Modo JRPG: el botón de correr ocupa un hueco más en la fila (en DS va con guardar y cargar) */
-  .juego.una-mano.jrpg:not([data-sistema='nds'])[data-mano='derecha'] .boton-menu {
-    right: calc(var(--seguro-der) + var(--lado) + 162px);
-  }
-  .juego.una-mano.jrpg:not([data-sistema='nds'])[data-mano='derecha'] .herramientas.izquierda {
-    right: calc(var(--seguro-der) + var(--lado) + 216px);
-  }
-  .juego.una-mano.jrpg[data-sistema='nds'][data-mano='izquierda'] .boton-menu {
-    left: calc(var(--seguro-izq) + var(--lado) + 162px);
-  }
-  .juego.una-mano.jrpg[data-sistema='nds'][data-mano='izquierda'] .herramientas.derecha {
-    left: calc(var(--seguro-izq) + var(--lado) + 216px);
   }
   .juego.una-mano .cruceta,
   .juego.una-mano .botones-accion {
@@ -591,21 +596,6 @@ body.en-juego .aviso {
     left: calc(var(--seguro-izq) + 12px);
     right: auto;
   }
-  /* Modo JRPG: correr va con guardar y cargar; Select y Start, algo más estrechos y centrados en
-     el hueco que queda entre los dos grupos */
-  .juego[data-sistema='nds'].jrpg:not(.una-mano) .herramienta {
-    width: 40px;
-    height: 40px;
-  }
-  .juego[data-sistema='nds'].jrpg:not(.una-mano) .pequeno {
-    width: calc(56px * min(var(--escala), 1.15));
-  }
-  .juego[data-sistema='nds'].jrpg:not(.una-mano) .pequeno.select {
-    left: calc(50% + 17px - calc(56px * min(var(--escala), 1.15)));
-  }
-  .juego[data-sistema='nds'].jrpg:not(.una-mano) .pequeno.start {
-    left: calc(50% + 25px);
-  }
   /* El menú pasa a la derecha, junto al avance rápido (en DS no hay rebobinado) */
   .juego[data-sistema='nds']:not(.una-mano) .boton-menu {
     left: auto;
@@ -691,18 +681,6 @@ body.en-juego .aviso {
   .herramientas.derecha {
     left: auto;
     right: calc(var(--seguro-der) + 12px);
-  }
-  /* Modo JRPG: no caben tres en la fila; correr baja a una segunda fila, pegado al borde */
-  .juego.jrpg:not(.una-mano) .herramientas.derecha,
-  .juego.jrpg[data-sistema='nds']:not(.una-mano) .herramientas.izquierda {
-    width: 86px;
-    flex-wrap: wrap;
-  }
-  .juego.jrpg:not(.una-mano) .herramientas.derecha {
-    justify-content: flex-end;
-  }
-  .juego.jrpg:not(.una-mano) .herramienta.correr {
-    order: 3;
   }
   /* En horizontal los controles quedan encima del borde de la imagen: se hacen translúcidos */
   .juego {

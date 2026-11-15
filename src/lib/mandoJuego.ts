@@ -16,6 +16,8 @@ export interface MandoJuego {
   menu: BotonMenu
   /** El botón que se mantiene pulsado para correr */
   correr: BotonCorrer
+  /** Cruceta con diagonales (8) o sin ellas (4), para los juegos que se mueven por casillas */
+  direcciones: 8 | 4
 }
 
 export const NOMBRE_BOTON: Record<BotonMenu | BotonCorrer, string> = { X: 'X', Y: 'Y', START: 'Start', SELECT: 'Select', B: 'B' }
@@ -31,7 +33,7 @@ export function correrDe(sistema: Sistema): BotonCorrer[] {
 }
 
 export function mandoPorDefecto(sistema: Sistema): MandoJuego {
-  return { jrpg: false, menu: SISTEMAS[sistema].cuatroBotones ? 'X' : 'START', correr: 'B' }
+  return { jrpg: false, menu: SISTEMAS[sistema].cuatroBotones ? 'X' : 'START', correr: 'B', direcciones: 8 }
 }
 
 /** El mando de un juego, con lo que no valga para su consola cambiado por lo de por defecto. */
@@ -42,6 +44,7 @@ export function mandoDe(mandos: Ajustes['mandos'], juegoId: string, sistema: Sis
     jrpg: guardado.jrpg ?? base.jrpg,
     menu: guardado.menu && menusDe(sistema).includes(guardado.menu) ? guardado.menu : base.menu,
     correr: guardado.correr && correrDe(sistema).includes(guardado.correr) ? guardado.correr : base.correr,
+    direcciones: guardado.direcciones === 4 ? 4 : 8,
   }
 }
 
