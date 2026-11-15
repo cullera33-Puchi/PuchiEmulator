@@ -71,6 +71,9 @@ function marcarCargaAuto(juegoId: string | null): void {
   }
 }
 
+/** Cada cuánto se guarda el punto donde se dejó mientras se juega: si algo falla, se pierde poco. */
+export const MS_PUNTO_CONTROL = 5 * 60_000
+
 export class Sesion {
   readonly altavoz = altavoz
   private nucleo!: Nucleo
@@ -90,6 +93,8 @@ export class Sesion {
   // El núcleo ha fallado (memoria corrupta): desde ese momento no se guarda nada suyo
   private roto = false
   private cargaAutoPendiente = false
+  // Punto de control: el estado «auto» se guarda también cada 5 minutos de juego (v0.14.0)
+  private msDesdeControl = 0
   private fotogramasJugados = 0
   private huecoCorrer = 0
   private basePrevia = 0
@@ -304,6 +309,14 @@ export class Sesion {
       }
     }
     if (this.nucleo.avCambiado()) this.leerTiempos()
+    this.msDesdeControl += dt
+    if (this.msDesdeControl >= MS_PUNTO_CONTROL) {
+      this.msDesdeControl = 0
+      void this.guardarEstado('auto').then(
+        (ok) => ok && registrar('info', 'Punto de control'),
+        (e) => registrar('error', 'No se pudo guardar el punto de control', (e as Error)?.message),
+      )
+    }
     if (hayImagen) this.dibujar()
     this.medir(performance.now() - t0, plan.modo, dt)
   }

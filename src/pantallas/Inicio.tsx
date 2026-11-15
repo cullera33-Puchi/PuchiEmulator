@@ -2,16 +2,18 @@
  * Pantalla de inicio: «Seguir jugando» con el último juego y una tarjeta por consola, con su dibujo
  * o una foto del usuario y cuántos juegos tiene. Tocar una consola abre su biblioteca.
  */
-import { BarChart3, ChevronRight, Ellipsis, Play, Plus, Settings } from 'lucide-react'
+import { BarChart3, ChevronRight, Ellipsis, Play, Plus, Settings, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAnadirJuegos } from '../componentes/AnadirJuegos'
 import { DibujoConsola } from '../componentes/Consolas'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
 import { altavoz } from '../emulador/audio'
-import { leerAjustes } from '../lib/ajustes'
-import { borrarCaratula, guardarCaratula, leerCaratula, leerEstado, listarCaratulas, listarJuegos, listarSesiones, type Juego } from '../lib/almacen'
+import { leerAjustes, useAjustes } from '../lib/ajustes'
+import { borrarCaratula, contarPartidas, guardarCaratula, leerCaratula, leerEstado, listarCaratulas, listarJuegos, listarSesiones, type Juego } from '../lib/almacen'
 import { delPeriodo, duracion, total, type SesionJuego } from '../lib/estadisticas'
 import { reducirImagen } from '../lib/caratulas'
+import { aplazarCopia, diasSinCopia, exportarCopia, necesitaCopia } from '../lib/copias'
+import { APP_VERSION } from '../lib/version'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { cuando, plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
@@ -33,11 +35,14 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
   const [fotos, setFotos] = useState<Map<string, string>>(new Map())
   const [opciones, setOpciones] = useState<Consola | null>(null)
   const [sesiones, setSesiones] = useState<SesionJuego[]>([])
+  const [partidas, setPartidas] = useState(0)
+  const ajustes = useAjustes()
   const selectorFoto = useRef<HTMLInputElement>(null)
 
   const recargar = useCallback(async () => {
-    const [lista, imagenes, ses] = await Promise.all([listarJuegos(), listarCaratulas(), listarSesiones()])
+    const [lista, imagenes, ses, nPartidas] = await Promise.all([listarJuegos(), listarCaratulas(), listarSesiones(), contarPartidas()])
     setSesiones(ses)
+    setPartidas(nPartidas)
     const urls = new Map(imagenes.map((c) => [c.id, URL.createObjectURL(new Blob([c.datos], { type: 'image/jpeg' }))]))
     setFotos((antes) => {
       antes.forEach((u) => URL.revokeObjectURL(u))
@@ -105,6 +110,22 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
         </div>
       </div>
       {anadir.elementos}
+
+      {necesitaCopia(partidas > 0, ajustes.ultimaCopia, ajustes.copiaAplazada) && (
+        <AvisoCopia
+          dias={diasSinCopia(ajustes.ultimaCopia)}
+          partidas={partidas}
+          alGuardar={async () => {
+            try {
+              const r = await exportarCopia(false, APP_VERSION)
+              if (r.resultado !== 'cancelado' && r.resultado !== 'vacia') avisar(`Copia lista: ${plural(r.partidas, 'partida', 'partidas')}`)
+            } catch (e) {
+              registrar('error', 'No se pudo exportar la copia', (e as Error).message)
+              avisar('No se ha podido crear la copia')
+            }
+          }}
+        />
+      )}
 
       {ultimo && (
         <>
@@ -204,6 +225,37 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
         )}
       </Hoja>
       <input ref={selectorFoto} type="file" accept="image/*" className="hidden" data-testid="selector-foto-consola" onChange={(e) => void ponerFoto(e.target.files?.[0])} />
+    </div>
+  )
+}
+
+/**
+ * Recordatorio de la copia de partidas (v0.14.0): si se borran los datos de la app o se cambia de
+ * iPhone, lo único que queda es la copia guardada en Archivos.
+ */
+function AvisoCopia({ dias, partidas, alGuardar }: { dias: number | null; partidas: number; alGuardar: () => Promise<void> }) {
+  return (
+    <div className="lista mb-6 p-4" data-testid="aviso-copia">
+      <div className="flex gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-acento/15 text-acento dark:bg-acento-oscuro/20 dark:text-acento-oscuro">
+          <ShieldCheck size={20} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold">Guarda una copia de tus partidas</p>
+          <p className="mt-0.5 text-[13px] text-zinc-500">
+            {dias === null ? 'Aún no has guardado ninguna fuera del iPhone.' : `La última es de hace ${plural(dias, 'día', 'días')}.`} Si se borran los datos de la app o
+            cambias de iPhone, la copia en Archivos es lo que te queda ({plural(partidas, 'partida', 'partidas')}).
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end gap-2">
+        <button className="boton-texto px-3 py-1.5" onClick={() => aplazarCopia()}>
+          Más tarde
+        </button>
+        <button className="boton-lleno px-4 py-1.5" onClick={() => void alGuardar()}>
+          Guardar copia
+        </button>
+      </div>
     </div>
   )
 }

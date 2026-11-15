@@ -13,7 +13,7 @@ import { temaPara } from '../lib/temas'
 import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
 import { aplicarTema, cambiarAjustes, useAjustes, type Ajustes as TipoAjustes } from '../lib/ajustes'
 import { espacioUsado, listarJuegos, listarPartidas, pedirPersistencia, sustituirPartidas } from '../lib/almacen'
-import { compartirArchivo, crearArchivo, ErrorArchivo, importarArchivo, nombreArchivo } from '../lib/copias'
+import { ErrorArchivo, exportarCopia, importarArchivo } from '../lib/copias'
 import { cuando, plural, tamano } from '../lib/formato'
 import { borrarRegistro, copiarTexto, leerRegistro, registrar, suscribirRegistro, textoRegistro } from '../lib/registro'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
@@ -79,14 +79,9 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
 
   const exportar = async () => {
     try {
-      const archivo = await crearArchivo(conEstados, APP_VERSION)
-      if (!archivo.partidas.length && !archivo.estados.length) {
-        avisar('Aún no hay partidas que copiar')
-        return
-      }
-      const r = await compartirArchivo(JSON.stringify(archivo), nombreArchivo())
-      registrar('info', 'Copia de partidas exportada', { partidas: archivo.partidas.length, estados: archivo.estados.length, resultado: r })
-      if (r !== 'cancelado') avisar(`Copia lista: ${plural(archivo.partidas.length, 'partida', 'partidas')}${archivo.estados.length ? ` y ${plural(archivo.estados.length, 'estado', 'estados')}` : ''}`)
+      const r = await exportarCopia(conEstados, APP_VERSION)
+      if (r.resultado === 'vacia') avisar('Aún no hay partidas que copiar')
+      else if (r.resultado !== 'cancelado') avisar(`Copia lista: ${plural(r.partidas, 'partida', 'partidas')}${r.estados ? ` y ${plural(r.estados, 'estado', 'estados')}` : ''}`)
     } catch (e) {
       registrar('error', 'No se pudo exportar la copia', (e as Error).message)
       avisar('No se ha podido crear la copia')
@@ -250,10 +245,16 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
           </div>
           <div className="separador" />
           <div className="fila justify-between">
+            <span>Colores como en la consola</span>
+            <Interruptor etiqueta="Colores como en la consola" activo={a.coloresConsola} alCambiar={(v) => cambiar({ coloresConsola: v })} />
+          </div>
+          <div className="separador" />
+          <div className="fila justify-between">
             <span>Vibrar al pulsar</span>
             <Interruptor etiqueta="Vibrar al pulsar" activo={a.vibracion} alCambiar={(v) => cambiar({ vibracion: v })} />
           </div>
         </div>
+        <p className="pie-grupo">Colores como en la consola: la GBA y la Game Boy Color tenían pantallas apagadas y los juegos se pintaron con colores muy vivos para compensarlo. Con esta opción se ven como en la consola, sin colores chillones.</p>
         <p className="cabecera-grupo mt-6">Mando</p>
         <AjustesMando />
         <p className="pie-grupo">También funcionan un teclado y los mandos de PlayStation, Xbox o MFi conectados al iPhone.</p>

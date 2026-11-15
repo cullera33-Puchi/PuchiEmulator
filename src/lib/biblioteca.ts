@@ -37,6 +37,36 @@ export async function anadirFichero(nombre: string, contenido: ArrayBuffer): Pro
   return { tipo: 'nuevo', juego }
 }
 
-export function ordenarJuegos(juegos: Juego[]): Juego[] {
-  return [...juegos].sort((a, b) => (b.ultimaVez ?? 0) - (a.ultimaVez ?? 0) || a.nombre.localeCompare(b.nombre, 'es'))
+export type OrdenBiblioteca = 'reciente' | 'nombre' | 'tiempo'
+
+const porNombre = (a: Juego, b: Juego) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true, sensitivity: 'base' })
+
+/** Sin acentos ni mayúsculas, para buscar. */
+export function normalizar(texto: string): string {
+  return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+}
+
+export function ordenarJuegos(juegos: Juego[], orden: OrdenBiblioteca = 'reciente', tiempos: Map<string, number> = new Map()): Juego[] {
+  const lista = [...juegos]
+  if (orden === 'nombre') return lista.sort(porNombre)
+  if (orden === 'tiempo') return lista.sort((a, b) => (tiempos.get(b.id) ?? 0) - (tiempos.get(a.id) ?? 0) || porNombre(a, b))
+  return lista.sort((a, b) => (b.ultimaVez ?? 0) - (a.ultimaVez ?? 0) || porNombre(a, b))
+}
+
+/**
+ * Biblioteca lista para mostrar (v0.14.0): los que coinciden con la búsqueda (cada palabra en el
+ * nombre o en el título de la ROM, sin acentos ni mayúsculas), en el orden elegido y con los
+ * favoritos aparte, primero.
+ */
+export function prepararBiblioteca(
+  juegos: Juego[],
+  { texto = '', orden = 'reciente', tiempos = new Map() }: { texto?: string; orden?: OrdenBiblioteca; tiempos?: Map<string, number> } = {},
+): { favoritos: Juego[]; resto: Juego[] } {
+  const palabras = normalizar(texto).split(/\s+/).filter(Boolean)
+  const coinciden = juegos.filter((j) => {
+    const donde = normalizar(`${j.nombre} ${j.titulo}`)
+    return palabras.every((p) => donde.includes(p))
+  })
+  const ordenados = ordenarJuegos(coinciden, orden, tiempos)
+  return { favoritos: ordenados.filter((j) => j.favorito), resto: ordenados.filter((j) => !j.favorito) }
 }

@@ -3,7 +3,7 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { FastForward, FolderOpen, Gamepad2, Menu, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
+import { FastForward, FolderOpen, Gamepad2, Menu, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
@@ -17,6 +17,7 @@ import { registrar } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { paletaPara, temaPara } from '../lib/temas'
 import { SelectorTema } from '../componentes/SelectorTema'
+import { EditorNotas } from '../componentes/Notas'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
 import { bitCorrer, controlesDe, extrasJrpg, mandoDe } from '../lib/mandoJuego'
 
@@ -52,6 +53,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [sistema, setSistema] = useState<Sistema>('gba')
   const [verTemas, setVerTemas] = useState(false)
   const [verMando, setVerMando] = useState(false)
+  const [verNotas, setVerNotas] = useState(false)
   const tema = temaPara(sistema, ajustes.temas[sistema])
   // Mando de este juego (modo JRPG) y correr fijo
   const mando = mandoDe(ajustes.mandos, id, sistema)
@@ -63,6 +65,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   const seguir = useCallback(() => {
     setMenu(false)
+    setVerNotas(false)
     setPausaFondo(false)
     setVerEstados(false)
     void sesion.current?.jugar(ajustesRef.current.sonido, ajustesRef.current.sonarEnSilencio)
@@ -90,7 +93,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             rom,
             lienzo: lienzo.current!,
             reanudar: desdeAuto,
-            opciones: { mgba_gb_colors: paletaPara(temaJuego, ajustesRef.current.paletaGb) },
+            opciones: {
+              mgba_gb_colors: paletaPara(temaJuego, ajustesRef.current.paletaGb),
+              mgba_color_correction: ajustesRef.current.coloresConsola ? 'Auto' : 'OFF',
+            },
             alCambiarTamano: (ancho, alto) => setNativo({ ancho, alto }),
             alFallar: () => {
               if (!cancelado) setError('El emulador ha fallado. Lo guardado antes del fallo está a salvo: vuelve a abrir el juego.')
@@ -154,6 +160,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     sesion.current?.opcion('mgba_gb_colors', paletaPara(tema, ajustes.paletaGb))
   }, [tema, ajustes.paletaGb])
 
+  useEffect(() => {
+    sesion.current?.opcion('mgba_color_correction', ajustes.coloresConsola ? 'Auto' : 'OFF')
+  }, [ajustes.coloresConsola])
+
   // Segundo plano: pausa y guardado
   useEffect(() => {
     const alOcultar = () => {
@@ -180,6 +190,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     const tecla = (abajo: boolean) => (e: KeyboardEvent) => {
       const b = TECLAS[e.code]
       if (!b) return
+      // Escribiendo una nota, las teclas son para el texto
+      if ((e.target as HTMLElement | null)?.closest?.('textarea, input')) return
       e.preventDefault()
       m = abajo ? m | bit(b) : m & ~bit(b)
       sesion.current?.ponerBotonesTeclado(m)
@@ -395,6 +407,13 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
       {menu && verTemas && <SelectorTema oscura sistema={sistema} alCerrar={() => setVerTemas(false)} />}
 
+      <Hoja oscura abierta={menu && verNotas} alCerrar={() => setVerNotas(false)} titulo="Notas">
+        <EditorNotas juegoId={id} oscura />
+        <button className="boton-texto mt-2 w-full py-2" onClick={() => setVerNotas(false)}>
+          Volver al menú
+        </button>
+      </Hoja>
+
       <Hoja oscura abierta={menu && verMando} alCerrar={() => setVerMando(false)} titulo="Mando">
         <AjustesMando juego={{ id, sistema }} />
         <button className="boton-texto mt-4 w-full py-2" onClick={() => setVerMando(false)}>
@@ -410,6 +429,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           <div className="separador" />
           <button className="fila" onClick={abrirEstados}>
             <Save size={20} className="text-acento dark:text-acento-oscuro" /> Estados guardados
+          </button>
+          <div className="separador" />
+          <button className="fila" onClick={() => setVerNotas(true)}>
+            <NotebookPen size={20} className="text-acento dark:text-acento-oscuro" /> Notas
           </button>
           <div className="separador" />
           <button className="fila" onClick={() => cambiarAjustes({ sonido: !ajustes.sonido })}>

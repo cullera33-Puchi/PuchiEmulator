@@ -3,21 +3,27 @@
  * otro iPhone. Lleva las partidas guardadas y, si se pide, los estados. Nunca lleva las ROMs.
  */
 import {
+  importarNotas,
   importarProgreso,
   importarSesiones,
   listarEstados,
   listarJuegos,
+  listarNotas,
   listarPartidas,
   listarSesiones,
   type Estado,
+  type Nota,
   type Partida,
   type Ranura,
 } from './almacen'
 import type { SesionJuego } from './estadisticas'
+import { cambiarAjustes } from './ajustes'
+import { registrar } from './registro'
 import type { Sistema } from './sistemas'
 
 export const FORMATO = 'puchiemulator-partidas'
-export const VERSION_FORMATO = 1
+/** 1: partidas, estados y sesiones. 2: notas de los juegos (v0.14.0). */
+export const VERSION_FORMATO = 2
 
 interface PartidaArchivo {
   id: string
@@ -45,6 +51,8 @@ export interface ArchivoPartidas {
   estados: EstadoArchivo[]
   /** Tiempo jugado (desde la v0.6.0; los archivos anteriores no lo traen) */
   sesiones?: SesionJuego[]
+  /** Notas de los juegos (desde la v0.14.0) */
+  notas?: Nota[]
 }
 
 export function aBase64(buffer: ArrayBuffer): string {
@@ -64,7 +72,13 @@ export function deBase64(texto: string): ArrayBuffer {
 }
 
 export async function crearArchivo(conEstados: boolean, version: string): Promise<ArchivoPartidas> {
-  const [juegos, partidas, estados, sesiones] = await Promise.all([listarJuegos(), listarPartidas(), conEstados ? listarEstados() : Promise.resolve([]), listarSesiones()])
+  const [juegos, partidas, estados, sesiones, notas] = await Promise.all([
+    listarJuegos(),
+    listarPartidas(),
+    conEstados ? listarEstados() : Promise.resolve([]),
+    listarSesiones(),
+    listarNotas(),
+  ])
   const porId = new Map(juegos.map((j) => [j.id, j]))
   return {
     formato: FORMATO,
@@ -87,6 +101,7 @@ export async function crearArchivo(conEstados: boolean, version: string): Promis
       captura: e.captura ? aBase64(e.captura) : undefined,
     })),
     sesiones: sesiones.map(({ id: _id, ...s }) => s),
+    notas,
   }
 }
 
@@ -95,7 +110,7 @@ export class ErrorArchivo extends Error {}
 const RANURAS: Ranura[] = ['auto', 'rapida', '1', '2', '3']
 
 /** Comprueba y convierte un archivo leído. Lanza ErrorArchivo con un mensaje para el usuario. */
-export function leerArchivo(texto: string): { partidas: Partida[]; estados: Estado[]; sesiones: SesionJuego[] } {
+export function leerArchivo(texto: string): { partidas: Partida[]; estados: Estado[]; sesiones: SesionJuego[]; notas: Nota[] } {
   let datos: unknown
   try {
     datos = JSON.parse(texto)
@@ -103,7 +118,7 @@ export function leerArchivo(texto: string): { partidas: Partida[]; estados: Esta
     throw new ErrorArchivo('El archivo no es una copia de partidas.')
   }
   const a = datos as Partial<ArchivoPartidas>
-  if (a?.formato !== FORMATO || !Array.isArray(a.partidas)) throw new ErrorArchivo('El archivo no es una copia de partidas de PuchiEmulator.')
+  if (a?.formato !== FORMATO || !Array.isArray(a.partidas) || (a.notas !== undefined && !Array.isArray(a.notas))) throw new ErrorArchivo('El archivo no es una copia de partidas de PuchiEmulator.')
   if ((a.version ?? 0) > VERSION_FORMATO) throw new ErrorArchivo('La copia es de una versión más nueva de la app. Actualiza la app y vuelve a intentarlo.')
   const valido = (id: unknown) => typeof id === 'string' && /^[0-9a-f]{40}$/.test(id)
   const partidas: Partida[] = []
@@ -128,15 +143,21 @@ export function leerArchivo(texto: string): { partidas: Partida[]; estados: Esta
     if (!valido(x.juegoId) || !Number.isFinite(x.inicio) || !Number.isFinite(x.fin) || !Number.isFinite(x.ms) || x.ms < 0) throw new ErrorArchivo('La copia está dañada.')
     sesiones.push({ juegoId: x.juegoId, nombre: String(x.nombre ?? ''), sistema: x.sistema, inicio: x.inicio, fin: x.fin, ms: x.ms })
   }
-  return { partidas, estados, sesiones }
+  const notas: Nota[] = []
+  for (const n of a.notas ?? []) {
+    if (!valido(n?.id) || typeof n.texto !== 'string') throw new ErrorArchivo('La copia está dañada.')
+    notas.push({ id: n.id, texto: n.texto, fecha: Number(n.fecha) || Date.now() })
+  }
+  return { partidas, estados, sesiones, notas }
 }
 
 /** Importa una copia: sustituye la partida y los estados de los juegos que vienen en ella. */
-export async function importarArchivo(texto: string): Promise<{ partidas: number; estados: number; sesiones: number }> {
-  const { partidas, estados, sesiones } = leerArchivo(texto)
+export async function importarArchivo(texto: string): Promise<{ partidas: number; estados: number; sesiones: number; notas: number }> {
+  const { partidas, estados, sesiones, notas } = leerArchivo(texto)
   await importarProgreso(partidas, estados)
+  await importarNotas(notas)
   const nuevas = await importarSesiones(sesiones)
-  return { partidas: partidas.length, estados: estados.length, sesiones: nuevas }
+  return { partidas: partidas.length, estados: estados.length, sesiones: nuevas, notas: notas.length }
 }
 
 export function nombreArchivo(fecha = new Date()): string {
@@ -162,4 +183,41 @@ export async function compartirArchivo(contenido: string, nombre: string): Promi
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
   return 'descargado'
+}
+
+/** Días sin copia fuera del iPhone a partir de los que se avisa (v0.14.0). */
+export const DIAS_AVISO_COPIA = 14
+const DIA = 86_400_000
+
+/**
+ * Si hay que recordar que se guarde una copia: hay partidas y nunca se ha guardado una copia, o la
+ * última tiene 14 días o más; salvo que se haya dejado para más tarde.
+ */
+export function necesitaCopia(hayPartidas: boolean, ultima: number | undefined, aplazada: number | undefined, ahora = Date.now()): boolean {
+  if (!hayPartidas) return false
+  if (aplazada && ahora < aplazada) return false
+  return !ultima || ahora - ultima >= DIAS_AVISO_COPIA * DIA
+}
+
+/** Días desde la última copia, o null si nunca se ha guardado. */
+export function diasSinCopia(ultima: number | undefined, ahora = Date.now()): number | null {
+  return ultima ? Math.floor((ahora - ultima) / DIA) : null
+}
+
+/** Deja el aviso para dentro de tres días. */
+export function aplazarCopia(ahora = Date.now()): void {
+  cambiarAjustes({ copiaAplazada: ahora + 3 * DIA })
+}
+
+/**
+ * Crea la copia y la comparte. Si llega a guardarse (compartida o descargada), anota la fecha para
+ * el aviso. Devuelve qué ha pasado y cuántas partidas y estados lleva.
+ */
+export async function exportarCopia(conEstados: boolean, version: string): Promise<{ resultado: 'compartido' | 'descargado' | 'cancelado' | 'vacia'; partidas: number; estados: number }> {
+  const archivo = await crearArchivo(conEstados, version)
+  if (!archivo.partidas.length && !archivo.estados.length) return { resultado: 'vacia', partidas: 0, estados: 0 }
+  const resultado = await compartirArchivo(JSON.stringify(archivo), nombreArchivo())
+  registrar('info', 'Copia de partidas exportada', { partidas: archivo.partidas.length, estados: archivo.estados.length, resultado })
+  if (resultado !== 'cancelado') cambiarAjustes({ ultimaCopia: Date.now(), copiaAplazada: undefined })
+  return { resultado, partidas: archivo.partidas.length, estados: archivo.estados.length }
 }

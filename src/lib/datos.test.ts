@@ -1,7 +1,20 @@
 import 'fake-indexeddb/auto'
 import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { _reiniciarConexion, guardarEstado, guardarPartida, guardarSesionJuego, leerEstado, leerPartida, leerRomGuardada, listarJuegos, listarSesiones, quitarJuego } from './almacen'
+import {
+  _reiniciarConexion,
+  guardarEstado,
+  guardarNota,
+  guardarPartida,
+  guardarSesionJuego,
+  leerEstado,
+  leerNota,
+  leerPartida,
+  leerRomGuardada,
+  listarJuegos,
+  listarSesiones,
+  quitarJuego,
+} from './almacen'
 import { anadirFichero, sha1 } from './biblioteca'
 import { crearArchivo, ErrorArchivo, importarArchivo, leerArchivo } from './copias'
 
@@ -67,13 +80,28 @@ describe('copia de partidas', () => {
     })
     expect(await leerPartida(id)).toBeUndefined()
 
-    expect(await importarArchivo(texto)).toEqual({ partidas: 1, estados: 1, sesiones: 0 })
+    expect(await importarArchivo(texto)).toEqual({ partidas: 1, estados: 1, sesiones: 0, notas: 0 })
     const p = await leerPartida(id)
     expect(new Uint8Array(p!.datos)).toEqual(new Uint8Array([9, 8, 7]))
     expect(new Uint8Array(p!.rtc!)).toEqual(new Uint8Array([1]))
     const e = await leerEstado(id, '2')
     expect(e?.datos.byteLength).toBe(70000)
     expect(new Uint8Array(e!.datos)[69999]).toBe(5)
+  })
+
+  it('la copia lleva las notas de los juegos; una nota vacía se borra', async () => {
+    await guardarNota(id, 'Voy por la tercera mazmorra. Contraseña: 1234')
+    expect((await leerNota(id))?.texto).toMatch(/tercera/)
+    const texto = JSON.stringify(await crearArchivo(false, '0.14.0'))
+    await guardarNota(id, '   ')
+    expect(await leerNota(id)).toBeUndefined()
+    expect((await importarArchivo(texto)).notas).toBe(1)
+    expect((await leerNota(id))?.texto).toBe('Voy por la tercera mazmorra. Contraseña: 1234')
+  })
+
+  it('una copia de antes de las notas (formato 1) se sigue leyendo', () => {
+    const viejo = JSON.stringify({ formato: 'puchiemulator-partidas', version: 1, fecha: 1, app: '0.13.0', partidas: [{ id, datos: 'AQI=', fecha: 1 }], estados: [] })
+    expect(leerArchivo(viejo)).toMatchObject({ notas: [], partidas: [{ id }] })
   })
 
   it('la copia lleva el tiempo jugado y al recuperarla no se duplican sesiones', async () => {

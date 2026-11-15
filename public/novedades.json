@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.14.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Mientras juegas, se guarda dónde vas cada 5 minutos: si algo falla, pierdes muy poco.",
+      "El inicio te recuerda guardar una copia de tus partidas en Archivos.",
+      "GBA y Game Boy Color con sus colores reales, sin tonos chillones (se puede quitar en Ajustes).",
+      "Biblioteca con búsqueda, orden y favoritos.",
+      "Notas en cada juego: dónde te quedaste, contraseñas o lo que te falta."
+    ]
+  },
+  {
     "version": "0.13.3",
     "fecha": "15/11/2026",
     "cambios": [

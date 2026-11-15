@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.14.0 (15/11/2026)
+
+Las cinco primeras mejoras de la revisión de la app, aprobadas por el usuario.
+
+- Punto de control: el estado «auto» se guarda también cada 5 minutos de juego (`MS_PUNTO_CONTROL` en `Sesion`), no solo al salir o pasar a segundo plano. Si algo falla, se pierden 5 minutos como mucho.
+- Aviso para guardar la copia de partidas en el inicio, si hay partidas y nunca se ha guardado una copia o la última tiene 14 días o más (`necesitaCopia`). «Guardar copia» la comparte (solo partidas y notas, sin estados, para que pese poco) y «Más tarde» lo calla tres días. La fecha se anota en cualquier exportación que llegue a guardarse (`exportarCopia`, `ajustes.ultimaCopia`).
+- Colores como en la consola (Ajustes, Imagen, activado por defecto): corrección de color de mGBA en modo «Auto» (`mgba_color_correction`): la de GBA en los juegos de GBA y la de Game Boy Color en los de Color; la Game Boy clásica conserva su paleta. Se aplica en marcha.
+- Biblioteca: búsqueda sin acentos ni mayúsculas (en el nombre y en el título de la ROM), orden por recientes, nombre o más jugados (`ajustes.ordenBiblioteca`) y favoritos en su propio grupo, arriba, con una estrella en la carátula (`Juego.favorito`, `prepararBiblioteca`).
+- Notas por juego, desde la biblioteca y desde el menú del juego, que se guardan solas (`EditorNotas`). Van en un almacén aparte (IndexedDB versión 4, `notas`): se conservan si se quita el juego y viajan en la copia de partidas (formato 2; las copias del formato 1 se siguen leyendo). Escribiendo una nota, el teclado ya no pulsa botones del juego.
+- Pruebas: 104 unitarias y 32 de navegador. Las pruebas de navegador que comparan colores exactos van sin la corrección de color.
+
 ## 0.13.3 (15/11/2026)
 
 - Ajustes de pantalla y botones por juego (petición del usuario): pantalla grande, imagen de Super Nintendo, tamaño de los botones, una o dos manos, la mano y la opacidad en horizontal. Dentro de un juego, Menú, Mando, se cambian solo para ese juego («Pantalla y botones de este juego»); los de Ajustes, Mando, son los de por defecto para los juegos que no tienen los suyos. «Usar los ajustes generales» quita los propios y conserva el modo JRPG (`controlesDe`, `cambiarMandoJuego`, `usarControlesGenerales` en `src/lib/mandoJuego.ts`; se guardan en `ajustes.mandos`).

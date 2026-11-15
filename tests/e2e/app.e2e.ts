@@ -13,7 +13,9 @@ const rom = (n: string) => fileURLToPath(new URL(`../fixtures/${n}`, import.meta
 test.beforeEach(async ({ page }, info) => {
   if (info.title.includes('bienvenida')) return
   await page.addInitScript(() => {
-    if (!localStorage.getItem('puchiemulator-ajustes')) localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ bienvenidaVista: true }))
+    // Colores sin corregir (las pruebas comparan colores exactos) y sin el aviso de la copia, salvo en sus pruebas
+    if (!localStorage.getItem('puchiemulator-ajustes'))
+      localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ bienvenidaVista: true, coloresConsola: false, ultimaCopia: Date.now() }))
   })
 })
 
@@ -488,7 +490,7 @@ test.describe('una mano en horizontal', () => {
   for (const mano of ['derecha', 'izquierda'] as const) {
     test(`mano ${mano}: la pantalla a un lado a toda la altura y los controles en columna al otro`, async ({ page }) => {
       await page.addInitScript((m) => {
-        localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ bienvenidaVista: true, modoMando: 'una-mano', mano: m }))
+        localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ bienvenidaVista: true, coloresConsola: false, ultimaCopia: Date.now(), modoMando: 'una-mano', mano: m }))
       }, mano)
       await page.goto('/')
       await anadir(page, 'prueba.gba')
@@ -862,4 +864,91 @@ test('los ajustes de pantalla y botones se guardan por juego', async ({ page }) 
   await page.getByRole('button', { name: 'Volver al menú' }).click()
   await page.getByRole('button', { name: 'Seguir jugando' }).click()
   await expect(page.getByTestId('juego')).not.toHaveClass(/una-mano/)
+})
+
+test('colores como en la consola: la GBA se ve con sus colores reales y se puede quitar', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ bienvenidaVista: true, ultimaCopia: Date.now() })))
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  // El azul puro de la ROM sale más apagado, como en la pantalla de la GBA
+  await expect.poll(async () => (await colorCentral(page))[2]).toBeLessThan(250)
+  const corregido = await colorCentral(page)
+  expect(corregido).not.toEqual([0, 0, 255])
+})
+
+test('aviso para guardar la copia de partidas: sale con partidas y «Más tarde» lo calla', async ({ page }) => {
+  // Solo en la primera carga: después, la app guarda lo que haga el usuario («Más tarde»)
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('ajustes-puestos')) return
+    sessionStorage.setItem('ajustes-puestos', '1')
+    localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ bienvenidaVista: true, coloresConsola: false }))
+  })
+  await page.goto('/')
+  await expect(page.getByTestId('aviso-copia')).toHaveCount(0)
+  await anadir(page, 'prueba.sfc')
+  await page.getByRole('button', { name: /prueba, Super Nintendo/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await pulsar(page, 'A') // la ROM de prueba guarda en la partida al pulsar A
+  await page.mouse.up()
+  await page.waitForTimeout(1500)
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await page.goto('/')
+  const aviso = page.getByTestId('aviso-copia')
+  await expect(aviso).toBeVisible()
+  await expect(aviso).toContainText('Aún no has guardado ninguna')
+  await aviso.getByRole('button', { name: 'Más tarde' }).click()
+  await expect(aviso).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByTestId('consolas')).toBeVisible()
+  await expect(page.getByTestId('aviso-copia')).toHaveCount(0)
+})
+
+test('biblioteca: buscar, ordenar, favoritos y notas', async ({ page }) => {
+  await page.goto('/')
+  // Un segundo juego de GBA: la misma ROM con un byte distinto al final (otra huella, otro juego)
+  const otra = Buffer.from(readFileSync(rom('prueba.gba')))
+  otra[otra.length - 1] ^= 0xff
+  const tipo = 'application/octet-stream'
+  await page.getByTestId('selector').setInputFiles([
+    { name: 'prueba.gba', mimeType: tipo, buffer: readFileSync(rom('prueba.gba')) },
+    { name: 'Árbol Épico.gba', mimeType: tipo, buffer: otra },
+  ])
+  await expect(page.getByText(/añadido|ya estaba/i)).toBeVisible()
+  await entrar(page, 'Game Boy Advance')
+  const biblioteca = page.getByTestId('biblioteca')
+  await expect(biblioteca.getByRole('button', { name: /Game Boy Advance$/ })).toHaveCount(2)
+
+  // Buscar sin acentos ni mayúsculas
+  await page.getByRole('searchbox', { name: 'Buscar juegos' }).fill('ARBOL epi')
+  await expect(biblioteca.getByRole('button', { name: /Game Boy Advance$/ })).toHaveCount(1)
+  await page.getByRole('searchbox', { name: 'Buscar juegos' }).fill('zelda')
+  await expect(page.getByText('Ningún juego coincide con «zelda»')).toBeVisible()
+  await page.getByRole('button', { name: 'Borrar la búsqueda' }).click()
+  await expect(biblioteca.getByRole('button', { name: /Game Boy Advance$/ })).toHaveCount(2)
+
+  // Por nombre
+  await page.getByRole('radiogroup', { name: 'Ordenar los juegos' }).getByRole('radio', { name: 'Nombre' }).click()
+  const nombres = () => biblioteca.getByRole('button', { name: /Game Boy Advance$/ }).evaluateAll((l) => l.map((b) => b.getAttribute('aria-label')))
+  await expect.poll(nombres).toEqual(['Árbol Épico, Game Boy Advance', 'prueba, Game Boy Advance'])
+
+  // Favorito: pasa arriba, en su grupo
+  await page.getByRole('button', { name: 'Opciones de prueba', exact: true }).click()
+  await page.getByRole('button', { name: 'Añadir a favoritos' }).click()
+  await expect(page.getByText('Favoritos', { exact: true })).toBeVisible()
+  await expect.poll(nombres).toEqual(['prueba, Game Boy Advance', 'Árbol Épico, Game Boy Advance'])
+
+  // Notas desde la biblioteca; se ven después en el menú del juego
+  await page.getByRole('button', { name: 'Notas' }).click()
+  await page.getByRole('textbox', { name: 'Notas del juego' }).fill('Voy por la segunda mazmorra')
+  await expect(page.getByText('Guardada')).toBeVisible()
+  await page.goto('/')
+  await entrar(page, 'Game Boy Advance')
+  await page.getByRole('button', { name: 'prueba, Game Boy Advance' }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Notas' }).click()
+  await expect(page.getByRole('textbox', { name: 'Notas del juego' })).toHaveValue('Voy por la segunda mazmorra')
 })

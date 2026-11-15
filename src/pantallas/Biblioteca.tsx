@@ -1,17 +1,19 @@
 /**
- * Biblioteca de una consola: sus juegos en cuadrícula con las carátulas y el último jugado primero.
+ * Biblioteca de una consola: sus juegos en cuadrícula con las carátulas, con búsqueda, orden
+ * (recientes, nombre o más jugados) y los favoritos primero (v0.14.0).
  * Es una pantalla apilada sobre el inicio («‹ Consolas» o deslizar desde el borde para volver).
  * Tocar un juego lo abre donde se dejó (si hay estado «auto»); mantenerlo pulsado o tocar «…» abre
  * sus opciones. Quitar un juego o borrar su partida se puede deshacer.
  */
-import { ChevronLeft, ChevronRight, Ellipsis, Gamepad2, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Ellipsis, Gamepad2, NotebookPen, Plus, Search, Star, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type PointerEvent as EventoPuntero } from 'react'
 import { useAnadirJuegos } from '../componentes/AnadirJuegos'
 import { useVolverDeslizando } from '../componentes/gestos'
 import { HojaCaratula } from '../componentes/HojaCaratula'
-import { Hoja, useInterfaz } from '../componentes/Interfaz'
+import { Hoja, Segmentado, useInterfaz } from '../componentes/Interfaz'
+import { EditorNotas } from '../componentes/Notas'
 import { altavoz } from '../emulador/audio'
-import { leerAjustes } from '../lib/ajustes'
+import { cambiarAjustes, leerAjustes, useAjustes } from '../lib/ajustes'
 import {
   actualizarJuego,
   borrarCaratula,
@@ -22,6 +24,7 @@ import {
   importarProgreso,
   leerCaratula,
   leerEstado,
+  leerNota,
   leerPartida,
   leerRomGuardada,
   listarCaratulas,
@@ -30,7 +33,7 @@ import {
   quitarJuego,
   type Juego,
 } from '../lib/almacen'
-import { ordenarJuegos } from '../lib/biblioteca'
+import { prepararBiblioteca, type OrdenBiblioteca } from '../lib/biblioteca'
 import { duracion, porJuego } from '../lib/estadisticas'
 import { cuando, cuandoCorto, plural, tamano } from '../lib/formato'
 import { vibrar } from '../lib/vibracion'
@@ -54,6 +57,7 @@ interface Detalle {
   partida?: number
   estado?: number
   caratula: boolean
+  nota?: string
 }
 
 /** Pulsación larga de 500 ms; si el dedo se mueve, es desplazamiento y no cuenta. */
@@ -102,6 +106,11 @@ function Ficha({ juego, caratula, tiempo, alJugar, alOpciones }: { juego: Juego;
         }}
       >
         <span className="relative block aspect-square overflow-hidden rounded-xl bg-white shadow-sm dark:bg-zinc-900">
+          {juego.favorito && (
+            <span className="absolute top-1.5 right-1.5 z-[1] grid size-6 place-items-center rounded-full bg-black/55 text-amber-300" aria-label="Favorito">
+              <Star size={14} fill="currentColor" />
+            </span>
+          )}
           {caratula ? (
             <img src={caratula} alt="" className="h-full w-full object-contain" draggable={false} />
           ) : (
@@ -133,12 +142,15 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
   const [tiempos, setTiempos] = useState<Map<string, Tiempo>>(new Map())
   const [detalle, setDetalle] = useState<Detalle | null>(null)
   const [eligiendoCaratula, setEligiendoCaratula] = useState<Juego | null>(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [notasDe, setNotasDe] = useState<Juego | null>(null)
+  const orden = useAjustes().ordenBiblioteca
   const pantalla = useRef<HTMLDivElement>(null)
   const info = CONSOLAS_APP[consola]
   useVolverDeslizando(pantalla, alVolver)
 
   const recargar = useCallback(async () => {
-    const lista = ordenarJuegos((await listarJuegos()).filter((j) => info.sistemas.includes(j.sistema)))
+    const lista = (await listarJuegos()).filter((j) => info.sistemas.includes(j.sistema))
     const [estados, imagenes, sesiones] = await Promise.all([Promise.all(lista.map((j) => leerEstado(j.id, 'auto'))), listarCaratulas(), listarSesiones()])
     setTiempos(new Map(porJuego(sesiones).map((f) => [f.juegoId, { ms: f.ms, sesiones: f.sesiones }])))
     setConEstado(new Set(lista.filter((_, i) => estados[i]).map((j) => j.id)))
@@ -163,9 +175,22 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
   }
 
   const abrirDetalle = async (juego: Juego) => {
-    const [p, e, c] = await Promise.all([leerPartida(juego.id), leerEstado(juego.id, 'auto'), leerCaratula(juego.id)])
-    setDetalle({ juego, partida: p?.fecha, estado: e?.fecha, caratula: !!c, tiempo: tiempos.get(juego.id) })
+    const [p, e, c, n] = await Promise.all([leerPartida(juego.id), leerEstado(juego.id, 'auto'), leerCaratula(juego.id), leerNota(juego.id)])
+    setDetalle({ juego, partida: p?.fecha, estado: e?.fecha, caratula: !!c, tiempo: tiempos.get(juego.id), nota: n?.texto })
   }
+
+  const cambiarFavorito = async (j: Juego) => {
+    const nuevo = { ...j, favorito: !j.favorito }
+    await actualizarJuego(nuevo)
+    setDetalle((d) => (d ? { ...d, juego: nuevo } : d))
+    await recargar()
+    avisar(nuevo.favorito ? 'Añadido a favoritos' : 'Quitado de favoritos')
+  }
+
+  const vista = juegos ? prepararBiblioteca(juegos, { texto: busqueda, orden, tiempos: new Map([...tiempos].map(([id, t]) => [id, t.ms])) }) : null
+  const ficha = (j: Juego) => (
+    <Ficha key={j.id} juego={j} caratula={caratulas.get(j.id)} tiempo={tiempos.get(j.id)} alJugar={() => jugar(j, conEstado.has(j.id))} alOpciones={() => void abrirDetalle(j)} />
+  )
 
   const renombrar = async (j: Juego) => {
     const nombre = window.prompt('Nombre del juego', j.nombre)?.trim()
@@ -233,21 +258,54 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
         </div>
       )}
 
-      {juegos && juegos.length > 0 && (
+      {juegos && juegos.length > 0 && vista && (
         <>
-          <div className="grid grid-cols-3 gap-x-3 gap-y-4" data-testid="biblioteca">
-            {juegos.map((j) => (
-              <Ficha
-                key={j.id}
-                juego={j}
-                caratula={caratulas.get(j.id)}
-                tiempo={tiempos.get(j.id)}
-                alJugar={() => jugar(j, conEstado.has(j.id))}
-                alOpciones={() => void abrirDetalle(j)}
+          <div className="mb-4 space-y-2">
+            <label className="flex h-9 items-center gap-1.5 rounded-[10px] bg-zinc-200/80 px-2 text-zinc-500 dark:bg-zinc-800">
+              <Search size={17} className="shrink-0" />
+              <input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar"
+                aria-label="Buscar juegos"
+                enterKeyHint="search"
+                className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-black outline-none placeholder:text-zinc-500 dark:text-white [&::-webkit-search-cancel-button]:hidden"
               />
-            ))}
+              {busqueda && (
+                <button className="grid size-6 place-items-center rounded-full bg-zinc-400 text-white dark:bg-zinc-600" aria-label="Borrar la búsqueda" onClick={() => setBusqueda('')}>
+                  <X size={14} strokeWidth={3} />
+                </button>
+              )}
+            </label>
+            {juegos.length > 1 && (
+              <Segmentado
+                etiqueta="Ordenar los juegos"
+                valor={orden}
+                opciones={[
+                  ['reciente', 'Recientes'],
+                  ['nombre', 'Nombre'],
+                  ['tiempo', 'Más jugados'],
+                ]}
+                alCambiar={(v: OrdenBiblioteca) => cambiarAjustes({ ordenBiblioteca: v })}
+              />
+            )}
           </div>
-          <p className="pie-grupo mt-4 text-center">Toca un juego para seguir donde lo dejaste. Mantén pulsado para ver sus opciones.</p>
+
+          <div data-testid="biblioteca">
+            {vista.favoritos.length > 0 && (
+              <>
+                <p className="cabecera-grupo">Favoritos</p>
+                <div className="mb-5 grid grid-cols-3 gap-x-3 gap-y-4">{vista.favoritos.map(ficha)}</div>
+                {vista.resto.length > 0 && <p className="cabecera-grupo">Todos los juegos</p>}
+              </>
+            )}
+            <div className="grid grid-cols-3 gap-x-3 gap-y-4">{vista.resto.map(ficha)}</div>
+          </div>
+          {busqueda && !vista.favoritos.length && !vista.resto.length && (
+            <p className="mt-10 text-center text-[15px] text-zinc-500">Ningún juego coincide con «{busqueda}»</p>
+          )}
+          {!busqueda && <p className="pie-grupo mt-4 text-center">Toca un juego para seguir donde lo dejaste. Mantén pulsado para ver sus opciones.</p>}
         </>
       )}
 
@@ -273,6 +331,28 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
               {detalle.estado ? `Lo dejaste ${cuando(detalle.estado)}. ` : ''}
               Arrancar desde el principio carga la partida que guardaste dentro del juego.
             </p>
+
+            <div className="lista mt-5">
+              <button className="fila text-acento dark:text-acento-oscuro" onClick={() => void cambiarFavorito(detalle.juego)}>
+                <Star size={20} fill={detalle.juego.favorito ? 'currentColor' : 'none'} />
+                <span className="flex-1">{detalle.juego.favorito ? 'Quitar de favoritos' : 'Añadir a favoritos'}</span>
+              </button>
+              <div className="separador" />
+              <button
+                className="fila"
+                onClick={() => {
+                  setNotasDe(detalle.juego)
+                  setDetalle(null)
+                }}
+              >
+                <NotebookPen size={20} className="text-acento dark:text-acento-oscuro" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-acento dark:text-acento-oscuro">Notas</span>
+                  {detalle.nota && <span className="block truncate text-[13px] text-zinc-500">{detalle.nota}</span>}
+                </span>
+                <ChevronRight size={18} className="text-zinc-400" />
+              </button>
+            </div>
 
             <div className="lista mt-5">
               <button
@@ -320,6 +400,10 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
             <p className="pie-grupo">Al quitar un juego, su partida se conserva: si lo vuelves a añadir, la encuentra. Las dos acciones se pueden deshacer durante unos segundos.</p>
           </>
         )}
+      </Hoja>
+
+      <Hoja abierta={!!notasDe} alCerrar={() => setNotasDe(null)} titulo={notasDe ? `Notas de ${notasDe.nombre}` : undefined}>
+        {notasDe && <EditorNotas juegoId={notasDe.id} />}
       </Hoja>
 
       <HojaCaratula juego={eligiendoCaratula} alCerrar={() => setEligiendoCaratula(null)} alCambiar={() => void recargar()} />

@@ -22,6 +22,15 @@ export interface Juego {
   ultimaVez?: number
   /** Ya se buscó su carátula automáticamente (se busca una sola vez) */
   caratulaBuscada?: boolean
+  /** Marcado como favorito: sale primero en la biblioteca (v0.14.0) */
+  favorito?: boolean
+}
+
+/** Notas del usuario sobre un juego (v0.14.0). Van aparte del juego: se conservan si se quita y viajan en la copia. */
+export interface Nota {
+  id: string
+  texto: string
+  fecha: number
 }
 
 export interface Partida {
@@ -52,8 +61,8 @@ export interface Caratula {
 }
 
 const NOMBRE = 'puchiemulator'
-/** 1: juegos, roms, partidas y estados. 2: carátulas. 3: sesiones de juego (tiempo jugado). */
-const VERSION = 3
+/** 1: juegos, roms, partidas y estados. 2: carátulas. 3: sesiones de juego (tiempo jugado). 4: notas. */
+const VERSION = 4
 
 let abierta: Promise<IDBDatabase> | null = null
 
@@ -74,6 +83,7 @@ function abrir(): Promise<IDBDatabase> {
         const sesiones = bd.createObjectStore('sesiones', { keyPath: 'id', autoIncrement: true })
         sesiones.createIndex('juegoId', 'juegoId')
       }
+      if (!bd.objectStoreNames.contains('notas')) bd.createObjectStore('notas', { keyPath: 'id' })
     }
     peticion.onsuccess = () => {
       const bd = peticion.result
@@ -223,6 +233,12 @@ export function listarPartidas(): Promise<Partida[]> {
   return todos<Partida>('partidas')
 }
 
+/** Cuántas partidas hay guardadas, sin leerlas. */
+export async function contarPartidas(): Promise<number> {
+  const bd = await abrir()
+  return esperar(bd.transaction('partidas').objectStore('partidas').count()) as Promise<number>
+}
+
 export function guardarPartida(partida: Partida): Promise<void> {
   return poner('partidas', partida)
 }
@@ -282,6 +298,33 @@ export async function importarProgreso(partidas: Partida[], estados: Estado[]): 
   const tx = bd.transaction(['partidas', 'estados'], 'readwrite')
   for (const p of partidas) tx.objectStore('partidas').put(p)
   for (const e of estados) tx.objectStore('estados').put(e)
+  await terminar(tx)
+}
+
+export function leerNota(id: string): Promise<Nota | undefined> {
+  return leer<Nota>('notas', id)
+}
+
+export function listarNotas(): Promise<Nota[]> {
+  return todos<Nota>('notas')
+}
+
+/** Guarda la nota; si queda vacía, la borra. */
+export async function guardarNota(id: string, texto: string): Promise<void> {
+  if (!texto.trim()) {
+    const bd = await abrir()
+    const tx = bd.transaction('notas', 'readwrite')
+    tx.objectStore('notas').delete(id)
+    return terminar(tx)
+  }
+  return poner('notas', { id, texto, fecha: Date.now() } satisfies Nota)
+}
+
+/** Recupera las notas de una copia: sustituyen a las de esos juegos. */
+export async function importarNotas(notas: Nota[]): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction('notas', 'readwrite')
+  for (const n of notas) tx.objectStore('notas').put(n)
   await terminar(tx)
 }
 

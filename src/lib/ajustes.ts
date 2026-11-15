@@ -6,6 +6,7 @@ import { useSyncExternalStore } from 'react'
 import type { Sistema } from './sistemas'
 import type { IdTema, PaletaGb } from './temas'
 import type { MandoGuardado } from './mandoJuego'
+import type { OrdenBiblioteca } from './biblioteca'
 
 export interface Ajustes {
   sonido: boolean
@@ -13,6 +14,8 @@ export interface Ajustes {
   sonarEnSilencio: boolean
   /** Píxeles nítidos (true) o imagen suavizada */
   nitido: boolean
+  /** Colores como en la pantalla de la consola (corrección de color de mGBA en GBA y Color) */
+  coloresConsola: boolean
   /** Opacidad de los botones en horizontal, de 0,2 a 1 */
   opacidadMando: number
   tema: 'auto' | 'claro' | 'oscuro'
@@ -38,12 +41,19 @@ export interface Ajustes {
   snesAspecto: 'tv' | 'pixel'
   /** Mando de cada juego (modo JRPG y ajustes propios de pantalla y botones), por identificador del juego */
   mandos: Record<string, MandoGuardado>
+  /** Orden de la biblioteca: último jugado, nombre o tiempo jugado */
+  ordenBiblioteca: OrdenBiblioteca
+  /** Última copia de partidas guardada fuera del iPhone (compartida o descargada) */
+  ultimaCopia?: number
+  /** «Más tarde» en el aviso de la copia: no se vuelve a avisar hasta esta fecha */
+  copiaAplazada?: number
 }
 
 export const POR_DEFECTO: Ajustes = {
   sonido: true,
   sonarEnSilencio: false,
   nitido: true,
+  coloresConsola: true,
   opacidadMando: 0.6,
   tema: 'auto',
   vibracion: true,
@@ -57,6 +67,7 @@ export const POR_DEFECTO: Ajustes = {
   pantallaGrande: true,
   snesAspecto: 'tv',
   mandos: {},
+  ordenBiblioteca: 'reciente',
 }
 
 const CLAVE = 'puchiemulator-ajustes'
