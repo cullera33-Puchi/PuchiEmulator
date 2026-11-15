@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.13.1",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Reiniciar un juego de Nintendo DS ya no lo rompe.",
+      "Si un juego no puede seguir donde lo dejaste, se abre con su partida guardada en lugar de dar error.",
+      "Si el emulador falla, deja de guardar para no estropear lo que ya tenías guardado."
+    ]
+  },
+  {
     "version": "0.13.0",
     "fecha": "15/11/2026",
     "cambios": [

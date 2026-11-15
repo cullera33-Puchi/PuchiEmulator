@@ -3,6 +3,7 @@
  * añadir juegos, jugar, botones, estados, salir y seguir, y la distribución en horizontal.
  */
 import { expect, test, type Page } from '@playwright/test'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -770,4 +771,50 @@ test('mando para juegos de rol: por juego, A grande, botón de menú elegido y c
   await expect(page.getByText('Cargando…')).toBeHidden()
   await expect(page.getByRole('button', { name: /^Correr/ })).toHaveCount(0)
   await expect(mando.getByRole('button', { name: /^Menú del juego/ })).toHaveCount(0)
+})
+
+test('Nintendo DS: reiniciar varias veces no rompe el juego y se vuelve a abrir', async ({ page }) => {
+  const errores: string[] = []
+  page.on('pageerror', (e) => errores.push(e.message))
+  await page.goto('/')
+  await anadir(page, 'prueba.nds')
+  await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  const lienzo = page.getByTestId('pantalla')
+  const arriba = () => lienzo.evaluate((c: HTMLCanvasElement) => [...c.getContext('2d')!.getImageData(128, 96, 1, 1).data.slice(0, 3)])
+  for (let i = 0; i < 3; i++) {
+    await page.getByRole('button', { name: 'Menú', exact: true }).click()
+    await page.getByRole('button', { name: 'Reiniciar' }).click()
+    await page.waitForTimeout(500)
+    await page.getByRole('button', { name: 'Reiniciar', exact: true }).last().click()
+    await expect(page.getByText('No se ha podido abrir')).toHaveCount(0)
+  }
+  // Sigue en español y responde a A después de reiniciar
+  await expect.poll(arriba).toEqual([0, 0, 251])
+  await pulsar(page, 'A')
+  await expect.poll(arriba).toEqual([0, 251, 0])
+  await page.mouse.up()
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(arriba).toEqual([0, 0, 251])
+  expect(errores).toEqual([])
+})
+
+test('si la última vez no se pudo seguir donde se dejó, se abre con la partida guardada y avisa', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  // Como si la página se hubiera caído al cargar el punto donde se dejó
+  const id = createHash('sha1').update(readFileSync(rom('prueba.gba'))).digest('hex')
+  await page.evaluate((id) => localStorage.setItem('puchiemulator-cargando-auto', id), id)
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByText(/No se ha podido seguir donde lo dejaste/)).toBeVisible()
+  await expect(page.getByText('No se ha podido abrir')).toHaveCount(0)
+  expect(await page.evaluate(() => localStorage.getItem('puchiemulator-cargando-auto'))).toBeNull()
 })

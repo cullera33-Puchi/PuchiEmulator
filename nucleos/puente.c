@@ -307,11 +307,8 @@ bool pf_cargar(void *datos, size_t tam, const char *extension) {
 	retro_get_system_av_info(&av);
 	avCambiado = true;
 	retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
-	if (!info.need_fullpath) {
-		/* El núcleo ya tiene su copia. */
-		free(juego);
-		juego = NULL;
-	}
+	/* La ROM se conserva hasta descargar el juego: algunos núcleos (melonDS) guardan el puntero y
+	   la vuelven a leer al reiniciar. Liberarla aquí hacía que reiniciar un juego de DS fallara. */
 	return true;
 }
 

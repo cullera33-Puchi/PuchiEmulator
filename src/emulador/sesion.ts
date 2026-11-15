@@ -43,6 +43,32 @@ export interface OpcionesSesion {
   opciones?: Record<string, string>
   alCambiarTamano?: (ancho: number, alto: number) => void
   alGuardar?: () => void
+  /** El núcleo ha fallado: la sesión se para y ya no guarda nada (para no estropear la partida) */
+  alFallar?: (mensaje: string) => void
+}
+
+/**
+ * Marca de «cargando el punto donde se dejó». Se pone antes de cargarlo y se quita a los dos
+ * segundos de juego o al cerrar bien. Si el punto está estropeado y tumba la página (no hay error
+ * que recoger), la marca sigue ahí en la siguiente apertura y el juego se abre sin ese punto.
+ */
+const CLAVE_CARGA_AUTO = 'puchiemulator-cargando-auto'
+
+export function cargaAutoFallida(juegoId: string): boolean {
+  try {
+    return localStorage.getItem(CLAVE_CARGA_AUTO) === juegoId
+  } catch {
+    return false
+  }
+}
+
+function marcarCargaAuto(juegoId: string | null): void {
+  try {
+    if (juegoId) localStorage.setItem(CLAVE_CARGA_AUTO, juegoId)
+    else localStorage.removeItem(CLAVE_CARGA_AUTO)
+  } catch {
+    // sin almacenamiento
+  }
 }
 
 export class Sesion {
@@ -61,6 +87,10 @@ export class Sesion {
   // Correr fijo (modo JRPG): el botón que se mantiene pulsado, y fotogramas en que se suelta para que
   // el juego vea una pulsación nueva cuando el usuario lo toca
   private correr = 0
+  // El núcleo ha fallado (memoria corrupta): desde ese momento no se guarda nada suyo
+  private roto = false
+  private cargaAutoPendiente = false
+  private fotogramasJugados = 0
   private huecoCorrer = 0
   private basePrevia = 0
   private ultimaPartida: Uint8Array | null = null
@@ -127,7 +157,13 @@ export class Sesion {
     this.nucleo.fotograma()
     if (this.o.reanudar) {
       const estado = await leerEstado(juego.id, 'auto')
-      if (estado) this.nucleo.cargarEstado(new Uint8Array(estado.datos))
+      if (estado) {
+        marcarCargaAuto(juego.id)
+        this.cargaAutoPendiente = true
+        this.nucleo.cargarEstado(new Uint8Array(estado.datos))
+      }
+    } else if (cargaAutoFallida(juego.id)) {
+      marcarCargaAuto(null)
     }
     this.ultimaPartida = this.nucleo.leerPartida()?.datos ?? null
     this.dibujar()
@@ -142,7 +178,7 @@ export class Sesion {
 
   /** Arranca o reanuda. Llamar dentro de un toque para que suene. */
   async jugar(sonido: boolean, sonarEnSilencio: boolean): Promise<void> {
-    if (this.cerrada) return
+    if (this.cerrada || this.roto) return
     this.altavoz.silenciar(!sonido)
     void this.altavoz.activar(sonarEnSilencio)
     if (this.corriendo) return
@@ -206,6 +242,14 @@ export class Sesion {
   private bucle = (ahora: number) => {
     if (!this.corriendo) return
     this.peticion = requestAnimationFrame(this.bucle)
+    try {
+      this.avanzar(ahora)
+    } catch (e) {
+      this.fallar(e)
+    }
+  }
+
+  private avanzar(ahora: number): void {
     // Tras un parón largo (la app en segundo plano) no se intenta recuperar el tiempo perdido
     const dt = Math.min(ahora - this.ultimo, 250)
     this.ultimo = ahora
@@ -246,6 +290,10 @@ export class Sesion {
       const enviada = mascaraConCorrer(mascara, this.correr, this.huecoCorrer > 0)
       if (this.huecoCorrer > 0) this.huecoCorrer--
       this.nucleo.botones(enviada)
+      if (this.cargaAutoPendiente && ++this.fotogramasJugados >= 120) {
+        this.cargaAutoPendiente = false
+        marcarCargaAuto(null)
+      }
       if (this.nucleo.fotograma()) hayImagen = true
       // En avance rápido el sonido se acelera (más agudo) en lugar de cortarse
       this.altavoz.enviar(this.nucleo.audio(), this.frecuencia * this.velocidad * ritmoReal)
@@ -368,7 +416,7 @@ export class Sesion {
 
   /** Guarda la partida del juego si ha cambiado desde la última vez. */
   guardarPartidaSiCambia(): Promise<void> {
-    if (this.cerrada) return this.guardando
+    if (this.cerrada || this.roto) return this.guardando
     const actual = this.nucleo.leerPartida()
     if (!actual || iguales(actual.datos, this.ultimaPartida)) return this.guardando
     this.ultimaPartida = actual.datos
@@ -394,6 +442,7 @@ export class Sesion {
   }
 
   async guardarEstado(ranura: Ranura): Promise<boolean> {
+    if (this.roto) return false
     const datos = this.nucleo.guardarEstado()
     if (!datos) return false
     const captura = await this.captura()
@@ -428,8 +477,30 @@ export class Sesion {
   }
 
   reiniciar(): void {
-    this.nucleo.reiniciar()
+    try {
+      this.nucleo.reiniciar()
+    } catch (e) {
+      this.fallar(e)
+      return
+    }
     this.altavoz.vaciar()
+  }
+
+  /** Error dentro del núcleo: se para, se anota y no se vuelve a guardar nada de esta sesión. */
+  private fallar(e: unknown): void {
+    if (this.roto) return
+    this.roto = true
+    this.corriendo = false
+    cancelAnimationFrame(this.peticion)
+    clearInterval(this.temporizadorGuardado)
+    this.altavoz.pausar()
+    const mensaje = (e as Error)?.message ?? String(e)
+    registrar('error', 'El emulador ha fallado; no se guarda nada después del fallo', { sistema: this.o.juego.sistema, mensaje })
+    this.o.alFallar?.(mensaje)
+  }
+
+  get fallida(): boolean {
+    return this.roto
   }
 
   /** Al pasar a segundo plano: partida y estado «auto» al iPhone. */
@@ -444,6 +515,7 @@ export class Sesion {
     // Lo que quede de la última medida, si es una partida corta
     if (this.medida.tiempo >= 5000) this.anotarRendimiento()
     await this.guardarTodo()
+    if (this.cargaAutoPendiente && !this.roto) marcarCargaAuto(null)
     this.cerrada = true
     clearInterval(this.temporizadorGuardado)
     this.historial.cerrar()

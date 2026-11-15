@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.13.1 (15/11/2026)
+
+- Reiniciar un juego de DS lo rompía y después no se podía abrir (informado por el usuario). Causa: el puente liberaba la ROM nada más cargarla, suponiendo que el núcleo tenía su copia; melonDS guarda el puntero y la vuelve a leer al reiniciar, así que leía memoria liberada («Out of bounds memory access»). Al cerrar se guardaba el estado «auto» de ese núcleo roto y, al abrir, ese estado tumbaba el módulo («Aborted()») o la página entera. Ahora la ROM se conserva hasta descargar el juego. Los tres núcleos, recompilados.
+- Si el núcleo falla durante el juego o al reiniciar, la sesión se para, lo anota en el registro y ya no guarda ni la partida ni el estado «auto» (`Sesion.fallar`, `alFallar`). Lo guardado antes del fallo queda a salvo.
+- Si no se puede cargar el punto donde se dejó, el juego se abre con su partida guardada y avisa. Si la vez anterior ese punto tumbó la página (no hay error que recoger), una marca en el dispositivo (`puchiemulator-cargando-auto`) hace que la siguiente apertura se lo salte.
+- Pruebas: 90 unitarias y 28 de navegador (reiniciar DS tres veces y volver a abrir; apertura tras una caída).
+
 ## 0.13.0 (15/11/2026)
 
 - Mando para juegos de rol, por juego (petición del usuario; elegida la disposición «A grande» y «correr fijo con B o con Y»). Interruptor en Menú, Mando, «Este juego» (`ajustes.mandos`, por identificador del juego; `src/lib/mandoJuego.ts`).

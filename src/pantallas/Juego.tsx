@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
 import { bit, TECLAS } from '../emulador/botones'
-import { Sesion } from '../emulador/sesion'
+import { cargaAutoFallida, Sesion } from '../emulador/sesion'
 import { aplicarTema, cambiarAjustes, useAjustes } from '../lib/ajustes'
 import { actualizarJuego, estadosDe, leerEstado, leerJuego, leerRomGuardada, type Estado, type Ranura } from '../lib/almacen'
 import { cuando } from '../lib/formato'
@@ -82,14 +82,34 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         setConRebobinado(SISTEMAS[juego.sistema].rebobinado)
         setEsTactil(SISTEMAS[juego.sistema].tactil)
         const temaJuego = temaPara(juego.sistema, ajustesRef.current.temas[juego.sistema])
-        creada = await Sesion.iniciar({
-          juego,
-          rom,
-          lienzo: lienzo.current!,
-          reanudar,
-          opciones: { mgba_gb_colors: paletaPara(temaJuego, ajustesRef.current.paletaGb) },
-          alCambiarTamano: (ancho, alto) => setNativo({ ancho, alto }),
-        })
+        const abrir = (desdeAuto: boolean) =>
+          Sesion.iniciar({
+            juego,
+            rom,
+            lienzo: lienzo.current!,
+            reanudar: desdeAuto,
+            opciones: { mgba_gb_colors: paletaPara(temaJuego, ajustesRef.current.paletaGb) },
+            alCambiarTamano: (ancho, alto) => setNativo({ ancho, alto }),
+            alFallar: () => {
+              if (!cancelado) setError('El emulador ha fallado. Lo guardado antes del fallo está a salvo: vuelve a abrir el juego.')
+            },
+          })
+        // La última vez que se intentó seguir donde se dejó, la página se cayó: sin ese punto
+        const saltarAuto = reanudar && cargaAutoFallida(juego.id)
+        if (saltarAuto) {
+          registrar('aviso', 'La última vez no se pudo seguir donde se dejó; se abre con la partida guardada')
+          avisar('No se ha podido seguir donde lo dejaste: se abre con la partida guardada')
+        }
+        try {
+          creada = await abrir(reanudar && !saltarAuto)
+        } catch (e) {
+          // Si no carga el punto donde se dejó (por ejemplo, guardado justo después de un fallo), se
+          // abre con la partida guardada del juego, sin ese punto
+          if (!reanudar || saltarAuto || cancelado) throw e
+          registrar('aviso', 'No se pudo seguir donde se dejó; se abre con la partida guardada', (e as Error)?.message)
+          creada = await abrir(false)
+          avisar('No se ha podido seguir donde lo dejaste: se abre con la partida guardada')
+        }
         if (cancelado) {
           void creada.cerrar()
           return
