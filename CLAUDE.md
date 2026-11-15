@@ -4,7 +4,7 @@ Versión del 15 de noviembre de 2026 (revisada en la v0.2.0).
 
 ## Qué es
 
-App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Color, Game Boy Advance, Super Nintendo y, en pruebas, Nintendo DS. Un único usuario. Los juegos están en una carpeta de Archivos; las partidas se guardan en el propio iPhone. Se juega en vertical y en horizontal.
+App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Color, Game Boy Advance, Super Nintendo y, en pruebas, Nintendo DS (en la hoja de ruta: Mega Drive, PlayStation 1 y Nintendo 64). Un único usuario. Los juegos están en una carpeta de Archivos; las partidas se guardan en el propio iPhone. Se juega en vertical y en horizontal.
 
 ## Stack
 
@@ -97,11 +97,12 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 | v0.3.0 | Inicio con las consolas y biblioteca por consola, tamaño de los botones y modo una mano en vertical | Hecha, pendiente de validar en el iPhone |
 | 2 (v0.7.0) | Super Nintendo con Snes9x (no comercial) y su disposición de botones (X, Y, L y R) | Hecha, pendiente de probar con juegos reales |
 | 3 | Mega Drive con Genesis Plus GX (no comercial). Esfuerzo bajo | Pendiente, no empezar sin indicación del usuario |
-| 4 | PlayStation con PCSX ReARMed (GPL). Esfuerzo alto: imágenes de CD de 300 a 700 MB que hay que guardar y leer sin cargarlas enteras en memoria; BIOS opcional | Pendiente, no empezar sin indicación del usuario |
+| 4 | PlayStation 1 con PCSX ReARMed (GPL), confirmada por el usuario el 15/11/2026. Esfuerzo alto: imágenes de CD de 300 a 700 MB (.bin y .cue, .chd o .pbp) que hay que guardar y leer sin cargarlas enteras en memoria; BIOS opcional (lleva una propia); en WebAssembly va sin recompilador, con el intérprete; varios discos por juego; mando con los cuatro botones de PlayStation, L1, L2, R1 y R2 | Pendiente, no empezar sin indicación del usuario |
+| 6 | Nintendo 64 con Mupen64Plus-Next (GPL), añadida por el usuario el 15/11/2026. Esfuerzo alto: es la primera consola en 3D y necesita dibujar con la tarjeta gráfica del iPhone (WebGL en el puente) en lugar de la imagen por software actual; rendimiento por comprobar en el iPhone 17 (unos juegos irán bien y otros no); mando con palanca analógica táctil, botones C y Z; partidas en el Controller Pak y la EEPROM del cartucho | Pendiente, no empezar sin indicación del usuario |
 | 5 | Nintendo DS con melonDS. Plan aprobado (15/11/2026): 1) viabilidad; 2) base (dos pantallas, táctil, guardado, carátulas, estadísticas); 3) disposiciones móviles (una encima de otra, lado a lado, grande y pequeña arrastrable y redimensionable, solo una con intercambio, por juego) y una mano; 4) micrófono y ajustes finos. Sin rebobinado en DS. Sin BIOS (el usuario no tiene) | Paso 1 hecho (v0.11.0), con la base mínima para probar en el iPhone 17 del usuario; pendiente de sus medidas antes del paso 2 |
 | Mejoras | Filtros de imagen, configuración de los mandos físicos, más ranuras de estado | Pendiente |
 
-Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; PCSX ReARMed es GPL. Encajan con una app personal, gratuita y de código público. Cada núcleo va en su propio módulo WebAssembly.
+Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; PCSX ReARMed y Mupen64Plus-Next son GPL. Encajan con una app personal, gratuita y de código público. Cada núcleo va en su propio módulo WebAssembly.
 
 ## Estado
 
