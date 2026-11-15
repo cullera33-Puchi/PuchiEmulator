@@ -3,16 +3,19 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { Menu, Play, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
+import { FastForward, FolderOpen, Menu, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
 import { bit, TECLAS } from '../emulador/botones'
 import { Sesion } from '../emulador/sesion'
-import { cambiarAjustes, useAjustes } from '../lib/ajustes'
-import { actualizarJuego, estadosDe, leerJuego, leerRomGuardada, type Estado, type Ranura } from '../lib/almacen'
+import { aplicarTema, cambiarAjustes, useAjustes } from '../lib/ajustes'
+import { actualizarJuego, estadosDe, leerEstado, leerJuego, leerRomGuardada, type Estado, type Ranura } from '../lib/almacen'
 import { cuando } from '../lib/formato'
-import { SISTEMAS } from '../lib/sistemas'
+import { registrar } from '../lib/registro'
+import { SISTEMAS, type Sistema } from '../lib/sistemas'
+import { paletaPara, temaPara } from '../lib/temas'
+import { SelectorTema } from '../componentes/SelectorTema'
 
 interface Props {
   id: string
@@ -36,6 +39,12 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [pausaFondo, setPausaFondo] = useState(false)
   const [estados, setEstados] = useState<Estado[] | null>(null)
   const [verEstados, setVerEstados] = useState(false)
+  const [velocidad, setVelocidad] = useState(1)
+  const [rebobinando, setRebobinando] = useState(false)
+  const [hayRapido, setHayRapido] = useState(false)
+  const [sistema, setSistema] = useState<Sistema>('gba')
+  const [verTemas, setVerTemas] = useState(false)
+  const tema = temaPara(sistema, ajustes.temas[sistema])
   const ajustesRef = useRef(ajustes)
   ajustesRef.current = ajustes
 
@@ -56,12 +65,15 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         if (!juego || !rom) throw new Error('El juego ya no está en la biblioteca.')
         if (cancelado) return
         setNombre(juego.nombre)
+        setSistema(juego.sistema)
         setHombros(SISTEMAS[juego.sistema].hombros)
+        const temaJuego = temaPara(juego.sistema, ajustesRef.current.temas[juego.sistema])
         creada = await Sesion.iniciar({
           juego,
           rom,
           lienzo: lienzo.current!,
           reanudar,
+          opciones: { mgba_gb_colors: paletaPara(temaJuego, ajustesRef.current.paletaGb) },
           alCambiarTamano: (ancho, alto) => setProporcion(alto / ancho),
         })
         if (cancelado) {
@@ -69,11 +81,13 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           return
         }
         sesion.current = creada
+        registrar('info', 'Juego abierto', { sistema: juego.sistema, reanudar })
         void actualizarJuego({ ...juego, ultimaVez: Date.now() })
+        void leerEstado(juego.id, 'rapida').then((e) => !cancelado && setHayRapido(!!e))
         setCargando(false)
         await creada.jugar(ajustesRef.current.sonido, ajustesRef.current.sonarEnSilencio)
       } catch (e) {
-        console.error(e)
+        registrar('error', 'No se pudo abrir el juego', (e as Error).message)
         if (!cancelado) setError((e as Error).message || 'No se ha podido abrir el juego.')
       }
     })()
@@ -83,6 +97,21 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       void creada?.cerrar()
     }
   }, [id, reanudar])
+
+  // Los avisos van arriba para no tapar los botones
+  useEffect(() => {
+    document.body.classList.add('en-juego')
+    return () => {
+      document.body.classList.remove('en-juego')
+      aplicarTema()
+    }
+  }, [])
+
+  // La barra de estado toma el color de arriba del tema; la paleta de Game Boy sigue al tema
+  useEffect(() => {
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', tema.arriba))
+    sesion.current?.opcion('mgba_gb_colors', paletaPara(tema, ajustes.paletaGb))
+  }, [tema, ajustes.paletaGb])
 
   // Segundo plano: pausa y guardado
   useEffect(() => {
@@ -139,6 +168,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   const guardarEn = async (r: Ranura) => {
     const ok = await sesion.current?.guardarEstado(r)
+    registrar(ok ? 'info' : 'aviso', ok ? 'Estado guardado' : 'No se pudo guardar el estado', { ranura: r })
     avisar(ok ? `Estado guardado en la ranura ${r}` : 'No se ha podido guardar el estado')
     await cargarListaEstados()
   }
@@ -157,7 +187,36 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     seguir()
   }
 
+  const guardarRapido = async () => {
+    const ok = await sesion.current?.guardarEstado('rapida')
+    registrar(ok ? 'info' : 'aviso', ok ? 'Guardado rápido' : 'No se pudo hacer el guardado rápido')
+    if (ok) setHayRapido(true)
+    avisar(ok ? 'Guardado rápido' : 'No se ha podido guardar')
+  }
+
+  const cargarRapido = async () => {
+    const s = sesion.current
+    if (!s) return
+    if (!(await s.cargarEstado('rapida'))) {
+      avisar('Aún no hay guardado rápido')
+      return
+    }
+    avisar('Guardado rápido cargado', { fn: () => s.deshacerCarga() })
+  }
+
+  const cambiarVelocidad = () => {
+    const siguiente = velocidad === 1 ? 2 : velocidad === 2 ? 4 : 1
+    setVelocidad(siguiente)
+    sesion.current?.ponerVelocidad(siguiente)
+  }
+
+  const rebobinar = (activo: boolean) => {
+    setRebobinando(activo)
+    sesion.current?.rebobinar(activo)
+  }
+
   const salir = async () => {
+    registrar('info', 'Juego cerrado')
     setMenu(false)
     await sesion.current?.cerrar()
     sesion.current = null
@@ -169,7 +228,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   return (
     <div
       className={`juego ${ajustes.nitido ? '' : 'suave'}`}
-      style={{ '--proporcion': proporcion, '--opacidad-horizontal': ajustes.opacidadMando } as React.CSSProperties}
+      data-tema={tema.id}
+      style={{ ...tema.vars, '--proporcion': proporcion, '--opacidad-horizontal': ajustes.opacidadMando } as React.CSSProperties}
       data-testid="juego"
     >
       <div className="zona-pantalla">
@@ -181,9 +241,39 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         if (!sesion.current?.altavoz.activo) void sesion.current?.altavoz.activar(ajustesRef.current.sonarEnSilencio)
       }} />
 
-      <button className="boton-menu" aria-label="Menú" onClick={abrirMenu}>
+      <div className="herramientas izquierda">
+        <button className="herramienta" aria-label="Guardar rápido" onClick={() => void guardarRapido()}>
+          <Save size={20} />
+        </button>
+        <button className="herramienta" aria-label="Cargar rápido" disabled={!hayRapido} onClick={() => void cargarRapido()}>
+          <FolderOpen size={20} />
+        </button>
+      </div>
+      <button className="boton-menu herramienta" aria-label="Menú" onClick={abrirMenu}>
         <Menu size={22} />
       </button>
+      <div className="herramientas derecha">
+        <button
+          className={`herramienta ${rebobinando ? 'activa' : ''}`}
+          aria-label="Rebobinar (mantén pulsado)"
+          onPointerDown={(e) => {
+            try {
+              e.currentTarget.setPointerCapture(e.pointerId)
+            } catch {
+              // sin captura: basta con soltar encima
+            }
+            rebobinar(true)
+          }}
+          onPointerUp={() => rebobinar(false)}
+          onPointerCancel={() => rebobinar(false)}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <Rewind size={20} />
+        </button>
+        <button className={`herramienta ${velocidad > 1 ? 'activa' : ''}`} aria-label={`Avance rápido (${velocidad > 1 ? `x${velocidad}` : 'desactivado'})`} onClick={cambiarVelocidad}>
+          {velocidad > 1 ? <span className="text-[14px] font-bold">x{velocidad}</span> : <FastForward size={20} />}
+        </button>
+      </div>
 
       {(cargando || error) && (
         <div className="absolute inset-0 z-10 grid place-items-center bg-black/80 p-8 text-center">
@@ -213,7 +303,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         </button>
       )}
 
-      <Hoja oscura abierta={menu && !verEstados} alCerrar={seguir} titulo={nombre}>
+      {menu && verTemas && <SelectorTema oscura sistema={sistema} alCerrar={() => setVerTemas(false)} />}
+
+      <Hoja oscura abierta={menu && !verEstados && !verTemas} alCerrar={seguir} titulo={nombre}>
         <div className="lista">
           <button className="fila font-semibold text-acento dark:text-acento-oscuro" onClick={seguir}>
             <Play size={20} /> Seguir jugando
@@ -227,6 +319,12 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             {ajustes.sonido ? <Volume2 size={20} className="text-acento dark:text-acento-oscuro" /> : <VolumeX size={20} className="text-zinc-400" />}
             <span className="flex-1">Sonido</span>
             <span className="text-zinc-500">{ajustes.sonido ? 'Activado' : 'Desactivado'}</span>
+          </button>
+          <div className="separador" />
+          <button className="fila" onClick={() => setVerTemas(true)}>
+            <Palette size={20} className="text-acento dark:text-acento-oscuro" />
+            <span className="flex-1">Tema</span>
+            <span className="text-zinc-500">{tema.nombre}</span>
           </button>
           <div className="separador" />
           <button className="fila" onClick={reiniciar}>

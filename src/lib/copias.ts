@@ -86,7 +86,7 @@ export async function crearArchivo(conEstados: boolean, version: string): Promis
 
 export class ErrorArchivo extends Error {}
 
-const RANURAS: Ranura[] = ['auto', '1', '2', '3']
+const RANURAS: Ranura[] = ['auto', 'rapida', '1', '2', '3']
 
 /** Comprueba y convierte un archivo leído. Lanza ErrorArchivo con un mensaje para el usuario. */
 export function leerArchivo(texto: string): { partidas: Partida[]; estados: Estado[] } {

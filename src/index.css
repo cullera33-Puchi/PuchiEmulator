@@ -72,7 +72,7 @@
 .juego {
   position: fixed;
   inset: 0;
-  background: #000;
+  background: var(--fondo, #000);
   color: #fff;
   overflow: hidden;
   touch-action: none;
@@ -87,7 +87,10 @@
   display: block;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   object-fit: contain;
+  background: var(--marco, #000);
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
@@ -100,6 +103,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  /* Marco de la pantalla en los temas de consola */
+  padding: var(--marco-relleno, 0);
+  background: var(--marco, transparent);
+  border-radius: var(--marco-radio, 12px);
+}
+.juego[data-tema='oscuro'] .zona-pantalla {
+  border-radius: 0;
+}
+.juego:not([data-tema='oscuro']) .zona-pantalla {
+  margin: 0 12px;
 }
 
 /* Vertical: la pantalla arriba a todo lo ancho y los controles debajo */
@@ -121,15 +135,18 @@
   display: grid;
   place-items: center;
   border-radius: 9999px;
-  background: rgb(255 255 255 / 0.1);
-  border: 1px solid rgb(255 255 255 / 0.16);
-  color: rgb(255 255 255 / 0.75);
+  background: var(--ab, rgb(255 255 255 / 0.1));
+  border: 1px solid var(--borde, rgb(255 255 255 / 0.16));
+  color: var(--ab-texto, rgb(255 255 255 / 0.75));
   font-weight: 600;
   opacity: var(--opacidad-mando);
   transition: background-color 60ms;
 }
 .control.pulsado {
-  background: rgb(255 255 255 / 0.34);
+  background: var(--ab-pulsado, rgb(255 255 255 / 0.34));
+}
+.juego:not([data-tema='oscuro']) .botones-accion .control {
+  box-shadow: 0 2px 0 rgb(0 0 0 / 0.25);
 }
 
 .cruceta {
@@ -144,11 +161,11 @@
 }
 .cruceta .brazo {
   position: absolute;
-  background: rgb(255 255 255 / 0.13);
+  background: var(--cruceta, rgb(255 255 255 / 0.13));
   transition: background-color 60ms;
 }
 .cruceta .brazo.pulsado {
-  background: rgb(255 255 255 / 0.36);
+  background: var(--cruceta-pulsado, rgb(255 255 255 / 0.36));
 }
 .cruceta .brazo.arriba,
 .cruceta .brazo.abajo {
@@ -189,7 +206,7 @@
 .cruceta .centro {
   position: absolute;
   inset: 33%;
-  background: rgb(255 255 255 / 0.13);
+  background: var(--cruceta, rgb(255 255 255 / 0.13));
 }
 
 .botones-accion {
@@ -216,6 +233,8 @@
 }
 
 .hombro {
+  background: var(--hombro, rgb(255 255 255 / 0.1));
+  color: var(--hombro-texto, rgb(255 255 255 / 0.75));
   width: min(26vw, 104px);
   height: 40px;
   border-radius: 12px;
@@ -230,6 +249,9 @@
 }
 
 .pequeno {
+  background: var(--pequeno, rgb(255 255 255 / 0.1));
+  color: var(--pequeno-texto, rgb(255 255 255 / 0.75));
+  rotate: var(--pequeno-giro, 0deg);
   height: 30px;
   width: 78px;
   font-size: 12px;
@@ -243,20 +265,50 @@
   left: calc(50% + 8px);
 }
 
-.boton-menu {
-  position: absolute;
-  z-index: 5;
+.herramienta {
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
   border-radius: 9999px;
-  color: rgb(255 255 255 / 0.7);
-  left: calc(50% - 22px);
-  bottom: calc(var(--seguro-abajo) + 96px + min(42vw, 168px) + 18px);
+  color: var(--herramienta-texto, rgb(255 255 255 / 0.75));
+  background: var(--herramienta, rgb(255 255 255 / 0.08));
+  opacity: var(--opacidad-mando);
+  touch-action: none;
+  -webkit-user-select: none;
 }
-.boton-menu:active {
-  background: rgb(255 255 255 / 0.15);
+.herramienta:active,
+.herramienta.activa {
+  background: rgb(127 127 127 / 0.45);
+}
+.herramienta:disabled {
+  opacity: 0.3;
+}
+
+/* Vertical: una fila debajo de la pantalla con guardar y cargar, el menú y rebobinar y avance rápido */
+.herramientas {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  gap: 10px;
+  top: calc(var(--seguro-arriba) + 18px + min(calc(100vw * var(--proporcion, 0.6667)), 50dvh));
+}
+.herramientas.izquierda {
+  right: calc(50% + 32px);
+}
+.herramientas.derecha {
+  left: calc(50% + 32px);
+}
+.boton-menu {
+  position: absolute;
+  z-index: 5;
+  left: calc(50% - 22px);
+  top: calc(var(--seguro-arriba) + 18px + min(calc(100vw * var(--proporcion, 0.6667)), 50dvh));
+}
+
+body.en-juego .aviso {
+  top: calc(env(safe-area-inset-top) + 8px);
+  bottom: auto !important;
 }
 
 /* Horizontal: la pantalla en el centro a toda la altura y los controles a los lados */
@@ -267,6 +319,9 @@
     height: auto;
     left: calc(var(--seguro-izq) + 136px);
     right: calc(var(--seguro-der) + 136px);
+  }
+  .juego:not([data-tema='oscuro']) .zona-pantalla {
+    margin: 8px 0;
   }
   .cruceta,
   .botones-accion {
@@ -302,9 +357,20 @@
   }
   .boton-menu {
     top: 8px;
-    bottom: auto;
     left: calc(50% - 22px);
     background: rgb(0 0 0 / 0.35);
+  }
+  /* Debajo de L y de R */
+  .herramientas {
+    top: 64px;
+  }
+  .herramientas.izquierda {
+    right: auto;
+    left: calc(var(--seguro-izq) + 12px);
+  }
+  .herramientas.derecha {
+    left: auto;
+    right: calc(var(--seguro-der) + 12px);
   }
   /* En horizontal los controles quedan encima del borde de la imagen: se hacen translúcidos */
   .juego {
@@ -330,8 +396,21 @@
   }
 }
 .hoja {
-  animation: subir 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: subir 500ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 .velo {
-  animation: aparecer 200ms ease-out;
+  animation: aparecer 450ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Reducir movimiento: fundidos cortos en lugar de desplazamientos */
+@media (prefers-reduced-motion: reduce) {
+  .hoja {
+    animation: aparecer 200ms ease-out;
+  }
+  .velo {
+    animation-duration: 200ms;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }

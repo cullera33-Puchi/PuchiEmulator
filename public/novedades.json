@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.2.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Guardar y cargar rápido siempre a mano, rebobinar manteniendo pulsado y avance rápido x2 o x4.",
+      "Carátulas: búscalas por nombre en el archivo de libretro o pon una foto tuya. La biblioteca pasa a cuadrícula.",
+      "Temas para jugar: Clásica, Advance y colores, con el verde original en los juegos de Game Boy.",
+      "Copias de seguridad diarias de las partidas, «Deshacer» al quitar un juego o borrar una partida, y registro para enviar si algo falla.",
+      "Hojas que se cierran arrastrando, vibración al pulsar los botones y bienvenida la primera vez."
+    ]
+  },
+  {
     "version": "0.1.0",
     "fecha": "15/11/2026",
     "cambios": [

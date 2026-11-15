@@ -60,7 +60,7 @@ export class Nucleo {
     this.nombre = nombre
   }
 
-  static async cargar(nombre: NombreNucleo): Promise<Nucleo> {
+  static async cargar(nombre: NombreNucleo, extra: Record<string, string> = {}): Promise<Nucleo> {
     const raiz = `${import.meta.env.BASE_URL}nucleos/`
     const { default: crear } = (await import(/* @vite-ignore */ `${raiz}${nombre}.js`)) as { default: Fabrica }
     const m = await crear({
@@ -70,7 +70,7 @@ export class Nucleo {
     })
     m._pf_iniciar()
     const n = new Nucleo(m, nombre)
-    for (const [k, v] of Object.entries(OPCIONES[nombre])) n.opcion(k, v)
+    for (const [k, v] of Object.entries({ ...OPCIONES[nombre], ...extra })) n.opcion(k, v)
     return n
   }
 

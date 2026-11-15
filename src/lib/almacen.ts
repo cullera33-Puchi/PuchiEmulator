@@ -28,7 +28,8 @@ export interface Partida {
   fecha: number
 }
 
-export type Ranura = 'auto' | '1' | '2' | '3'
+/** «auto» es el de seguir donde se dejó; «rapida», la del botón de guardar rápido */
+export type Ranura = 'auto' | 'rapida' | '1' | '2' | '3'
 
 export interface Estado {
   clave: string
@@ -40,8 +41,16 @@ export interface Estado {
   captura?: ArrayBuffer
 }
 
+export interface Caratula {
+  id: string
+  datos: ArrayBuffer
+  origen: 'libretro' | 'propia'
+  fecha: number
+}
+
 const NOMBRE = 'puchiemulator'
-const VERSION = 1
+/** 1: juegos, roms, partidas y estados. 2: carátulas. */
+const VERSION = 2
 
 let abierta: Promise<IDBDatabase> | null = null
 
@@ -57,6 +66,7 @@ function abrir(): Promise<IDBDatabase> {
         const estados = bd.createObjectStore('estados', { keyPath: 'clave' })
         estados.createIndex('id', 'id')
       }
+      if (!bd.objectStoreNames.contains('caratulas')) bd.createObjectStore('caratulas', { keyPath: 'id' })
     }
     peticion.onsuccess = () => {
       const bd = peticion.result
@@ -147,6 +157,27 @@ export async function quitarJuego(id: string): Promise<void> {
   await terminar(tx)
 }
 
+/* ---- Carátulas ---- */
+
+export function listarCaratulas(): Promise<Caratula[]> {
+  return todos<Caratula>('caratulas')
+}
+
+export function leerCaratula(id: string): Promise<Caratula | undefined> {
+  return leer<Caratula>('caratulas', id)
+}
+
+export function guardarCaratula(c: Caratula): Promise<void> {
+  return poner('caratulas', c)
+}
+
+export async function borrarCaratula(id: string): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction('caratulas', 'readwrite')
+  tx.objectStore('caratulas').delete(id)
+  await terminar(tx)
+}
+
 /* ---- Partidas ---- */
 
 export function leerPartida(id: string): Promise<Partida | undefined> {
@@ -159,6 +190,16 @@ export function listarPartidas(): Promise<Partida[]> {
 
 export function guardarPartida(partida: Partida): Promise<void> {
   return poner('partidas', partida)
+}
+
+/** Sustituye todas las partidas (restaurar una copia de seguridad o deshacerlo). */
+export async function sustituirPartidas(partidas: Partida[]): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction('partidas', 'readwrite')
+  const almacen = tx.objectStore('partidas')
+  almacen.clear()
+  for (const p of partidas) almacen.put(p)
+  await terminar(tx)
 }
 
 /* ---- Estados ---- */

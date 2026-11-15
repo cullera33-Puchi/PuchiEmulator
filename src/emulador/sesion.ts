@@ -8,12 +8,18 @@
  * - Al salir o al pasar la app a segundo plano se guarda un estado «auto» para seguir donde se dejó.
  */
 import { guardarEstado, guardarPartida, leerEstado, leerPartida, type Juego, type Ranura } from '../lib/almacen'
+import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
 import { botonesDeMando } from './botones'
 import { Nucleo } from './nucleo'
+import { Rebobinado } from './rebobinado'
 
 const MAX_FOTOGRAMAS_SEGUIDOS = 4
+/** Cada cuántos fotogramas se guarda un estado para rebobinar (unos 6 por segundo) */
+const FOTOGRAMAS_POR_ESTADO = 10
+/** Al rebobinar, un estado cada 50 ms: va unas tres veces más rápido que el juego */
+const MS_POR_ESTADO_ATRAS = 50
 
 function iguales(a: Uint8Array, b: Uint8Array | null): boolean {
   if (!b || a.length !== b.length) return false
@@ -27,6 +33,8 @@ export interface OpcionesSesion {
   lienzo: HTMLCanvasElement
   /** Seguir desde el estado «auto» si existe */
   reanudar: boolean
+  /** Opciones del núcleo que dependen de los ajustes (por ejemplo, la paleta de Game Boy) */
+  opciones?: Record<string, string>
   alCambiarTamano?: (ancho: number, alto: number) => void
   alGuardar?: () => void
 }
@@ -48,6 +56,13 @@ export class Sesion {
   private temporizadorGuardado = 0
   private guardando: Promise<void> = Promise.resolve()
   private cerrada = false
+  private velocidad = 1
+  private rebobinando = false
+  private acumuladoAtras = 0
+  private fotogramas = 0
+  private readonly rebobinado = new Rebobinado()
+  /** Estado de justo antes de la última carga, para «Deshacer» */
+  private antesDeCargar: Uint8Array | null = null
 
   private readonly o: OpcionesSesion
 
@@ -68,7 +83,7 @@ export class Sesion {
   private async preparar(): Promise<void> {
     const { juego, rom, lienzo } = this.o
     const info = SISTEMAS[juego.sistema]
-    this.nucleo = await Nucleo.cargar(info.nucleo)
+    this.nucleo = await Nucleo.cargar(info.nucleo, this.o.opciones)
     if (!this.nucleo.cargarJuego(new Uint8Array(rom), info.extension)) {
       throw new Error('El núcleo no ha podido abrir el juego.')
     }
@@ -124,21 +139,70 @@ export class Sesion {
     if (!this.corriendo) return
     this.peticion = requestAnimationFrame(this.bucle)
     // Tras un parón largo (la app en segundo plano) no se intenta recuperar el tiempo perdido
-    this.acumulado += Math.min(ahora - this.ultimo, 250)
+    const dt = Math.min(ahora - this.ultimo, 250)
     this.ultimo = ahora
+    if (this.rebobinando) {
+      this.irAtras(dt)
+      return
+    }
+    this.acumulado += dt * this.velocidad
     const mascara = this.botonesTactil | this.botonesTeclado | this.botonesMandos()
     let hayImagen = false
     let hechos = 0
-    while (this.acumulado >= this.paso && hechos < MAX_FOTOGRAMAS_SEGUIDOS) {
+    while (this.acumulado >= this.paso && hechos < MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad) {
       this.nucleo.botones(mascara)
       if (this.nucleo.fotograma()) hayImagen = true
-      this.altavoz.enviar(this.nucleo.audio(), this.frecuencia)
+      // En avance rápido el sonido se acelera (más agudo) en lugar de cortarse
+      this.altavoz.enviar(this.nucleo.audio(), this.frecuencia * this.velocidad)
       this.acumulado -= this.paso
       hechos++
+      if (++this.fotogramas % FOTOGRAMAS_POR_ESTADO === 0) {
+        const estado = this.nucleo.guardarEstado()
+        if (estado) this.rebobinado.guardar(estado, mascara)
+      }
     }
     if (this.acumulado >= this.paso) this.acumulado = 0
     if (this.nucleo.avCambiado()) this.leerTiempos()
     if (hayImagen) this.dibujar()
+  }
+
+  private irAtras(dt: number): void {
+    this.acumuladoAtras += dt
+    let hayImagen = false
+    while (this.acumuladoAtras >= MS_POR_ESTADO_ATRAS) {
+      this.acumuladoAtras -= MS_POR_ESTADO_ATRAS
+      const anterior = this.rebobinado.atras()
+      if (!anterior) {
+        this.acumuladoAtras = 0
+        break
+      }
+      this.nucleo.cargarEstado(anterior.estado)
+      // Un fotograma con los botones de entonces para tener la imagen de ese momento
+      this.nucleo.botones(anterior.botones)
+      this.nucleo.fotograma()
+      hayImagen = true
+    }
+    if (hayImagen) this.dibujar()
+  }
+
+  /** Rebobinar mientras se mantiene pulsado. */
+  rebobinar(activo: boolean): void {
+    if (activo === this.rebobinando) return
+    this.rebobinando = activo
+    this.acumuladoAtras = MS_POR_ESTADO_ATRAS
+    this.acumulado = 0
+    this.altavoz.vaciar()
+  }
+
+  get puedeRebobinar(): boolean {
+    return this.rebobinado.cuantos > 1
+  }
+
+  /** Avance rápido: 1 (normal), 2 o 4 veces más rápido. */
+  ponerVelocidad(v: number): void {
+    this.velocidad = v
+    this.acumulado = 0
+    this.altavoz.vaciar()
   }
 
   private botonesMandos(): number {
@@ -183,7 +247,7 @@ export class Sesion {
     this.guardando = this.guardando
       .then(() => guardarPartida({ id, datos: actual.datos.slice().buffer, rtc: actual.rtc?.slice().buffer, fecha: Date.now() }))
       .then(() => this.o.alGuardar?.())
-      .catch((e) => console.warn('No se ha podido guardar la partida', e))
+      .catch((e) => registrar('error', 'No se pudo guardar la partida', (e as Error)?.message))
     return this.guardando
   }
 
@@ -211,10 +275,27 @@ export class Sesion {
   async cargarEstado(ranura: Ranura): Promise<boolean> {
     const estado = await leerEstado(this.o.juego.id, ranura)
     if (!estado) return false
+    this.antesDeCargar = this.nucleo.guardarEstado()
     const ok = this.nucleo.cargarEstado(new Uint8Array(estado.datos))
     this.altavoz.vaciar()
     this.dibujar()
     return ok
+  }
+
+  /** Vuelve al momento de antes de la última carga de un estado. */
+  deshacerCarga(): boolean {
+    const antes = this.antesDeCargar
+    if (!antes) return false
+    this.antesDeCargar = null
+    const ok = this.nucleo.cargarEstado(antes)
+    this.altavoz.vaciar()
+    this.dibujar()
+    return ok
+  }
+
+  /** Cambia una opción del núcleo con el juego en marcha. */
+  opcion(clave: string, valor: string): void {
+    this.nucleo.opcion(clave, valor)
   }
 
   reiniciar(): void {

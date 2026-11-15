@@ -6,6 +6,8 @@
  */
 import { useEffect, useRef, type PointerEvent as EventoPuntero } from 'react'
 import { bit, direccionCruceta, type NombreBoton } from '../emulador/botones'
+import { leerAjustes } from '../lib/ajustes'
+import { vibrar } from '../lib/vibracion'
 
 interface Props {
   hombros: boolean
@@ -47,6 +49,8 @@ export function Mando({ hombros, alCambiar, alToque }: Props) {
     let m = 0
     for (const d of dedos.current.values()) m |= d.mascara
     if (m !== mascara.current) {
+      // Vibración breve solo al pulsar un botón nuevo, no al soltar
+      if (m & ~mascara.current && leerAjustes().vibracion) vibrar()
       mascara.current = m
       pintar(m)
       alCambiarRef.current(m)

@@ -1,7 +1,7 @@
 {
   "name": "puchiemulator",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,8 @@
     "e2e": "playwright test",
     "nucleos": "bash nucleos/compilar.sh",
     "roms:prueba": "python3 scripts/roms_prueba.py",
-    "iconos": "python3 scripts/iconos.py"
+    "iconos": "python3 scripts/iconos.py",
+    "indice:caratulas": "python3 scripts/indice_caratulas.py"
   },
   "dependencies": {
     "fflate": "^0.8.3",

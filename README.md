@@ -5,6 +5,8 @@ Emulador de Game Boy, Game Boy Color y Game Boy Advance para jugar en el iPhone 
 - Los juegos se eligen en Archivos (`.gb`, `.gbc`, `.gba` o `.zip`). La app no incluye ni descarga juegos ni BIOS: usa copias de tus propios cartuchos.
 - Las partidas se guardan solas en el iPhone. Se pueden copiar a Archivos y recuperar.
 - Vertical y horizontal, botones táctiles, teclado o mando.
+- Guardar y cargar rápido, rebobinar y avance rápido.
+- Carátulas del archivo público de libretro o fotos propias, y temas de consola.
 
 ## Instalar en el iPhone
 

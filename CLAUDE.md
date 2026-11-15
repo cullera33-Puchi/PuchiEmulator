@@ -1,6 +1,6 @@
 # PuchiEmulator: instrucciones y especificación para Claude Code
 
-Versión del 15 de noviembre de 2026.
+Versión del 15 de noviembre de 2026 (revisada en la v0.2.0).
 
 ## Qué es
 
@@ -24,6 +24,17 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 3. Los datos no salen del iPhone salvo en la copia de partidas que exporta el usuario. La copia nunca lleva ROMs.
 4. Una partida guardada nunca se pierde por una acción de la app: quitar un juego conserva su partida; borrarla pide confirmación; cargar un estado no sobrescribe la partida guardada del juego.
 5. Interfaz en español y al estilo iOS (listas agrupadas, interruptores, controles segmentados, hojas que suben desde abajo, sin emojis como iconos).
+6. Los temas y los iconos son diseños propios: nada de logotipos, marcas («Nintendo», «Game Boy») ni imágenes oficiales en el código o en `public`. Las carátulas se descargan al iPhone del usuario, nunca se suben al repositorio.
+
+## Guía de usabilidad
+
+`docs/guia-usabilidad-iphone.md` (aportada por el usuario el 15/11/2026) es la guía de comportamiento y aspecto. Se aplica salvo donde choca con esta especificación (decisiones del usuario del 15/11/2026):
+
+- Orientación: vertical y horizontal (`orientation: any`), no solo vertical.
+- Stack: React con Vite, no HTML sin build.
+- Nombres del código en español.
+- Datos en IndexedDB, no en un objeto de localStorage: los juegos y los estados pesan megas. localStorage solo para ajustes y registro.
+- Pendiente de la guía, por ser poco útil aquí: menús anclados con elegir deslizando (se usa una hoja), filas deslizables (no hay listas largas), exportar a CSV, datos de prueba y tamaño dinámico de texto.
 
 ## Cómo funciona
 
@@ -34,7 +45,12 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 - **Mando táctil** (`src/componentes/Mando.tsx`): varios dedos, deslizar entre botones, la cruceta es del dedo que empieza en ella y da ocho direcciones por ángulo (`direccionCruceta`). También teclado y mandos físicos (Gamepad API, distribución de Nintendo).
 - **Sonido** (`src/emulador/audio.ts`, `public/procesador-audio.js`): AudioWorklet con cola de unos 70 ms y remuestreo lineal con ajuste de ritmo de hasta un 0,5 % según la cola (`src/emulador/remuestreo.ts`). El altavoz es único y se activa en el toque que abre el juego (Safari lo exige). «Sonar con el iPhone en silencio» usa `navigator.audioSession`.
 - **Copia de partidas** (`src/lib/copias.ts`): archivo JSON con partidas y, opcionalmente, estados; se comparte con la hoja del iPhone (Guardar en Archivos). Recuperarla sustituye la partida de esos juegos y no toca el resto.
-- **Actualizaciones**: el service worker espera a que se toque «Actualizar» (nunca corta una partida) y enseña las novedades de `public/novedades.json`.
+- **Actualizaciones**: el service worker espera a que se toque «Actualizar» (nunca corta una partida ni se ofrece durante una) y enseña las novedades de `public/novedades.json`.
+- **Guardar y cargar rápido** (v0.2.0): botones fijos en la pantalla de juego, en vertical bajo la pantalla y en horizontal bajo L y R. Ranura `rapida`. Cargar deja «Deshacer» (`Sesion.deshacerCarga`).
+- **Rebobinar y avance rápido** (v0.2.0): `src/emulador/rebobinado.ts` guarda un estado cada 10 fotogramas como diferencia XOR comprimida con el siguiente, con los botones de ese momento; hasta 180 estados (unos 30 s) o 48 MB. Rebobinar va a unas tres veces la velocidad del juego mientras se mantiene pulsado. Avance rápido x2 y x4, con el sonido acelerado.
+- **Carátulas** (v0.2.0): índice de nombres del archivo público libretro-thumbnails en `public/caratulas/*.json` (se regenera con `npm run indice:caratulas`). La búsqueda se hace en el iPhone; se descargan las miniaturas de los resultados y se guarda la elegida reducida a JPEG de 400 px (almacén `caratulas`, IndexedDB versión 2). También foto propia. La copia de partidas no lleva carátulas.
+- **Temas** (v0.2.0): `src/lib/temas.ts`, variables CSS en `.juego`. Diseños propios inspirados en las consolas, sin logotipos, marcas ni imágenes oficiales (regla). Por consola, con «Según la consola» por defecto (Game Boy, Clásica; Color, Uva; Advance, Advance). La paleta de Game Boy (`mgba_gb_colors`) sigue al tema o se elige a mano y se aplica en marcha.
+- **Registro y copias de seguridad** (v0.2.0): `src/lib/registro.ts` (400 entradas, sin nombres de juegos ni partidas) y `src/lib/seguridad.ts` (copia diaria de las partidas, las 7 más recientes, y previa antes de recuperar o restaurar). Toda operación nueva relevante se registra.
 
 ## Núcleos
 
@@ -46,28 +62,33 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 
 - Una fase cada vez. Al terminar, resumir qué se ha hecho, qué queda y cómo probarlo, y esperar la validación del usuario.
 - Si una decisión no está en esta especificación, preguntar antes de asumir.
-- Tests unitarios (`npm test`) para lo que no se ve en pantalla: reconocimiento de ROMs, remuestreo, cruceta, biblioteca y copias. Pruebas de navegador (`npm run build` y después `npm run e2e`) en un iPhone simulado, en vertical y en horizontal, con las ROMs de prueba: imagen, botones, estados, partida guardada tras cerrar la app. Toda pantalla o gesto nuevo importante se añade a `tests/e2e/app.e2e.ts`.
+- Tests unitarios (`npm test`) para lo que no se ve en pantalla: reconocimiento de ROMs, remuestreo, cruceta, rebobinado, búsqueda de carátulas, biblioteca, copias, copias de seguridad y registro. Pruebas de navegador (`npm run build` y después `npm run e2e`) en un iPhone simulado, en vertical y en horizontal, con las ROMs de prueba: imagen, botones, estados, partida guardada tras cerrar la app. Toda pantalla o gesto nuevo importante se añade a `tests/e2e/app.e2e.ts`.
 - Cada versión publicada sube `version` en `package.json`, añade su entrada a `CHANGELOG.md` y de 3 a 5 líneas para el usuario en `public/novedades.json` (la más reciente arriba).
 - Si cambia el modelo de IndexedDB, subir `VERSION` en `src/lib/almacen.ts` con su paso en `onupgradeneeded`, sin perder partidas. Si cambia el formato de la copia, subir `VERSION_FORMATO` en `src/lib/copias.ts` y seguir leyendo las anteriores.
 - Mantener actualizado el apartado Estado.
 - Rama: se trabaja en `main` (decisión del usuario del 15/11/2026).
 
-## Fases
+## Hoja de ruta
 
-| Fase | Contenido | Estado |
+| Orden | Contenido | Estado |
 | --- | --- | --- |
-| 1 | PWA, biblioteca desde Archivos, Game Boy, Game Boy Color y GBA con mGBA, controles táctiles en vertical y horizontal, partidas guardadas en el iPhone | Construida, pendiente de validar |
-| 2 | Super Nintendo con Snes9x y su disposición de botones (X, Y, L y R) | Pendiente |
-| 3 | Avance rápido, filtros de imagen, configuración de los mandos físicos, más ranuras de estado, vibración donde se pueda | Pendiente |
+| Fase 1 | PWA, biblioteca desde Archivos, Game Boy, Game Boy Color y GBA con mGBA, controles táctiles en vertical y horizontal, partidas guardadas en el iPhone | Hecha (v0.1.0) y publicada; carga en el iPhone, pendiente de probar con juegos reales |
+| v0.2.0 | Guardar y cargar rápido, rebobinar, avance rápido, carátulas, temas de consola y guía de usabilidad | Hecha, pendiente de validar en el iPhone |
+| 2 | Super Nintendo con Snes9x (no comercial) y su disposición de botones (X, Y, L y R). Esfuerzo medio | Pendiente, no empezar sin indicación del usuario |
+| 3 | Mega Drive con Genesis Plus GX (no comercial). Esfuerzo bajo | Pendiente, no empezar sin indicación del usuario |
+| 4 | PlayStation con PCSX ReARMed (GPL). Esfuerzo alto: imágenes de CD de 300 a 700 MB que hay que guardar y leer sin cargarlas enteras en memoria; BIOS opcional | Pendiente, no empezar sin indicación del usuario |
+| 5 | Nintendo DS con melonDS o DeSmuME. Esfuerzo muy alto y sin garantía de velocidad completa en el iPhone sin hilos; dos pantallas, la de abajo táctil | Pendiente, no empezar sin indicación del usuario |
+| Mejoras | Filtros de imagen, configuración de los mandos físicos, más ranuras de estado | Pendiente |
 
-Ya en la fase 1, por ser poco trabajo: tres ranuras de estado con captura, el estado `auto` para seguir, copia de partidas en Archivos, teclado y mandos físicos con la distribución estándar.
+Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; PCSX ReARMed es GPL. Encajan con una app personal, gratuita y de código público. Cada núcleo va en su propio módulo WebAssembly.
 
 ## Estado
 
-- v0.1.0 (15/11/2026): fase 1 construida, pendiente de validar en el iPhone del usuario.
+- v0.2.0 (15/11/2026): guardar y cargar rápido, rebobinar, avance rápido x2 y x4, carátulas (búsqueda en libretro y foto propia, biblioteca en cuadrícula), temas de consola con paleta verde para Game Boy, y la guía de usabilidad (registro, copias diarias, Deshacer, hojas arrastrables, bienvenida). 50 pruebas unitarias y 13 de navegador. Pendiente de validar en el iPhone, sobre todo la vibración al pulsar (iOS 17.4 o posterior) y el arrastre de las hojas.
+- v0.1.0 (15/11/2026): fase 1 construida y publicada en `https://cullera33-puchi.github.io/PuchiEmulator/`.
   - mGBA compilado a WebAssembly (908 KB) con el puente propio. Probado con ROMs propias de GBA y Game Boy: imagen, botones, partida guardada y estados.
   - 30 pruebas unitarias y 7 de navegador en verde.
-  - Requisito, una vez: en GitHub, Settings, Pages, Source: GitHub Actions.
+  - Pages activado (Source: GitHub Actions) el 15/11/2026.
 
 ## Pendiente de confirmar
 

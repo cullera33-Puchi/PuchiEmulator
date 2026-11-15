@@ -1,48 +1,62 @@
-/** Ajustes: sonido, imagen y mando, copia de las partidas, espacio y versión. */
-import { ChevronLeft } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import { Interruptor, useInterfaz } from '../componentes/Interfaz'
+/**
+ * Ajustes, en el orden de la guía de usabilidad (apartado 16): opciones de la app, datos, copias de
+ * seguridad, registro, aspecto y versión. Es una pantalla apilada: «‹ Juegos» o deslizar desde el
+ * borde izquierdo para volver.
+ */
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useVolverDeslizando } from '../componentes/gestos'
+import { SelectorTema } from '../componentes/SelectorTema'
+import { SISTEMAS, type Sistema } from '../lib/sistemas'
+import { temaPara } from '../lib/temas'
+import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
 import { aplicarTema, cambiarAjustes, useAjustes, type Ajustes as TipoAjustes } from '../lib/ajustes'
-import { espacioUsado, pedirPersistencia } from '../lib/almacen'
+import { espacioUsado, listarJuegos, listarPartidas, pedirPersistencia, sustituirPartidas } from '../lib/almacen'
 import { compartirArchivo, crearArchivo, ErrorArchivo, importarArchivo, nombreArchivo } from '../lib/copias'
-import { plural, tamano } from '../lib/formato'
-import { APP_VERSION } from '../lib/version'
+import { cuando, plural, tamano } from '../lib/formato'
+import { borrarRegistro, copiarTexto, leerRegistro, registrar, suscribirRegistro, textoRegistro } from '../lib/registro'
+import { borrarCopia, borrarTodasLasCopias, crearCopia, listarCopias, restaurarCopia, type MetaCopia } from '../lib/seguridad'
+import { APP_VERSION, cargarNovedades, type Novedad } from '../lib/version'
 
-function Segmentado<T extends string | number>({ valor, opciones, alCambiar, etiqueta }: { valor: T; opciones: [T, string][]; alCambiar: (v: T) => void; etiqueta: string }) {
-  return (
-    <div role="radiogroup" aria-label={etiqueta} className="grid rounded-[9px] bg-zinc-200/80 p-0.5 dark:bg-zinc-800" style={{ gridTemplateColumns: `repeat(${opciones.length}, 1fr)` }}>
-      {opciones.map(([v, texto]) => (
-        <button
-          key={String(v)}
-          role="radio"
-          aria-checked={v === valor}
-          onClick={() => alCambiar(v)}
-          className={`rounded-[7px] py-1.5 text-[13px] font-medium ${v === valor ? 'bg-white shadow-sm dark:bg-zinc-600' : 'text-zinc-600 dark:text-zinc-300'}`}
-        >
-          {texto}
-        </button>
-      ))}
-    </div>
-  )
+function useRegistro() {
+  const [n, setN] = useState(leerRegistro().length)
+  useEffect(() => suscribirRegistro(() => setN(leerRegistro().length)), [])
+  return n
 }
+
+const MOTIVOS: Record<MetaCopia['motivo'], string> = { diaria: 'Diaria', manual: 'Manual', previa: 'Antes de recuperar' }
 
 export function Ajustes({ alVolver }: { alVolver: () => void }) {
   const a = useAjustes()
   const { avisar, confirmar } = useInterfaz()
+  const pantalla = useRef<HTMLDivElement>(null)
   const [conEstados, setConEstados] = useState(true)
   const [espacio, setEspacio] = useState<{ usado: number; cuota: number } | null>(null)
   const [persistente, setPersistente] = useState<boolean | null>(null)
+  const [copias, setCopias] = useState<MetaCopia[] | null>(null)
+  const [copiaElegida, setCopiaElegida] = useState<MetaCopia | null>(null)
+  const [verRegistro, setVerRegistro] = useState(false)
+  const [novedades, setNovedades] = useState<Novedad[] | null>(null)
+  const [temaDe, setTemaDe] = useState<Sistema | null>(null)
+  const entradas = useRegistro()
   const selector = useRef<HTMLInputElement>(null)
+
+  useVolverDeslizando(pantalla, alVolver)
+
+  const recargarCopias = useCallback(() => void listarCopias().then(setCopias, () => setCopias([])), [])
 
   useEffect(() => {
     void espacioUsado().then(setEspacio)
     void navigator.storage?.persisted?.().then(setPersistente, () => setPersistente(null))
-  }, [])
+    recargarCopias()
+  }, [recargarCopias])
 
   const cambiar = (c: Partial<TipoAjustes>) => {
     cambiarAjustes(c)
     if (c.tema) aplicarTema(c.tema)
   }
+
+  /* ---- Datos ---- */
 
   const exportar = async () => {
     try {
@@ -52,9 +66,10 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
         return
       }
       const r = await compartirArchivo(JSON.stringify(archivo), nombreArchivo())
+      registrar('info', 'Copia de partidas exportada', { partidas: archivo.partidas.length, estados: archivo.estados.length, resultado: r })
       if (r !== 'cancelado') avisar(`Copia lista: ${plural(archivo.partidas.length, 'partida', 'partidas')}${archivo.estados.length ? ` y ${plural(archivo.estados.length, 'estado', 'estados')}` : ''}`)
     } catch (e) {
-      console.error(e)
+      registrar('error', 'No se pudo exportar la copia', (e as Error).message)
       avisar('No se ha podido crear la copia')
     }
   }
@@ -62,137 +77,383 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   const alElegirCopia = async (f: File | undefined) => {
     if (selector.current) selector.current.value = ''
     if (!f) return
+    let texto: string
+    try {
+      texto = await f.text()
+    } catch {
+      avisar('No se ha podido leer el archivo')
+      return
+    }
+    try {
+      const antes = await listarPartidas()
+      await crearCopia('previa')
+      const r = await importarArchivo(texto)
+      registrar('info', 'Copia de partidas recuperada', r)
+      recargarCopias()
+      avisar(`Recuperadas ${plural(r.partidas, 'partida', 'partidas')}${r.estados ? ` y ${plural(r.estados, 'estado', 'estados')}` : ''}`, {
+        fn: () => void sustituirPartidas(antes).then(() => registrar('info', 'Recuperar copia deshecho')),
+      })
+    } catch (e) {
+      registrar('aviso', 'Copia de partidas no válida', (e as Error).message)
+      avisar(e instanceof ErrorArchivo ? e.message : 'No se ha podido leer la copia')
+    }
+  }
+
+  /* ---- Copias de seguridad ---- */
+
+  const crearAhora = async () => {
+    try {
+      const m = await crearCopia('manual')
+      recargarCopias()
+      avisar(`Copia creada: ${plural(m.partidas, 'partida', 'partidas')}`)
+    } catch {
+      avisar('No se ha podido crear la copia')
+    }
+  }
+
+  const restaurar = async (c: MetaCopia) => {
+    setCopiaElegida(null)
     const ok = await confirmar({
-      titulo: '¿Recuperar esta copia?',
-      mensaje: 'Las partidas y estados de la copia sustituyen a los de esos mismos juegos en este iPhone. El resto no cambia.',
-      aceptar: 'Recuperar',
+      titulo: `¿Restaurar la copia ${cuando(c.creada)}?`,
+      mensaje: `Las partidas guardadas de este iPhone se sustituyen por las ${plural(c.partidas, 'partida', 'partidas')} de la copia. Podrás deshacerlo durante unos segundos.`,
+      aceptar: 'Restaurar',
     })
     if (!ok) return
     try {
-      const r = await importarArchivo(await f.text())
-      avisar(`Recuperadas ${plural(r.partidas, 'partida', 'partidas')}${r.estados ? ` y ${plural(r.estados, 'estado', 'estados')}` : ''}`)
+      const { antes } = await restaurarCopia(c.fecha)
+      recargarCopias()
+      avisar('Copia restaurada', { fn: () => void sustituirPartidas(antes).then(() => registrar('info', 'Restaurar copia deshecho')) })
     } catch (e) {
-      avisar(e instanceof ErrorArchivo ? e.message : 'No se ha podido leer la copia')
+      avisar((e as Error).message || 'No se ha podido restaurar')
     }
+  }
+
+  const borrarUna = async (c: MetaCopia) => {
+    setCopiaElegida(null)
+    const ok = await confirmar({
+      titulo: '¿Borrar esta copia?',
+      mensaje: `La copia ${cuando(c.creada)} (${plural(c.partidas, 'partida', 'partidas')}) se borrará de este iPhone. No se puede deshacer.`,
+      aceptar: 'Borrar',
+      destructivo: true,
+    })
+    if (!ok) return
+    await borrarCopia(c.fecha)
+    recargarCopias()
+  }
+
+  const borrarTodas = async () => {
+    const ok = await confirmar({
+      titulo: '¿Borrar todas las copias?',
+      mensaje: `Las ${plural(copias?.length ?? 0, 'copia', 'copias')} de seguridad se borrarán de este iPhone. Las partidas no se tocan. No se puede deshacer.`,
+      aceptar: 'Borrar todas',
+      destructivo: true,
+    })
+    if (!ok) return
+    await borrarTodasLasCopias()
+    recargarCopias()
+  }
+
+  /* ---- Registro ---- */
+
+  const recuentos = async () => {
+    const [j, p] = await Promise.all([listarJuegos(), listarPartidas()])
+    return `juegos ${j.length}, partidas ${p.length}`
+  }
+
+  const copiarRegistro = async () => {
+    const ok = await copiarTexto(textoRegistro(await recuentos()))
+    avisar(ok ? 'Registro copiado' : 'No se ha podido copiar')
+  }
+
+  const compartirRegistro = async () => {
+    try {
+      await navigator.share({ text: textoRegistro(await recuentos()) })
+    } catch {
+      // cancelado
+    }
+  }
+
+  const borrarElRegistro = async () => {
+    const ok = await confirmar({
+      titulo: '¿Borrar el registro?',
+      mensaje: `Las ${plural(entradas, 'entrada', 'entradas')} del registro de este iPhone se borrarán. Podrás deshacerlo durante unos segundos.`,
+      aceptar: 'Borrar',
+      destructivo: true,
+    })
+    if (!ok) return
+    const deshacer = borrarRegistro()
+    setVerRegistro(false)
+    avisar('Registro borrado', { fn: deshacer })
   }
 
   const proteger = async () => {
     const ok = await pedirPersistencia()
     setPersistente(ok)
+    registrar('info', 'Persistencia pedida', { concedida: ok })
     avisar(ok ? 'Datos protegidos' : 'Safari no lo ha permitido. Instala la app en la pantalla de inicio')
   }
 
+  const abrirNovedades = async () => {
+    const lista = await cargarNovedades()
+    if (!lista) avisar('Sin conexión: no se pueden ver las novedades')
+    else setNovedades(lista)
+  }
+
   return (
-    <div className="mx-auto min-h-dvh max-w-lg px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
-      <div className="flex h-11 items-center">
-        <button className="boton-texto -ml-2 flex items-center" onClick={alVolver}>
-          <ChevronLeft size={26} /> Juegos
-        </button>
-      </div>
-      <h1 className="mb-4 px-1 text-[34px] leading-tight font-bold">Ajustes</h1>
+    <div ref={pantalla} className="min-h-dvh bg-[#F2F2F7] dark:bg-black">
+      <div className="mx-auto max-w-lg px-4" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
+        <div className="sticky top-0 z-10 -mx-4 mb-3 grid h-11 grid-cols-[1fr_auto_1fr] items-center bg-[#F2F2F7]/85 px-2 backdrop-blur-xl dark:bg-black/85">
+          <button className="boton-texto flex items-center justify-self-start" onClick={alVolver}>
+            <ChevronLeft size={26} /> Juegos
+          </button>
+          <h1 className="text-[17px] font-semibold">Ajustes</h1>
+        </div>
 
-      <p className="cabecera-grupo">Sonido</p>
-      <div className="lista">
-        <div className="fila justify-between">
-          <span>Sonido</span>
-          <Interruptor etiqueta="Sonido" activo={a.sonido} alCambiar={(v) => cambiar({ sonido: v })} />
+        <p className="cabecera-grupo">Sonido</p>
+        <div className="lista">
+          <div className="fila justify-between">
+            <span>Sonido</span>
+            <Interruptor etiqueta="Sonido" activo={a.sonido} alCambiar={(v) => cambiar({ sonido: v })} />
+          </div>
+          <div className="separador" />
+          <div className="fila justify-between">
+            <span>Sonar con el iPhone en silencio</span>
+            <Interruptor etiqueta="Sonar con el iPhone en silencio" activo={a.sonarEnSilencio} alCambiar={(v) => cambiar({ sonarEnSilencio: v })} />
+          </div>
         </div>
-        <div className="separador" />
-        <div className="fila justify-between">
-          <span>Sonar con el iPhone en silencio</span>
-          <Interruptor etiqueta="Sonar con el iPhone en silencio" activo={a.sonarEnSilencio} alCambiar={(v) => cambiar({ sonarEnSilencio: v })} />
-        </div>
-      </div>
-      <p className="pie-grupo">Si está desactivado, el juego no suena con el interruptor de silencio puesto, como el resto de juegos del iPhone.</p>
+        <p className="pie-grupo">Si está desactivado, el juego no suena con el interruptor de silencio puesto, como el resto de juegos del iPhone.</p>
 
-      <p className="cabecera-grupo mt-6">Imagen y mando</p>
-      <div className="lista">
-        <div className="fila justify-between">
-          <span>Píxeles nítidos</span>
-          <Interruptor etiqueta="Píxeles nítidos" activo={a.nitido} alCambiar={(v) => cambiar({ nitido: v })} />
+        <p className="cabecera-grupo mt-6">Imagen y mando</p>
+        <div className="lista">
+          <div className="fila justify-between">
+            <span>Píxeles nítidos</span>
+            <Interruptor etiqueta="Píxeles nítidos" activo={a.nitido} alCambiar={(v) => cambiar({ nitido: v })} />
+          </div>
+          <div className="separador" />
+          <div className="fila justify-between">
+            <span>Vibrar al pulsar</span>
+            <Interruptor etiqueta="Vibrar al pulsar" activo={a.vibracion} alCambiar={(v) => cambiar({ vibracion: v })} />
+          </div>
+          <div className="separador" />
+          <div className="fila flex-col items-stretch gap-2 py-3">
+            <span>Botones en horizontal</span>
+            <Segmentado
+              etiqueta="Opacidad de los botones en horizontal"
+              valor={a.opacidadMando}
+              opciones={[
+                [0.3, 'Discretos'],
+                [0.6, 'Normal'],
+                [1, 'Opacos'],
+              ]}
+              alCambiar={(v) => cambiar({ opacidadMando: v })}
+            />
+          </div>
         </div>
-        <div className="separador" />
-        <div className="fila flex-col items-stretch gap-2 py-3">
-          <span>Botones en horizontal</span>
-          <Segmentado
-            etiqueta="Opacidad de los botones en horizontal"
-            valor={a.opacidadMando}
-            opciones={[
-              [0.3, 'Discretos'],
-              [0.6, 'Normal'],
-              [1, 'Opacos'],
-            ]}
-            alCambiar={(v) => cambiar({ opacidadMando: v })}
-          />
-        </div>
-        <div className="separador" />
-        <div className="fila flex-col items-stretch gap-2 py-3">
-          <span>Tema de la biblioteca</span>
-          <Segmentado
-            etiqueta="Tema"
-            valor={a.tema}
-            opciones={[
-              ['auto', 'Automático'],
-              ['claro', 'Claro'],
-              ['oscuro', 'Oscuro'],
-            ]}
-            alCambiar={(v) => cambiar({ tema: v })}
-          />
-        </div>
-      </div>
-      <p className="pie-grupo">En horizontal los botones quedan encima del borde de la imagen. También funcionan un teclado y los mandos de PlayStation, Xbox o MFi conectados al iPhone.</p>
+        <p className="pie-grupo">En horizontal los botones quedan encima del borde de la imagen. También funcionan un teclado y los mandos de PlayStation, Xbox o MFi conectados al iPhone.</p>
 
-      <p className="cabecera-grupo mt-6">Copia de las partidas</p>
-      <div className="lista">
-        <div className="fila justify-between">
-          <span>Incluir los estados guardados</span>
-          <Interruptor etiqueta="Incluir los estados guardados" activo={conEstados} alCambiar={setConEstados} />
+        <p className="cabecera-grupo mt-6">Temas del juego</p>
+        <div className="lista">
+          {(Object.keys(SISTEMAS) as Sistema[]).map((s, i) => (
+            <div key={s}>
+              {i > 0 && <div className="separador" />}
+              <button className="fila" onClick={() => setTemaDe(s)}>
+                <span className="flex-1">{SISTEMAS[s].nombre}</span>
+                <span className="text-zinc-500">{(a.temas[s] ?? 'auto') === 'auto' ? `Según la consola` : temaPara(s, a.temas[s]).nombre}</span>
+                <ChevronRight size={18} className="text-zinc-400" />
+              </button>
+            </div>
+          ))}
         </div>
-        <div className="separador" />
-        <button className="fila text-acento dark:text-acento-oscuro" onClick={() => void exportar()}>
-          Guardar una copia en Archivos
-        </button>
-        <div className="separador" />
-        <button className="fila text-acento dark:text-acento-oscuro" onClick={() => selector.current?.click()}>
-          Recuperar una copia
-        </button>
-      </div>
-      <p className="pie-grupo">Las partidas viven en este iPhone. La copia sirve para no perderlas si borras la app o para pasarlas a otro iPhone. No lleva los juegos.</p>
-      <input ref={selector} type="file" className="hidden" data-testid="selector-copia" onChange={(e) => void alElegirCopia(e.target.files?.[0])} />
+        <p className="pie-grupo">Fondo, marco de la pantalla y botones mientras juegas. También se cambia desde el menú del juego.</p>
 
-      <p className="cabecera-grupo mt-6">Almacenamiento</p>
-      <div className="lista">
-        <div className="fila justify-between">
-          <span>Espacio usado</span>
-          <span className="text-zinc-500">{espacio ? tamano(espacio.usado) : 'No disponible'}</span>
+        <p className="cabecera-grupo mt-6">Datos</p>
+        <div className="lista">
+          <div className="fila justify-between">
+            <span>Incluir los estados guardados</span>
+            <Interruptor etiqueta="Incluir los estados guardados" activo={conEstados} alCambiar={setConEstados} />
+          </div>
+          <div className="separador" />
+          <button className="fila text-acento dark:text-acento-oscuro" onClick={() => void exportar()}>
+            Guardar las partidas en Archivos
+          </button>
+          <div className="separador" />
+          <button className="fila text-acento dark:text-acento-oscuro" onClick={() => selector.current?.click()}>
+            Recuperar partidas desde Archivos
+          </button>
         </div>
-        <div className="separador" />
-        <div className="fila justify-between">
-          <span>Datos protegidos</span>
-          {persistente ? (
-            <span className="text-zinc-500">Sí</span>
-          ) : (
-            <button className="boton-texto" onClick={() => void proteger()}>
-              Proteger
-            </button>
+        <p className="pie-grupo">Sirve para no perder las partidas si borras la app o para pasarlas a otro iPhone. No lleva los juegos. Recuperar sustituye la partida de los juegos que vienen en el archivo; el resto no cambia.</p>
+        <input ref={selector} type="file" className="hidden" data-testid="selector-copia" onChange={(e) => void alElegirCopia(e.target.files?.[0])} />
+
+        <p className="cabecera-grupo mt-6">Copias de seguridad</p>
+        <div className="lista" data-testid="copias">
+          {copias && copias.length === 0 && <p className="fila text-zinc-500">Todavía ninguna</p>}
+          {copias?.map((c, i) => (
+            <div key={c.fecha}>
+              {i > 0 && <div className="separador" />}
+              <button className="fila" onClick={() => setCopiaElegida(c)}>
+                <span className="min-w-0 flex-1">
+                  <span className="block">{cuando(c.creada)}</span>
+                  <span className="block text-[13px] text-zinc-500">
+                    {MOTIVOS[c.motivo]}, {plural(c.partidas, 'partida', 'partidas')}
+                  </span>
+                </span>
+                <ChevronRight size={18} className="text-zinc-400" />
+              </button>
+            </div>
+          ))}
+          <div className="separador" />
+          <button className="fila text-acento dark:text-acento-oscuro" onClick={() => void crearAhora()}>
+            Crear copia ahora
+          </button>
+          {!!copias?.length && (
+            <>
+              <div className="separador" />
+              <button className="fila text-red-600 dark:text-red-500" onClick={() => void borrarTodas()}>
+                Borrar todas las copias
+              </button>
+            </>
           )}
         </div>
-      </div>
-      <p className="pie-grupo">Instala la app en la pantalla de inicio (Compartir, Añadir a pantalla de inicio): así Safari no borra los datos aunque pases semanas sin jugar.</p>
+        <p className="pie-grupo">Una copia de las partidas al día, en este iPhone, y otra antes de recuperar o restaurar. Se guardan las 7 más recientes.</p>
 
-      <p className="cabecera-grupo mt-6">Acerca de</p>
-      <div className="lista">
-        <div className="fila justify-between">
-          <span>Versión</span>
-          <span className="text-zinc-500">{APP_VERSION}</span>
+        <p className="cabecera-grupo mt-6">Registro</p>
+        <div className="lista">
+          <button className="fila" onClick={() => setVerRegistro(true)}>
+            <span className="flex-1 text-acento dark:text-acento-oscuro">Ver registro</span>
+            <span className="text-zinc-500">{entradas}</span>
+            <ChevronRight size={18} className="text-zinc-400" />
+          </button>
+          <div className="separador" />
+          <button className="fila text-acento dark:text-acento-oscuro" onClick={() => void copiarRegistro()}>
+            Copiar registro
+          </button>
+          {entradas > 0 && (
+            <>
+              <div className="separador" />
+              <button className="fila text-red-600 dark:text-red-500" onClick={() => void borrarElRegistro()}>
+                Borrar registro
+              </button>
+            </>
+          )}
         </div>
-        <div className="separador" />
-        <a className="fila justify-between" href="https://github.com/mgba-emu/mgba" target="_blank" rel="noreferrer">
-          <span>Núcleo de Game Boy y GBA</span>
-          <span className="text-zinc-500">mGBA (MPL 2.0)</span>
-        </a>
+        <p className="pie-grupo">Si algo falla, copia el registro y pégalo en el chat. No lleva nombres de juegos ni partidas.</p>
+
+        <p className="cabecera-grupo mt-6">Aspecto</p>
+        <div className="lista">
+          <div className="fila flex-col items-stretch gap-2 py-3">
+            <span>Tema</span>
+            <Segmentado
+              etiqueta="Tema"
+              valor={a.tema}
+              opciones={[
+                ['auto', 'Automático'],
+                ['claro', 'Claro'],
+                ['oscuro', 'Oscuro'],
+              ]}
+              alCambiar={(v) => cambiar({ tema: v })}
+            />
+          </div>
+        </div>
+
+        <p className="cabecera-grupo mt-6">Almacenamiento</p>
+        <div className="lista">
+          <div className="fila justify-between">
+            <span>Espacio usado</span>
+            <span className="text-zinc-500">{espacio ? tamano(espacio.usado) : 'No disponible'}</span>
+          </div>
+          <div className="separador" />
+          <div className="fila justify-between">
+            <span>Datos protegidos</span>
+            {persistente ? (
+              <span className="text-zinc-500">Sí</span>
+            ) : (
+              <button className="boton-texto" onClick={() => void proteger()}>
+                Proteger
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="pie-grupo">Instala la app en la pantalla de inicio (Compartir, Añadir a pantalla de inicio): así Safari no borra los datos aunque pases semanas sin jugar.</p>
+
+        <p className="cabecera-grupo mt-6">Versión</p>
+        <div className="lista">
+          <div className="fila justify-between">
+            <span>Versión</span>
+            <span className="text-zinc-500">{APP_VERSION}</span>
+          </div>
+          <div className="separador" />
+          <button className="fila" onClick={() => void abrirNovedades()}>
+            <span className="flex-1 text-acento dark:text-acento-oscuro">Novedades</span>
+            <ChevronRight size={18} className="text-zinc-400" />
+          </button>
+          <div className="separador" />
+          <a className="fila justify-between" href="https://github.com/mgba-emu/mgba" target="_blank" rel="noreferrer">
+            <span>Núcleo de Game Boy y GBA</span>
+            <span className="text-zinc-500">mGBA (MPL 2.0)</span>
+          </a>
+          <div className="separador" />
+          <a className="fila justify-between" href="https://github.com/libretro-thumbnails/libretro-thumbnails" target="_blank" rel="noreferrer">
+            <span>Carátulas</span>
+            <span className="text-zinc-500">libretro-thumbnails</span>
+          </a>
+        </div>
+        <p className="pie-grupo">La app no incluye juegos ni BIOS. Usa copias de tus propios cartuchos.</p>
       </div>
-      <p className="pie-grupo">La app no incluye juegos ni BIOS. Usa copias de tus propios cartuchos.</p>
+
+      <SelectorTema sistema={temaDe} alCerrar={() => setTemaDe(null)} />
+
+      <Hoja abierta={!!copiaElegida} alCerrar={() => setCopiaElegida(null)} titulo={copiaElegida ? `Copia ${cuando(copiaElegida.creada)}` : undefined}>
+        {copiaElegida && (
+          <div className="lista">
+            <button className="fila text-acento dark:text-acento-oscuro" onClick={() => void restaurar(copiaElegida)}>
+              Restaurar esta copia
+            </button>
+            <div className="separador" />
+            <button className="fila text-red-600 dark:text-red-500" onClick={() => void borrarUna(copiaElegida)}>
+              Borrar esta copia
+            </button>
+          </div>
+        )}
+      </Hoja>
+
+      <Hoja abierta={verRegistro} alCerrar={() => setVerRegistro(false)} titulo={`Registro (${entradas})`}>
+        <textarea
+          readOnly
+          value={verRegistro ? textoRegistro() : ''}
+          className="h-[50dvh] w-full resize-none rounded-xl bg-white p-3 font-mono text-[12px] leading-snug dark:bg-zinc-900"
+          style={{ fontSize: 12 }}
+          aria-label="Registro"
+        />
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <button className="boton-lleno text-[15px]" onClick={() => void copiarRegistro()}>
+            Copiar
+          </button>
+          <button className="boton-lleno text-[15px]" disabled={typeof navigator.share !== 'function'} onClick={() => void compartirRegistro()}>
+            Compartir
+          </button>
+          <button className="boton-lleno bg-red-600 text-[15px] dark:bg-red-600" disabled={!entradas} onClick={() => void borrarElRegistro()}>
+            Borrar
+          </button>
+        </div>
+      </Hoja>
+
+      <Hoja abierta={!!novedades} alCerrar={() => setNovedades(null)} titulo="Novedades">
+        {novedades?.map((n) => (
+          <div key={n.version} className="mb-4">
+            <p className="cabecera-grupo">
+              Versión {n.version}, {n.fecha}
+              {n.version === APP_VERSION ? ' (instalada)' : ''}
+            </p>
+            <ul className="lista list-none px-4 py-2 text-[15px]">
+              {n.cambios.map((c) => (
+                <li key={c} className="py-1">
+                  {c}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </Hoja>
     </div>
   )
 }
