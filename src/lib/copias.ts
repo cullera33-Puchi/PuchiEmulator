@@ -17,6 +17,7 @@ import {
   type FichaJuego,
   type Nota,
   type Partida,
+  RANURAS,
   type Ranura,
 } from './almacen'
 import type { SesionJuego } from './estadisticas'
@@ -25,8 +26,8 @@ import { registrar } from './registro'
 import type { Sistema } from './sistemas'
 
 export const FORMATO = 'puchiemulator-partidas'
-/** 1: partidas, estados y sesiones. 2: notas de los juegos (v0.14.0). 3: favorito y estado de cada juego (v0.15.0). */
-export const VERSION_FORMATO = 3
+/** 1: partidas, estados y sesiones. 2: notas de los juegos (v0.14.0). 3: favorito y estado de cada juego (v0.15.0). 4: nueve ranuras y su nombre (v0.19.0). */
+export const VERSION_FORMATO = 4
 
 interface PartidaArchivo {
   id: string
@@ -43,6 +44,7 @@ interface EstadoArchivo {
   datos: string
   fecha: number
   captura?: string
+  nombre?: string
 }
 
 export interface ArchivoPartidas {
@@ -104,6 +106,7 @@ export async function crearArchivo(conEstados: boolean, version: string): Promis
       datos: aBase64(e.datos),
       fecha: e.fecha,
       captura: e.captura ? aBase64(e.captura) : undefined,
+      nombre: e.nombre,
     })),
     sesiones: sesiones.map(({ id: _id, ...s }) => s),
     notas,
@@ -113,7 +116,6 @@ export async function crearArchivo(conEstados: boolean, version: string): Promis
 
 export class ErrorArchivo extends Error {}
 
-const RANURAS: Ranura[] = ['auto', 'rapida', '1', '2', '3']
 
 /** Comprueba y convierte un archivo leído. Lanza ErrorArchivo con un mensaje para el usuario. */
 const ESTADOS_JUEGO: EstadoJuego[] = ['pendiente', 'jugando', 'terminado', 'abandonado']
@@ -144,6 +146,7 @@ export function leerArchivo(texto: string): { partidas: Partida[]; estados: Esta
       datos: deBase64(e.datos),
       fecha: Number(e.fecha) || Date.now(),
       captura: e.captura ? deBase64(e.captura) : undefined,
+      nombre: typeof e.nombre === 'string' && e.nombre.trim() ? e.nombre.slice(0, 60) : undefined,
     })
   }
   const sesiones: SesionJuego[] = []

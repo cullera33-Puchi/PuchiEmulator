@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.19.0 (15/11/2026)
+
+Bloque 1 de las mejoras marcadas por el usuario (20, 22, 15 y 14).
+
+- Temporizador de sueño (20): en el menú del juego, 15, 30, 45 o 60 minutos. Cinco minutos antes avisa («busca dónde guardar»); al acabar, pausa, guarda la partida y el punto donde se dejó y enseña «Hora de dormir», con «Seguir 10 minutos más» o «Salir del juego» (`src/lib/sueno.ts`).
+- Pausa si se deja de tocar (22): tras 3, 5 o 10 minutos sin tocar nada (10 por defecto; también «Nunca»), el juego se pausa y se guarda (`pausaSinTocar`, `tocaPausar`). El lápiz de DS cuenta como actividad. En Ajustes, nuevo grupo «Para jugar en la cama» con esto y la intensidad del modo noche.
+- Ranuras de estado (15): nueve por juego (antes, tres) y con nombre («Antes del jefe»), que se pone con el lápiz de la ranura y se conserva al volver a guardar en ella (`RANURAS_USUARIO`, `renombrarEstado`, `Estado.nombre`). Van en la copia de partidas (formato 4).
+- Turbo (14): por juego, en Menú, Mando, «Turbo», con los botones de cada consola (A y B; X e Y en Super Nintendo y DS; L y R donde los hay). Mientras se mantiene un botón con turbo, el juego lo ve pulsarse y soltarse cada 3 fotogramas, unas diez veces por segundo (`mascaraConTurbo`). En pantalla, el botón lleva una «T».
+- Pruebas: 125 unitarias y 44 de navegador; el final del temporizador y la pausa por no tocar se prueban adelantando el reloj del navegador.
+
 ## 0.18.0 (15/11/2026)
 
 - Apartado «Pantalla» separado de «Mando» (petición del usuario), en el menú del juego y en Ajustes (`AjustesPantalla`). Pantalla: lo más grande posible, píxeles nítidos, colores como en la consola, imagen de Super Nintendo, pantallas de DS y filtro de imagen. Mando: tamaño de los botones, una o dos manos, mano, opacidad en horizontal y el modo para juegos de rol. En Ajustes, el modo noche va con Pantalla y «Vibrar al pulsar», con Mando.

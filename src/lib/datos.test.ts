@@ -16,6 +16,7 @@ import {
   listarJuegos,
   listarSesiones,
   quitarJuego,
+  renombrarEstado,
 } from './almacen'
 import { anadirFichero, sha1 } from './biblioteca'
 import { crearArchivo, ErrorArchivo, importarArchivo, leerArchivo } from './copias'
@@ -112,6 +113,18 @@ describe('copia de partidas', () => {
     expect((await leerJuego(j.id))?.estado).toBe('terminado')
     expect((await leerJuego(j.id))?.favorito).toBe(true)
     expect((await leerJuego(j.id))?.terminado).toBe(1234)
+  })
+
+  it('la copia lleva las nueve ranuras con su nombre, y guardar de nuevo conserva el nombre', async () => {
+    await guardarEstado({ id, ranura: '9', datos: new Uint8Array([7]).buffer, fecha: 5 })
+    await renombrarEstado(id, '9', '  Antes del jefe  ')
+    await guardarEstado({ id, ranura: '9', datos: new Uint8Array([8]).buffer, fecha: 6 })
+    expect((await leerEstado(id, '9'))?.nombre).toBe('Antes del jefe')
+    const texto = JSON.stringify(await crearArchivo(true, '0.19.0'))
+    await renombrarEstado(id, '9', '')
+    expect((await leerEstado(id, '9'))?.nombre).toBeUndefined()
+    await importarArchivo(texto)
+    expect((await leerEstado(id, '9'))?.nombre).toBe('Antes del jefe')
   })
 
   it('una copia de antes de las notas (formato 1) se sigue leyendo', () => {

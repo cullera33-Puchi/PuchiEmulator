@@ -240,7 +240,9 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
 
         <p className="cabecera-grupo mt-6">Pantalla</p>
         <AjustesPantalla />
-        <div className="lista mt-3">
+
+        <p className="cabecera-grupo mt-6">Para jugar en la cama</p>
+        <div className="lista">
           <div className="fila flex-col items-stretch gap-2 py-3">
             <span>Modo noche</span>
             <Segmentado
@@ -254,8 +256,25 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
               alCambiar={(v) => cambiar({ intensidadNoche: v })}
             />
           </div>
+          <div className="separador" />
+          <div className="fila flex-col items-stretch gap-2 py-3">
+            <span>Pausar si no tocas nada</span>
+            <Segmentado
+              etiqueta="Pausar si no tocas nada"
+              valor={a.pausaSinTocar}
+              opciones={[
+                [0, 'Nunca'],
+                [3, '3 min'],
+                [5, '5 min'],
+                [10, '10 min'],
+              ]}
+              alCambiar={(v) => cambiar({ pausaSinTocar: v })}
+            />
+          </div>
         </div>
-        <p className="pie-grupo">El modo noche se enciende en el menú de cada partida. Oscurece la pantalla más que el brillo mínimo del iPhone, la vuelve más cálida y quita la vibración.</p>
+        <p className="pie-grupo">
+          El modo noche y el temporizador de sueño se encienden en el menú de cada partida. El modo noche oscurece la pantalla más que el brillo mínimo del iPhone, la vuelve más cálida y quita la vibración. Si te duermes jugando, el juego se pausa y se guarda tras los minutos elegidos sin tocar nada (el lápiz de DS también cuenta).
+        </p>
 
         <p className="cabecera-grupo mt-6">Mando</p>
         <div className="lista mb-3">

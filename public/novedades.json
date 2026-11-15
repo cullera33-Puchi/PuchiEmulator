@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.19.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Temporizador de sueño en el menú del juego: te avisa 5 minutos antes y, al acabar, guarda y pausa.",
+      "Si te duermes jugando, el juego se pausa y se guarda tras unos minutos sin tocar nada (en Ajustes, «Para jugar en la cama»).",
+      "Nueve ranuras de estado por juego, y puedes ponerles nombre.",
+      "Turbo por botón en cada juego: en Menú, Mando, «Turbo»."
+    ]
+  },
+  {
     "version": "0.18.0",
     "fecha": "15/11/2026",
     "cambios": [

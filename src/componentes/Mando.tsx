@@ -23,6 +23,8 @@ interface Props {
   jrpg?: { menu: BotonMenu; extras: ('X' | 'Y')[] }
   /** Cruceta sin diagonales */
   cuatroDirecciones?: boolean
+  /** Máscara de los botones con turbo: se marcan con una «T» */
+  turbo?: number
   /** Correr fijo (modo JRPG): botón debajo de la A que se activa y se desactiva con un toque */
   correr?: { activo: boolean; boton: 'B' | 'Y'; alCambiar: () => void }
 }
@@ -52,7 +54,7 @@ const BRAZOS: [NombreBoton, string][] = [
   ['DERECHA', 'derecha'],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0 }: Props) {
   const raiz = useRef<HTMLDivElement>(null)
   const cruceta = useRef<HTMLDivElement>(null)
   const dedos = useRef(new Map<number, Dedo>())
@@ -160,6 +162,13 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     recalcular()
     alToque?.()
   }
+
+  // Los botones con turbo llevan su marca
+  useEffect(() => {
+    raiz.current?.querySelectorAll<HTMLElement>('[data-boton]').forEach((el) => {
+      el.classList.toggle('turbo', (turbo & bit(el.dataset.boton as NombreBoton)) !== 0)
+    })
+  })
 
   // Si la app pasa a segundo plano con un dedo puesto, se sueltan todos los botones
   useEffect(() => {

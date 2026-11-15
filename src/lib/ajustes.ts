@@ -25,6 +25,8 @@ export interface Ajustes {
   /** Modo noche en el juego (v0.16.0): imagen y botones más oscuros y cálidos, sin vibración */
   modoNoche: boolean
   intensidadNoche: IntensidadNoche
+  /** Pausar y guardar tras estos minutos sin tocar nada (0: nunca), v0.19.0 */
+  pausaSinTocar: 0 | 3 | 5 | 10
   /** Hoja de bienvenida ya vista */
   bienvenidaVista: boolean
   /** Tema de la pantalla de juego por consola («auto»: el de esa consola) */
@@ -84,6 +86,7 @@ export const POR_DEFECTO: Ajustes = {
   vibracion: true,
   modoNoche: false,
   intensidadNoche: 'media',
+  pausaSinTocar: 10,
   bienvenidaVista: false,
   temas: {},
   paletaGb: 'auto',

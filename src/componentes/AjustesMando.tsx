@@ -1,6 +1,7 @@
 /** Botones: tamaño, distribución (dos manos o una), mano y opacidad en horizontal, y el modo JRPG del juego. La imagen va aparte, en AjustesPantalla. */
 import { cambiarAjustes, useAjustes } from '../lib/ajustes'
 import {
+  botonesTurbo,
   cambiarMandoJuego,
   controlesDe,
   correrDe,
@@ -14,6 +15,7 @@ import {
   type MandoJuego,
 } from '../lib/mandoJuego'
 import type { Sistema } from '../lib/sistemas'
+import type { NombreBoton } from '../emulador/botones'
 import { Interruptor, Segmentado } from './Interfaz'
 
 export const ESCALAS: [number, string][] = [
@@ -132,6 +134,7 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
           />
         </div>
       </div>
+      {juego && <Turbo id={juego.id} sistema={juego.sistema} />}
       {juego && tieneControlesPropios(ajustes, juego.id, CLAVES_MANDO) && (
         <div className="lista mt-3">
           <button className="fila text-acento dark:text-acento-oscuro" onClick={() => usarControlesGenerales(juego.id, CLAVES_MANDO)}>
@@ -145,6 +148,37 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
           : 'Para los juegos que no tengan los suyos: dentro de cada juego, en Menú, Mando, se cambian solo para ese juego. '}
         Con «Una mano», en vertical todo queda abajo, al alcance del pulgar; en horizontal, la pantalla se pega al otro lado y los botones van en una columna translúcida. Cómodo para juegos de rol y de estrategia.
       </p>
+    </>
+  )
+}
+
+/** Turbo por botón, solo de este juego (v0.19.0). */
+function Turbo({ id, sistema }: { id: string; sistema: Sistema }) {
+  const a = useAjustes()
+  const activos = a.mandos[id]?.turbo ?? []
+  const cambiar = (b: NombreBoton) =>
+    cambiarMandoJuego(id, { turbo: activos.includes(b) ? activos.filter((x) => x !== b) : [...activos, b] })
+  return (
+    <>
+      <p className="cabecera-grupo mt-5">Turbo</p>
+      <div className="lista flex flex-wrap gap-2 p-3" role="group" aria-label="Botones con turbo">
+        {botonesTurbo(sistema).map((b) => {
+          const activo = activos.includes(b)
+          return (
+            <button
+              key={b}
+              role="switch"
+              aria-checked={activo}
+              aria-label={`Turbo en ${b}`}
+              onClick={() => cambiar(b)}
+              className={`h-10 min-w-12 rounded-full px-4 text-[15px] font-semibold ${activo ? 'bg-acento text-white dark:bg-acento-oscuro' : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'}`}
+            >
+              {b}
+            </button>
+          )
+        })}
+      </div>
+      <p className="pie-grupo mb-4">Solo para este juego. Mientras mantienes un botón con turbo, se pulsa y se suelta solo unas diez veces por segundo; en pantalla lleva una «T».</p>
     </>
   )
 }

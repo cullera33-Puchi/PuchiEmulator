@@ -50,7 +50,10 @@ export interface Partida {
 }
 
 /** «auto» es el de seguir donde se dejó; «rapida», la del botón de guardar rápido */
-export type Ranura = 'auto' | 'rapida' | '1' | '2' | '3'
+/** Ranuras de estado que elige el usuario: nueve desde la v0.19.0 (antes, tres). */
+export const RANURAS_USUARIO = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
+export type Ranura = 'auto' | 'rapida' | (typeof RANURAS_USUARIO)[number]
+export const RANURAS: Ranura[] = ['auto', 'rapida', ...RANURAS_USUARIO]
 
 export interface Estado {
   clave: string
@@ -60,6 +63,8 @@ export interface Estado {
   fecha: number
   /** Captura de la pantalla en PNG, para reconocer el estado */
   captura?: ArrayBuffer
+  /** Nombre que le pone el usuario («Antes del jefe»), v0.19.0 */
+  nombre?: string
 }
 
 export interface Caratula {
@@ -270,8 +275,18 @@ export function leerEstado(id: string, ranura: Ranura): Promise<Estado | undefin
   return leer<Estado>('estados', claveEstado(id, ranura))
 }
 
-export function guardarEstado(estado: Omit<Estado, 'clave'>): Promise<void> {
-  return poner('estados', { ...estado, clave: claveEstado(estado.id, estado.ranura) })
+/** Guarda un estado. Si no trae nombre, conserva el que tuviera la ranura. */
+export async function guardarEstado(estado: Omit<Estado, 'clave'>): Promise<void> {
+  const clave = claveEstado(estado.id, estado.ranura)
+  const nombre = estado.nombre ?? (await leer<Estado>('estados', clave))?.nombre
+  return poner('estados', { ...estado, nombre, clave })
+}
+
+/** Pone o quita (vacío) el nombre de una ranura. */
+export async function renombrarEstado(id: string, ranura: Ranura, nombre: string): Promise<void> {
+  const e = await leer<Estado>('estados', claveEstado(id, ranura))
+  if (!e) return
+  return poner('estados', { ...e, nombre: nombre.trim() || undefined })
 }
 
 export async function estadosDe(id: string): Promise<Estado[]> {

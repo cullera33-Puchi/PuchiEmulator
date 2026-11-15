@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { bit } from '../emulador/botones'
 import { cambiarAjustes, leerAjustes, POR_DEFECTO } from './ajustes'
 import {
+  botonesTurbo,
+  mascaraConTurbo,
+  mascaraTurbo,
   CLAVES_MANDO,
   CLAVES_PANTALLA,
   cambiarMandoJuego,
@@ -87,5 +90,26 @@ describe('pantalla y mando, cada uno por su lado', () => {
     expect(tieneControlesPropios(leerAjustes(), 'j', CLAVES_PANTALLA)).toBe(false)
     usarControlesGenerales('j', CLAVES_MANDO)
     expect(leerAjustes().mandos.j).toEqual({})
+  })
+})
+
+describe('turbo', () => {
+  it('cada consola ofrece sus botones', () => {
+    expect(botonesTurbo('gb')).toEqual(['A', 'B'])
+    expect(botonesTurbo('gba')).toEqual(['A', 'B', 'L', 'R'])
+    expect(botonesTurbo('snes')).toEqual(['A', 'B', 'X', 'Y', 'L', 'R'])
+  })
+
+  it('solo cuentan los botones que tiene la consola', () => {
+    expect(mascaraTurbo({ j: { turbo: ['A', 'X'] } }, 'j', 'gba')).toBe(bit('A'))
+    expect(mascaraTurbo({}, 'j', 'gba')).toBe(0)
+  })
+
+  it('mantener un botón con turbo lo pulsa y lo suelta cada 3 fotogramas; el resto no cambia', () => {
+    const a = bit('A')
+    const b = bit('B')
+    const vistos = Array.from({ length: 12 }, (_, f) => mascaraConTurbo(a | b, a, f) & a)
+    expect(vistos).toEqual([a, a, a, 0, 0, 0, a, a, a, 0, 0, 0])
+    expect(mascaraConTurbo(b, a, 4)).toBe(b)
   })
 })

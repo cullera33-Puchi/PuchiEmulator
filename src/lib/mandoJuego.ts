@@ -5,7 +5,7 @@
  */
 import { cambiarAjustes, leerAjustes, type Ajustes } from './ajustes'
 import { SISTEMAS, type Sistema } from './sistemas'
-import { bit } from '../emulador/botones'
+import { bit, type NombreBoton } from '../emulador/botones'
 import type { PrincipalDS } from '../emulador/pantallasDS'
 
 export type BotonMenu = 'X' | 'Y' | 'START' | 'SELECT'
@@ -37,7 +37,12 @@ export type ControlesMando = Pick<Ajustes, ClaveControl>
  * Lo que se guarda de cada juego: el modo JRPG, los ajustes propios de pantalla y botones y, en DS
  * con «grande y pequeña», cuál va grande y dónde está la miniatura (fracción de la pantalla).
  */
-export type MandoGuardado = Partial<MandoJuego & ControlesMando> & { principalDS?: PrincipalDS; miniDS?: { x: number; y: number } }
+export type MandoGuardado = Partial<MandoJuego & ControlesMando> & {
+  principalDS?: PrincipalDS
+  miniDS?: { x: number; y: number }
+  /** Botones con turbo en este juego (v0.19.0) */
+  turbo?: NombreBoton[]
+}
 
 /** Pantalla y botones de un juego: los suyos o, si no tiene, los generales. */
 export function controlesDe(a: Ajustes, juegoId: string): ControlesMando {
@@ -112,3 +117,27 @@ export function mascaraConCorrer(base: number, correr: number, hueco: boolean): 
 }
 
 export const bitCorrer = (b: BotonCorrer) => bit(b)
+
+/** Botones a los que se puede poner turbo en cada consola. */
+export function botonesTurbo(sistema: Sistema): NombreBoton[] {
+  const info = SISTEMAS[sistema]
+  return [...(['A', 'B'] as NombreBoton[]), ...(info.cuatroBotones ? (['X', 'Y'] as NombreBoton[]) : []), ...(info.hombros ? (['L', 'R'] as NombreBoton[]) : [])]
+}
+
+/** Máscara de los botones con turbo de un juego (solo los que tiene su consola). */
+export function mascaraTurbo(mandos: Ajustes['mandos'], juegoId: string, sistema: Sistema): number {
+  const validos = botonesTurbo(sistema)
+  return (mandos[juegoId]?.turbo ?? []).filter((b) => validos.includes(b)).reduce((m, b) => m | bit(b), 0)
+}
+
+/** Fotogramas que dura cada mitad del turbo: 3 pulsado y 3 suelto, unas diez pulsaciones por segundo. */
+export const FOTOGRAMAS_TURBO = 3
+
+/**
+ * Turbo (v0.19.0): mientras se mantiene un botón con turbo, el juego lo ve pulsarse y soltarse solo.
+ * `fotograma` es un contador que avanza uno por fotograma emulado.
+ */
+export function mascaraConTurbo(base: number, turbo: number, fotograma: number): number {
+  if (!turbo || !(base & turbo)) return base
+  return Math.floor(fotograma / FOTOGRAMAS_TURBO) % 2 ? base & ~turbo : base
+}

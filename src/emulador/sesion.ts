@@ -15,7 +15,9 @@ import { botonesDeMando } from './botones'
 import { Nucleo } from './nucleo'
 import { Historial } from './historial'
 import { planRitmo, Refresco, refrescosPasados } from './ritmo'
-import { mascaraConCorrer } from '../lib/mandoJuego'
+import { mascaraConCorrer, mascaraConTurbo } from '../lib/mandoJuego'
+import { tocaPausar } from '../lib/sueno'
+import { leerAjustes } from '../lib/ajustes'
 import { aNucleo, componer, tamanoSalida, type PantallasDS, type PrincipalDS } from './pantallasDS'
 
 const MAX_FOTOGRAMAS_SEGUIDOS = 4
@@ -44,6 +46,8 @@ export interface OpcionesSesion {
   opciones?: Record<string, string>
   alCambiarTamano?: (ancho: number, alto: number) => void
   alGuardar?: () => void
+  /** Se ha pausado (y guardado) por llevar un rato sin tocar nada */
+  alInactividad?: () => void
   /** El núcleo ha fallado: la sesión se para y ya no guarda nada (para no estropear la partida) */
   alFallar?: (mensaje: string) => void
 }
@@ -91,6 +95,9 @@ export class Sesion {
   // Correr fijo (modo JRPG): el botón que se mantiene pulsado, y fotogramas en que se suelta para que
   // el juego vea una pulsación nueva cuando el usuario lo toca
   private correr = 0
+  // Turbo (v0.19.0): botones que se pulsan y sueltan solos mientras se mantienen
+  private turbo = 0
+  private fotogramaTurbo = 0
   // Pantallas de DS (v0.17.0): disposición, cuál va grande y la miniatura
   private pantallas: PantallasDS = 'apiladas'
   private principal: PrincipalDS = 'abajo'
@@ -227,6 +234,13 @@ export class Sesion {
     // Con el juego abierto pero sin tocarlo un buen rato (por ejemplo, el iPhone en la mesa), no cuenta
     if (ahora - this.ultimaActividad < INACTIVIDAD_MS) this.msJugados += dt
     if (ahora - this.ultimoGuardadoTiempo > GUARDAR_TIEMPO_MS) void this.guardarTiempo()
+    // Te has dormido con el juego en marcha: se pausa y se guarda (v0.19.0)
+    if (tocaPausar(leerAjustes().pausaSinTocar, this.ultimaActividad, ahora)) {
+      registrar('info', 'Pausa por no tocar', { minutos: leerAjustes().pausaSinTocar })
+      this.pausar()
+      void this.guardarTodo()
+      this.o.alInactividad?.()
+    }
   }
 
   /** Guarda (o actualiza) la sesión de juego con el tiempo jugado hasta ahora. */
@@ -298,7 +312,7 @@ export class Sesion {
     this.basePrevia = mascara
     let hayImagen = false
     for (let i = 0; i < toca; i++) {
-      const enviada = mascaraConCorrer(mascara, this.correr, this.huecoCorrer > 0)
+      const enviada = mascaraConCorrer(mascaraConTurbo(mascara, this.turbo, this.fotogramaTurbo++), this.correr, this.huecoCorrer > 0)
       if (this.huecoCorrer > 0) this.huecoCorrer--
       this.nucleo.botones(enviada)
       if (this.cargaAutoPendiente && ++this.fotogramasJugados >= 120) {
@@ -444,9 +458,16 @@ export class Sesion {
 
   /** Toque en la imagen que se ve, de 0 a 1 (o null al soltar). Fuera de la táctil, no toca. */
   ponerPuntero(x: number | null, y = 0): void {
+    // El lápiz también cuenta como actividad (en Hotel Dusk casi no se tocan botones)
+    this.ultimaActividad = Date.now()
     if (x === null) return this.nucleo?.puntero(null)
     const p = aNucleo(this.pantallas, this.principal, x, y)
     this.nucleo?.puntero(p ? p[0] : null, p ? p[1] : 0)
+  }
+
+  /** Turbo: máscara de los botones con turbo (0, ninguno). */
+  ponerTurbo(mascara: number): void {
+    this.turbo = mascara
   }
 
   /** Correr fijo: máscara del botón que queda pulsado (0, ninguno). */

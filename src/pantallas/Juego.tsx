@@ -3,14 +3,14 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { ChevronRight, FastForward, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
+import { BedDouble, ChevronRight, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, Interruptor, useInterfaz } from '../componentes/Interfaz'
 import { bit, TECLAS } from '../emulador/botones'
 import { cargaAutoFallida, Sesion } from '../emulador/sesion'
 import { aplicarTema, cambiarAjustes, COLOR_NOCHE, useAjustes } from '../lib/ajustes'
-import { actualizarJuego, estadosDe, leerEstado, leerJuego, leerRomGuardada, type Estado, type Ranura } from '../lib/almacen'
+import { actualizarJuego, estadosDe, leerEstado, leerJuego, leerRomGuardada, RANURAS_USUARIO, renombrarEstado, type Estado, type Ranura } from '../lib/almacen'
 import { cuando } from '../lib/formato'
 import { duracion } from '../lib/estadisticas'
 import { registrar } from '../lib/registro'
@@ -20,10 +20,11 @@ import { SelectorTema } from '../componentes/SelectorTema'
 import { EditorNotas } from '../componentes/Notas'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
 import { AjustesPantalla } from '../componentes/AjustesPantalla'
-import { bitCorrer, cambiarMandoJuego, controlesDe, extrasJrpg, mandoDe } from '../lib/mandoJuego'
+import { bitCorrer, cambiarMandoJuego, controlesDe, extrasJrpg, mandoDe, mascaraTurbo } from '../lib/mandoJuego'
 import { esLibro, type PrincipalDS } from '../emulador/pantallasDS'
 import { MiniaturaDS } from '../componentes/MiniaturaDS'
 import { alAbrir } from '../lib/biblioteca'
+import { estadoSueno, MINUTOS_SUENO, textoRestante } from '../lib/sueno'
 
 interface Props {
   id: string
@@ -31,7 +32,6 @@ interface Props {
   alSalir: () => void
 }
 
-const RANURAS: Ranura[] = ['1', '2', '3']
 
 export function Juego({ id, reanudar, alSalir }: Props) {
   const ajustes = useAjustes()
@@ -50,6 +50,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [cargando, setCargando] = useState(true)
   const [menu, setMenu] = useState(false)
   const [pausaFondo, setPausaFondo] = useState(false)
+  // Por qué está en pausa: al pasar a segundo plano o por no tocar nada
+  const [motivoPausa, setMotivoPausa] = useState<'fondo' | 'inactividad'>('fondo')
+  // Temporizador de sueño (v0.19.0): hora a la que se para y si ya se ha avisado
+  const [finSueno, setFinSueno] = useState<number | null>(null)
+  const avisadoSueno = useRef(false)
+  const [hora, setHora] = useState(() => Date.now())
+  const [dormir, setDormir] = useState(false)
+  const [verSueno, setVerSueno] = useState(false)
   const [estados, setEstados] = useState<Estado[] | null>(null)
   const [verEstados, setVerEstados] = useState(false)
   const [velocidad, setVelocidad] = useState(1)
@@ -75,6 +83,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const principal: PrincipalDS = ajustes.mandos[id]?.principalDS ?? 'abajo'
   const mini = useRef<HTMLCanvasElement>(null)
   const [corriendo, setCorriendo] = useState(false)
+  const turbo = mascaraTurbo(ajustes.mandos, id, sistema)
   const ajustesRef = useRef(ajustes)
   ajustesRef.current = ajustes
 
@@ -82,6 +91,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     setMenu(false)
     setVerNotas(false)
     setVerPantalla(false)
+    setVerSueno(false)
     setPausaFondo(false)
     setVerEstados(false)
     void sesion.current?.jugar(ajustesRef.current.sonido, ajustesRef.current.sonarEnSilencio)
@@ -114,6 +124,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
               mgba_color_correction: controlesDe(ajustesRef.current, juego.id).coloresConsola ? 'Auto' : 'OFF',
             },
             alCambiarTamano: (ancho, alto) => setNativo({ ancho, alto }),
+            alInactividad: () => {
+              if (cancelado) return
+              setMotivoPausa('inactividad')
+              setPausaFondo(true)
+            },
             alFallar: () => {
               if (!cancelado) setError('El emulador ha fallado. Lo guardado antes del fallo está a salvo: vuelve a abrir el juego.')
             },
@@ -186,7 +201,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       const s = sesion.current
       if (!s) return
       if (document.visibilityState === 'hidden') {
-        if (s.enMarcha) setPausaFondo(true)
+        if (s.enMarcha) {
+          setMotivoPausa('fondo')
+          setPausaFondo(true)
+        }
         s.pausar()
         void s.guardarTodo()
       }
@@ -235,19 +253,32 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     void cargarListaEstados()
   }
 
+  const nombreRanura = (r: Ranura) => estadoDe(r)?.nombre ?? `Ranura ${r}`
+
   const guardarEn = async (r: Ranura) => {
     const ok = await sesion.current?.guardarEstado(r)
     registrar(ok ? 'info' : 'aviso', ok ? 'Estado guardado' : 'No se pudo guardar el estado', { ranura: r })
-    avisar(ok ? `Estado guardado en la ranura ${r}` : 'No se ha podido guardar el estado')
+    avisar(ok ? `Guardado en «${nombreRanura(r)}»` : 'No se ha podido guardar el estado')
     await cargarListaEstados()
   }
 
   const cargarDe = async (r: Ranura) => {
     const ok = await sesion.current?.cargarEstado(r)
     if (ok) {
-      avisar(`Estado de la ranura ${r} cargado`)
+      avisar(`«${nombreRanura(r)}» cargado`)
       seguir()
     } else avisar('No se ha podido cargar el estado')
+  }
+
+  // Nombre de una ranura (v0.19.0): «Antes del jefe», «Tienda del pueblo»…
+  const renombrar = async (r: Ranura) => {
+    const e = estadoDe(r)
+    if (!e) return
+    const nombre = window.prompt('Nombre de la ranura', e.nombre ?? '')
+    if (nombre === null) return
+    await renombrarEstado(id, r, nombre.slice(0, 60))
+    registrar('info', 'Ranura renombrada', { ranura: r })
+    await cargarListaEstados()
   }
 
   const reiniciar = async () => {
@@ -278,6 +309,46 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     if (cargando) return
     sesion.current?.ponerPantallas(pantallas, principal, pantallas === 'grande' ? mini.current : null)
   }, [pantallas, principal, cargando])
+
+  // Temporizador de sueño: aviso a 5 minutos y, al acabar, pausa con todo guardado
+  useEffect(() => {
+    if (finSueno === null) return
+    const mirar = () => {
+      const ahora = Date.now()
+      setHora(ahora)
+      const e = estadoSueno(finSueno, ahora, avisadoSueno.current)
+      if (e.avisar) {
+        avisadoSueno.current = true
+        avisar('Quedan 5 minutos: busca dónde guardar')
+      }
+      if (e.terminado) {
+        setFinSueno(null)
+        sesion.current?.pausar()
+        void sesion.current?.guardarTodo()
+        registrar('info', 'Temporizador de sueño terminado')
+        setMenu(false)
+        setDormir(true)
+      }
+    }
+    mirar()
+    const t = window.setInterval(mirar, 5000)
+    return () => clearInterval(t)
+  }, [finSueno, avisar])
+
+  const ponerSueno = (minutos: number | null) => {
+    avisadoSueno.current = false
+    setFinSueno(minutos ? Date.now() + minutos * 60_000 : null)
+    setVerSueno(false)
+    if (minutos) {
+      registrar('info', 'Temporizador de sueño', { minutos })
+      avisar(`Te avisaré 5 minutos antes de los ${minutos} minutos`)
+    }
+  }
+
+  // Turbo: al abrir el juego y al cambiarlo
+  useEffect(() => {
+    if (!cargando) sesion.current?.ponerTurbo(turbo)
+  }, [turbo, cargando])
 
   // Al cambiar el modo o el botón de correr, se suelta
   useEffect(() => {
@@ -373,6 +444,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         cuatro={cuatro}
         jrpg={mando.jrpg ? { menu: mando.menu, extras: extrasJrpg(sistema, mando.menu) } : undefined}
         cuatroDirecciones={mando.jrpg && mando.direcciones === 4}
+        turbo={turbo}
         correr={mando.jrpg ? { activo: corriendo, boton: mando.correr, alCambiar: cambiarCorrer } : undefined}
         tactil={esTactil ? { lienzo, alTocar: (x, y) => sesion.current?.ponerPuntero(x, y) } : undefined}
         alCambiar={(m) => sesion.current?.ponerBotonesTactil(m)} alToque={() => {
@@ -441,9 +513,35 @@ export function Juego({ id, reanudar, alSalir }: Props) {
               <Play size={30} />
             </span>
             <span className="text-[17px] font-semibold">En pausa</span>
+            {motivoPausa === 'inactividad' && (
+              <span className="max-w-64 text-center text-[13px] text-zinc-400">Llevabas {ajustes.pausaSinTocar} minutos sin tocar nada. La partida está guardada.</span>
+            )}
             <span className="text-[13px] text-zinc-400">Toca para seguir</span>
           </span>
         </button>
+      )}
+
+      {dormir && (
+        <div className="absolute inset-0 z-20 grid place-items-center bg-black p-8 text-center" data-testid="hora-de-dormir">
+          <div className="flex flex-col items-center gap-3">
+            <BedDouble size={44} strokeWidth={1.5} className="text-zinc-400" />
+            <p className="text-[20px] font-semibold">Hora de dormir</p>
+            <p className="text-[15px] text-zinc-400">La partida está guardada. Mañana sigues donde lo dejaste.</p>
+            <button
+              className="boton-texto mt-4 py-2"
+              onClick={() => {
+                setDormir(false)
+                ponerSueno(10)
+                seguir()
+              }}
+            >
+              Seguir 10 minutos más
+            </button>
+            <button className="boton-lleno mt-1" onClick={() => void salir()}>
+              Salir del juego
+            </button>
+          </div>
+        </div>
       )}
 
       {menu && verTemas && <SelectorTema oscura sistema={sistema} alCerrar={() => setVerTemas(false)} />}
@@ -451,6 +549,25 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       <Hoja oscura abierta={menu && verNotas} alCerrar={() => setVerNotas(false)} titulo="Notas">
         <EditorNotas juegoId={id} oscura />
         <button className="boton-texto mt-2 w-full py-2" onClick={() => setVerNotas(false)}>
+          Volver al menú
+        </button>
+      </Hoja>
+
+      <Hoja oscura abierta={menu && verSueno} alCerrar={() => setVerSueno(false)} titulo="Temporizador de sueño">
+        <div className="lista" role="radiogroup" aria-label="Minutos del temporizador">
+          {[...MINUTOS_SUENO, null].map((m, i) => (
+            <div key={m ?? 'apagado'}>
+              {i > 0 && <div className="separador" />}
+              <button className="fila" role="radio" aria-checked={m === null ? !finSueno : false} onClick={() => ponerSueno(m)}>
+                <span className="flex-1">{m ? `${m} minutos` : 'Apagado'}</span>
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="pie-grupo">
+          {finSueno ? `${textoRestante(finSueno - hora)}. ` : ''}Cinco minutos antes te aviso para que busques dónde guardar; al acabar, el juego se pausa y se guarda todo.
+        </p>
+        <button className="boton-texto mt-2 w-full py-2" onClick={() => setVerSueno(false)}>
           Volver al menú
         </button>
       </Hoja>
@@ -469,7 +586,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         </button>
       </Hoja>
 
-      <Hoja oscura abierta={menu && !verEstados && !verTemas && !verMando && !verPantalla} alCerrar={seguir} titulo={nombre}>
+      <Hoja oscura abierta={menu && !verEstados && !verTemas && !verMando && !verPantalla && !verSueno} alCerrar={seguir} titulo={nombre}>
         <div className="lista">
           <button className="fila font-semibold text-acento dark:text-acento-oscuro" onClick={seguir}>
             <Play size={20} /> Seguir jugando
@@ -481,6 +598,12 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           <div className="separador" />
           <button className="fila" onClick={() => setVerNotas(true)}>
             <NotebookPen size={20} className="text-acento dark:text-acento-oscuro" /> Notas
+          </button>
+          <div className="separador" />
+          <button className="fila" onClick={() => setVerSueno(true)}>
+            <BedDouble size={20} className="text-acento dark:text-acento-oscuro" />
+            <span className="flex-1">Temporizador de sueño</span>
+            <span className="text-zinc-500">{finSueno ? textoRestante(finSueno - hora) : 'Apagado'}</span>
           </button>
           <div className="separador" />
           <div className="fila justify-between">
@@ -532,9 +655,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       </Hoja>
 
       <Hoja oscura abierta={menu && verEstados} alCerrar={() => setVerEstados(false)} titulo="Estados guardados">
-        <p className="pie-grupo mb-2">Un estado guarda el momento exacto del juego. Hay tres ranuras por juego; al salir se guarda otro aparte para seguir donde lo dejaste.</p>
+        <p className="pie-grupo mb-2">Un estado guarda el momento exacto del juego. Hay nueve ranuras por juego y puedes ponerles nombre con el lápiz; al salir se guarda otro aparte para seguir donde lo dejaste.</p>
         <div className="lista">
-          {RANURAS.map((r, i) => {
+          {RANURAS_USUARIO.map((r, i) => {
             const e = estadoDe(r)
             return (
               <div key={r}>
@@ -542,9 +665,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
                 <div className="fila">
                   <Captura estado={e} />
                   <div className="min-w-0 flex-1">
-                    <p>Ranura {r}</p>
-                    <p className="text-[13px] text-zinc-500">{e ? cuando(e.fecha) : 'Vacía'}</p>
+                    <p className="truncate">{e?.nombre ?? `Ranura ${r}`}</p>
+                    <p className="truncate text-[13px] text-zinc-500">{e ? `${e.nombre ? `Ranura ${r}, ` : ''}${cuando(e.fecha)}` : 'Vacía'}</p>
                   </div>
+                  {e && (
+                    <button className="boton-icono" aria-label={`Poner nombre a la ranura ${r}`} onClick={() => void renombrar(r)}>
+                      <Pencil size={18} />
+                    </button>
+                  )}
                   <button className="boton-icono" aria-label={`Guardar en la ranura ${r}`} onClick={() => void guardarEn(r)}>
                     <Save size={20} />
                   </button>
