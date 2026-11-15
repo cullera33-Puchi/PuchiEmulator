@@ -1,10 +1,13 @@
 /**
- * Biblioteca: los juegos añadidos desde Archivos, en cuadrícula con sus carátulas y el último jugado
- * primero. Tocar un juego lo abre donde se dejó (si hay estado «auto»); mantenerlo pulsado o tocar
- * «…» abre sus opciones. Quitar un juego o borrar su partida se puede deshacer.
+ * Biblioteca de una consola: sus juegos en cuadrícula con las carátulas y el último jugado primero.
+ * Es una pantalla apilada sobre el inicio («‹ Consolas» o deslizar desde el borde para volver).
+ * Tocar un juego lo abre donde se dejó (si hay estado «auto»); mantenerlo pulsado o tocar «…» abre
+ * sus opciones. Quitar un juego o borrar su partida se puede deshacer.
  */
-import { ChevronRight, Ellipsis, Gamepad2, Plus, Settings } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Ellipsis, Gamepad2, Plus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type PointerEvent as EventoPuntero } from 'react'
+import { useAnadirJuegos } from '../componentes/AnadirJuegos'
+import { useVolverDeslizando } from '../componentes/gestos'
 import { HojaCaratula } from '../componentes/HojaCaratula'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
 import { altavoz } from '../emulador/audio'
@@ -26,15 +29,16 @@ import {
   quitarJuego,
   type Juego,
 } from '../lib/almacen'
-import { anadirFichero, ordenarJuegos } from '../lib/biblioteca'
-import { cuando, plural, tamano } from '../lib/formato'
+import { ordenarJuegos } from '../lib/biblioteca'
+import { cuando, tamano } from '../lib/formato'
 import { vibrar } from '../lib/vibracion'
 import { registrar } from '../lib/registro'
-import { SISTEMAS } from '../lib/sistemas'
+import { SISTEMAS, type Sistema } from '../lib/sistemas'
 
 interface Props {
-  alJugar: (id: string, reanudar: boolean) => void
-  alAjustes: () => void
+  sistema: Sistema
+  alJugar: (juego: Juego, reanudar: boolean) => void
+  alVolver: () => void
 }
 
 interface Detalle {
@@ -103,7 +107,7 @@ function Ficha({ juego, caratula, alJugar, alOpciones }: { juego: Juego; caratul
       <div className="mt-1.5 flex items-start gap-0.5">
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-[13px] leading-tight">{juego.nombre}</p>
-          <p className="truncate text-[11px] text-zinc-500">{juego.ultimaVez ? `Jugado ${cuando(juego.ultimaVez)}` : s.nombre}</p>
+          <p className="truncate text-[11px] text-zinc-500">{juego.ultimaVez ? `Jugado ${cuando(juego.ultimaVez)}` : 'Sin jugar'}</p>
         </div>
         <button className="-mt-2 -mr-2 grid size-10 shrink-0 place-items-center text-zinc-500 active:opacity-50" aria-label={`Opciones de ${juego.nombre}`} onClick={alOpciones}>
           <Ellipsis size={18} />
@@ -113,18 +117,19 @@ function Ficha({ juego, caratula, alJugar, alOpciones }: { juego: Juego; caratul
   )
 }
 
-export function Biblioteca({ alJugar, alAjustes }: Props) {
+export function Biblioteca({ sistema, alJugar, alVolver }: Props) {
   const { avisar } = useInterfaz()
   const [juegos, setJuegos] = useState<Juego[] | null>(null)
   const [conEstado, setConEstado] = useState<Set<string>>(new Set())
   const [caratulas, setCaratulas] = useState<Map<string, string>>(new Map())
-  const [anadiendo, setAnadiendo] = useState<string | null>(null)
   const [detalle, setDetalle] = useState<Detalle | null>(null)
   const [eligiendoCaratula, setEligiendoCaratula] = useState<Juego | null>(null)
-  const selector = useRef<HTMLInputElement>(null)
+  const pantalla = useRef<HTMLDivElement>(null)
+  const info = SISTEMAS[sistema]
+  useVolverDeslizando(pantalla, alVolver)
 
   const recargar = useCallback(async () => {
-    const lista = ordenarJuegos(await listarJuegos())
+    const lista = ordenarJuegos((await listarJuegos()).filter((j) => j.sistema === sistema))
     const [estados, imagenes] = await Promise.all([Promise.all(lista.map((j) => leerEstado(j.id, 'auto'))), listarCaratulas()])
     setConEstado(new Set(lista.filter((_, i) => estados[i]).map((j) => j.id)))
     setCaratulas((antes) => {
@@ -132,48 +137,19 @@ export function Biblioteca({ alJugar, alAjustes }: Props) {
       return new Map(imagenes.map((c) => [c.id, URL.createObjectURL(new Blob([c.datos], { type: 'image/jpeg' }))]))
     })
     setJuegos(lista)
-  }, [])
+  }, [sistema])
 
   useEffect(() => {
     void recargar()
   }, [recargar])
 
-  const elegirFicheros = () => selector.current?.click()
-
-  const alElegir = async (ficheros: FileList | null) => {
-    if (!ficheros?.length) return
-    let nuevos = 0
-    let repetidos = 0
-    const fallidos: string[] = []
-    for (const [i, f] of Array.from(ficheros).entries()) {
-      setAnadiendo(ficheros.length > 1 ? `Añadiendo ${i + 1} de ${ficheros.length}…` : 'Añadiendo…')
-      try {
-        const r = await anadirFichero(f.name, await f.arrayBuffer())
-        if (r.tipo === 'nuevo') nuevos++
-        else if (r.tipo === 'repetido') repetidos++
-        else fallidos.push(f.name)
-      } catch (e) {
-        registrar('error', 'No se pudo añadir un juego', (e as Error).message)
-        fallidos.push(f.name)
-      }
-    }
-    setAnadiendo(null)
-    if (selector.current) selector.current.value = ''
-    registrar('info', 'Juegos añadidos', { nuevos, repetidos, fallidos: fallidos.length })
-    await recargar()
-    const partes: string[] = []
-    if (nuevos) partes.push(nuevos === 1 ? 'Juego añadido' : plural(nuevos, 'juego añadido', 'juegos añadidos'))
-    if (repetidos) partes.push(repetidos === 1 ? 'uno ya estaba en la biblioteca' : `${repetidos} ya estaban en la biblioteca`)
-    if (fallidos.length) partes.push(fallidos.length === 1 ? `«${fallidos[0]}» no es un juego que se pueda abrir` : `${fallidos.length} ficheros no se han reconocido`)
-    const texto = partes.join(', ')
-    avisar(texto.charAt(0).toUpperCase() + texto.slice(1))
-  }
+  const anadir = useAnadirJuegos(recargar, sistema)
 
   const jugar = (j: Juego, reanudar: boolean) => {
     // El sonido de Safari se desbloquea en este mismo toque
     void altavoz.activar(leerAjustes().sonarEnSilencio)
     setDetalle(null)
-    alJugar(j.id, reanudar)
+    alJugar(j, reanudar)
   }
 
   const abrirDetalle = async (juego: Juego) => {
@@ -223,30 +199,25 @@ export function Biblioteca({ alJugar, alAjustes }: Props) {
   }
 
   return (
+    <div ref={pantalla} className="min-h-dvh bg-[#F2F2F7] dark:bg-black">
     <div className="mx-auto min-h-dvh max-w-lg px-4" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
-      <div className="sticky top-0 z-10 -mx-4 mb-3 flex h-11 items-center justify-between bg-[#F2F2F7]/85 px-4 backdrop-blur-xl dark:bg-black/85">
-        <h1 className="text-[22px] font-bold">Juegos</h1>
-        <div className="-mr-2 flex items-center">
-          <button className="boton-icono" aria-label="Añadir juegos" onClick={elegirFicheros}>
-            <Plus size={24} />
-          </button>
-          <button className="boton-icono" aria-label="Ajustes" onClick={alAjustes}>
-            <Settings size={22} />
-          </button>
-        </div>
+      <div className="sticky top-0 z-10 -mx-4 mb-3 grid h-11 grid-cols-[1fr_auto_1fr] items-center bg-[#F2F2F7]/85 px-2 backdrop-blur-xl dark:bg-black/85">
+        <button className="boton-texto flex items-center justify-self-start" onClick={alVolver}>
+          <ChevronLeft size={26} /> Consolas
+        </button>
+        <h1 className="truncate text-[17px] font-semibold">{info.nombre}</h1>
+        <button className="boton-icono justify-self-end" aria-label="Añadir juegos" onClick={anadir.abrir}>
+          <Plus size={24} />
+        </button>
       </div>
-
-      {/* Sin filtro de tipo: en el iPhone, Archivos no deja elegir extensiones que no conoce */}
-      <input ref={selector} type="file" multiple className="hidden" data-testid="selector" onChange={(e) => void alElegir(e.target.files)} />
+      {anadir.elementos}
 
       {juegos && juegos.length === 0 && (
         <div className="mt-16 flex flex-col items-center px-6 text-center">
           <Gamepad2 size={56} strokeWidth={1.25} className="text-zinc-400" />
-          <p className="mt-4 text-[20px] font-semibold">Aún no hay juegos</p>
-          <p className="mt-2 text-[15px] text-zinc-500">
-            Elige tus juegos de Game Boy, Game Boy Color o Game Boy Advance en Archivos (.gb, .gbc, .gba o .zip). La app guarda una copia y el fichero original se queda donde está.
-          </p>
-          <button className="boton-lleno mt-6" onClick={elegirFicheros}>
+          <p className="mt-4 text-[20px] font-semibold">Aún no hay juegos de {info.nombre}</p>
+          <p className="mt-2 text-[15px] text-zinc-500">Elige tus juegos en Archivos (.gb, .gbc, .gba o .zip). La app guarda una copia y el fichero original se queda donde está.</p>
+          <button className="boton-lleno mt-6" onClick={anadir.abrir}>
             <Plus size={20} /> Añadir juegos
           </button>
         </div>
@@ -267,12 +238,6 @@ export function Biblioteca({ alJugar, alAjustes }: Props) {
           </div>
           <p className="pie-grupo mt-4 text-center">Toca un juego para seguir donde lo dejaste. Mantén pulsado para ver sus opciones.</p>
         </>
-      )}
-
-      {anadiendo && (
-        <div className="velo fixed inset-0 z-50 grid place-items-center bg-black/40">
-          <p className="rounded-2xl bg-white px-6 py-4 text-[15px] dark:bg-zinc-800">{anadiendo}</p>
-        </div>
       )}
 
       <Hoja abierta={!!detalle} alCerrar={() => setDetalle(null)} titulo={detalle?.juego.nombre}>
@@ -345,6 +310,7 @@ export function Biblioteca({ alJugar, alAjustes }: Props) {
       </Hoja>
 
       <HojaCaratula juego={eligiendoCaratula} alCerrar={() => setEligiendoCaratula(null)} alCambiar={() => void recargar()} />
+    </div>
     </div>
   )
 }

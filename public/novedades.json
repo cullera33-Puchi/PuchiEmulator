@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.3.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Al entrar ves tus consolas, cada una con su dibujo o con una foto tuya, y entras en la biblioteca de cada una.",
+      "«Seguir jugando» arriba, para volver al último juego con un toque.",
+      "Modo una mano en vertical, para la derecha o la izquierda: todo abajo, al alcance del pulgar. Ideal para juegos de rol.",
+      "Tamaño de los botones a elegir: pequeños, normales, grandes o enormes.",
+      "Lo cambias desde el menú del juego, en «Mando», o en Ajustes."
+    ]
+  },
+  {
     "version": "0.2.0",
     "fecha": "15/11/2026",
     "cambios": [

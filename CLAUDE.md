@@ -38,11 +38,12 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 
 ## Cómo funciona
 
-- **Biblioteca** (`src/pantallas/Biblioteca.tsx`): «+» abre Archivos (varios ficheros a la vez, `.gb`, `.gbc`, `.gba` o `.zip`). Sin filtro de tipo en el selector, porque Archivos no deja elegir extensiones que no conoce. La consola se reconoce por la cabecera y, si no, por la extensión (`src/lib/sistemas.ts`). La ROM se copia en IndexedDB; el identificador del juego es el SHA-1 de la ROM, así que una partida encuentra su juego aunque se quite y se vuelva a añadir.
+- **Inicio** (v0.3.0, `src/pantallas/Inicio.tsx`): «Seguir jugando» con el último juego y una tarjeta por consola con su dibujo propio (`src/componentes/Consolas.tsx`) o una foto del usuario (almacén `caratulas`, clave `consola-<sistema>`). Tocar una consola abre su biblioteca, que es una pantalla apilada. Al salir de un juego se vuelve a la biblioteca de su consola.
+- **Biblioteca** (`src/pantallas/Biblioteca.tsx`, una por consola): «+» (aquí o en el inicio, `useAnadirJuegos`) abre Archivos (varios ficheros a la vez, `.gb`, `.gbc`, `.gba` o `.zip`). Sin filtro de tipo en el selector, porque Archivos no deja elegir extensiones que no conoce. La consola se reconoce por la cabecera y, si no, por la extensión (`src/lib/sistemas.ts`). La ROM se copia en IndexedDB; el identificador del juego es el SHA-1 de la ROM, así que una partida encuentra su juego aunque se quite y se vuelva a añadir.
 - **Almacenamiento** (`src/lib/almacen.ts`): colecciones `juegos`, `roms`, `partidas` y `estados`. Las partidas van por juego; los estados, por juego y ranura (`auto`, `1`, `2` y `3`).
 - **Guardado**: la partida del juego (SRAM, Flash o EEPROM y el reloj del cartucho) se guarda en cuanto cambia (se comprueba cada segundo), al abrir el menú, al pasar a segundo plano y al salir. Al pasar a segundo plano y al salir se guarda además el estado `auto`, que permite seguir donde se dejó.
 - **Juego** (`src/pantallas/Juego.tsx`, `src/emulador/sesion.ts`): ritmo por tiempo (el iPhone puede ir a 60, 120 o 30 Hz), como mucho 4 fotogramas seguidos para recuperar. La distribución en vertical y en horizontal la decide el CSS (`.juego` en `src/index.css`) con la orientación.
-- **Mando táctil** (`src/componentes/Mando.tsx`): varios dedos, deslizar entre botones, la cruceta es del dedo que empieza en ella y da ocho direcciones por ángulo (`direccionCruceta`). También teclado y mandos físicos (Gamepad API, distribución de Nintendo).
+- **Mando táctil** (`src/componentes/Mando.tsx`): tamaño de los botones con `--escala` (0,8, 1, 1,15 y 1,3) y, en vertical, modo una mano para la derecha o la izquierda (`.juego.una-mano[data-mano]` en `src/index.css`; v0.3.0). Varios dedos, deslizar entre botones, la cruceta es del dedo que empieza en ella y da ocho direcciones por ángulo (`direccionCruceta`). También teclado y mandos físicos (Gamepad API, distribución de Nintendo).
 - **Sonido** (`src/emulador/audio.ts`, `public/procesador-audio.js`): AudioWorklet con cola de unos 70 ms y remuestreo lineal con ajuste de ritmo de hasta un 0,5 % según la cola (`src/emulador/remuestreo.ts`). El altavoz es único y se activa en el toque que abre el juego (Safari lo exige). «Sonar con el iPhone en silencio» usa `navigator.audioSession`.
 - **Copia de partidas** (`src/lib/copias.ts`): archivo JSON con partidas y, opcionalmente, estados; se comparte con la hoja del iPhone (Guardar en Archivos). Recuperarla sustituye la partida de esos juegos y no toca el resto.
 - **Actualizaciones**: el service worker espera a que se toque «Actualizar» (nunca corta una partida ni se ofrece durante una) y enseña las novedades de `public/novedades.json`.
@@ -74,6 +75,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 | --- | --- | --- |
 | Fase 1 | PWA, biblioteca desde Archivos, Game Boy, Game Boy Color y GBA con mGBA, controles táctiles en vertical y horizontal, partidas guardadas en el iPhone | Hecha (v0.1.0) y publicada; carga en el iPhone, pendiente de probar con juegos reales |
 | v0.2.0 | Guardar y cargar rápido, rebobinar, avance rápido, carátulas, temas de consola y guía de usabilidad | Hecha, pendiente de validar en el iPhone |
+| v0.3.0 | Inicio con las consolas y biblioteca por consola, tamaño de los botones y modo una mano en vertical | Hecha, pendiente de validar en el iPhone |
 | 2 | Super Nintendo con Snes9x (no comercial) y su disposición de botones (X, Y, L y R). Esfuerzo medio | Pendiente, no empezar sin indicación del usuario |
 | 3 | Mega Drive con Genesis Plus GX (no comercial). Esfuerzo bajo | Pendiente, no empezar sin indicación del usuario |
 | 4 | PlayStation con PCSX ReARMed (GPL). Esfuerzo alto: imágenes de CD de 300 a 700 MB que hay que guardar y leer sin cargarlas enteras en memoria; BIOS opcional | Pendiente, no empezar sin indicación del usuario |
@@ -84,6 +86,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; PCSX R
 
 ## Estado
 
+- v0.3.0 (15/11/2026): inicio con las consolas (dibujo propio o foto del usuario, recuento y «Seguir jugando»), biblioteca por consola, tamaño de los botones y modo una mano en vertical (derecha o izquierda), pedidos por el usuario. 50 pruebas unitarias y 15 de navegador. Pendiente de validar en el iPhone, sobre todo la comodidad del modo una mano.
 - v0.2.0 (15/11/2026): guardar y cargar rápido, rebobinar, avance rápido x2 y x4, carátulas (búsqueda en libretro y foto propia, biblioteca en cuadrícula), temas de consola con paleta verde para Game Boy, y la guía de usabilidad (registro, copias diarias, Deshacer, hojas arrastrables, bienvenida). 50 pruebas unitarias y 13 de navegador. Pendiente de validar en el iPhone, sobre todo la vibración al pulsar (iOS 17.4 o posterior) y el arrastre de las hojas.
 - v0.1.0 (15/11/2026): fase 1 construida y publicada en `https://cullera33-puchi.github.io/PuchiEmulator/`.
   - mGBA compilado a WebAssembly (908 KB) con el puente propio. Probado con ROMs propias de GBA y Game Boy: imagen, botones, partida guardada y estados.

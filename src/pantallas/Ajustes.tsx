@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useVolverDeslizando } from '../componentes/gestos'
 import { SelectorTema } from '../componentes/SelectorTema'
+import { AjustesMando } from '../componentes/AjustesMando'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { temaPara } from '../lib/temas'
 import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
@@ -204,7 +205,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
       <div className="mx-auto max-w-lg px-4" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
         <div className="sticky top-0 z-10 -mx-4 mb-3 grid h-11 grid-cols-[1fr_auto_1fr] items-center bg-[#F2F2F7]/85 px-2 backdrop-blur-xl dark:bg-black/85">
           <button className="boton-texto flex items-center justify-self-start" onClick={alVolver}>
-            <ChevronLeft size={26} /> Juegos
+            <ChevronLeft size={26} /> Consolas
           </button>
           <h1 className="text-[17px] font-semibold">Ajustes</h1>
         </div>
@@ -223,7 +224,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
         </div>
         <p className="pie-grupo">Si está desactivado, el juego no suena con el interruptor de silencio puesto, como el resto de juegos del iPhone.</p>
 
-        <p className="cabecera-grupo mt-6">Imagen y mando</p>
+        <p className="cabecera-grupo mt-6">Imagen y vibración</p>
         <div className="lista">
           <div className="fila justify-between">
             <span>Píxeles nítidos</span>
@@ -234,22 +235,10 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
             <span>Vibrar al pulsar</span>
             <Interruptor etiqueta="Vibrar al pulsar" activo={a.vibracion} alCambiar={(v) => cambiar({ vibracion: v })} />
           </div>
-          <div className="separador" />
-          <div className="fila flex-col items-stretch gap-2 py-3">
-            <span>Botones en horizontal</span>
-            <Segmentado
-              etiqueta="Opacidad de los botones en horizontal"
-              valor={a.opacidadMando}
-              opciones={[
-                [0.3, 'Discretos'],
-                [0.6, 'Normal'],
-                [1, 'Opacos'],
-              ]}
-              alCambiar={(v) => cambiar({ opacidadMando: v })}
-            />
-          </div>
         </div>
-        <p className="pie-grupo">En horizontal los botones quedan encima del borde de la imagen. También funcionan un teclado y los mandos de PlayStation, Xbox o MFi conectados al iPhone.</p>
+        <p className="cabecera-grupo mt-6">Mando</p>
+        <AjustesMando />
+        <p className="pie-grupo">También funcionan un teclado y los mandos de PlayStation, Xbox o MFi conectados al iPhone.</p>
 
         <p className="cabecera-grupo mt-6">Temas del juego</p>
         <div className="lista">

@@ -3,7 +3,7 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { FastForward, FolderOpen, Menu, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
+import { FastForward, FolderOpen, Gamepad2, Menu, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
@@ -16,6 +16,7 @@ import { registrar } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { paletaPara, temaPara } from '../lib/temas'
 import { SelectorTema } from '../componentes/SelectorTema'
+import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
 
 interface Props {
   id: string
@@ -44,6 +45,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [hayRapido, setHayRapido] = useState(false)
   const [sistema, setSistema] = useState<Sistema>('gba')
   const [verTemas, setVerTemas] = useState(false)
+  const [verMando, setVerMando] = useState(false)
   const tema = temaPara(sistema, ajustes.temas[sistema])
   const ajustesRef = useRef(ajustes)
   ajustesRef.current = ajustes
@@ -227,9 +229,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   return (
     <div
-      className={`juego ${ajustes.nitido ? '' : 'suave'}`}
+      className={`juego ${ajustes.nitido ? '' : 'suave'} ${ajustes.modoMando === 'una-mano' ? 'una-mano' : ''}`}
       data-tema={tema.id}
-      style={{ ...tema.vars, '--proporcion': proporcion, '--opacidad-horizontal': ajustes.opacidadMando } as React.CSSProperties}
+      data-mano={ajustes.mano}
+      style={{ ...tema.vars, '--proporcion': proporcion, '--opacidad-horizontal': ajustes.opacidadMando, '--escala': ajustes.escalaMando } as React.CSSProperties}
       data-testid="juego"
     >
       <div className="zona-pantalla">
@@ -305,7 +308,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
       {menu && verTemas && <SelectorTema oscura sistema={sistema} alCerrar={() => setVerTemas(false)} />}
 
-      <Hoja oscura abierta={menu && !verEstados && !verTemas} alCerrar={seguir} titulo={nombre}>
+      <Hoja oscura abierta={menu && verMando} alCerrar={() => setVerMando(false)} titulo="Mando">
+        <AjustesMando />
+        <button className="boton-texto mt-4 w-full py-2" onClick={() => setVerMando(false)}>
+          Volver al menú
+        </button>
+      </Hoja>
+
+      <Hoja oscura abierta={menu && !verEstados && !verTemas && !verMando} alCerrar={seguir} titulo={nombre}>
         <div className="lista">
           <button className="fila font-semibold text-acento dark:text-acento-oscuro" onClick={seguir}>
             <Play size={20} /> Seguir jugando
@@ -319,6 +329,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             {ajustes.sonido ? <Volume2 size={20} className="text-acento dark:text-acento-oscuro" /> : <VolumeX size={20} className="text-zinc-400" />}
             <span className="flex-1">Sonido</span>
             <span className="text-zinc-500">{ajustes.sonido ? 'Activado' : 'Desactivado'}</span>
+          </button>
+          <div className="separador" />
+          <button className="fila" onClick={() => setVerMando(true)}>
+            <Gamepad2 size={20} className="text-acento dark:text-acento-oscuro" />
+            <span className="flex-1">Mando</span>
+            <span className="text-zinc-500">
+              {ajustes.modoMando === 'una-mano' ? 'Una mano' : 'Dos manos'}, {ESCALAS.find(([v]) => v === ajustes.escalaMando)?.[1].toLowerCase() ?? 'normales'}
+            </span>
           </button>
           <div className="separador" />
           <button className="fila" onClick={() => setVerTemas(true)}>

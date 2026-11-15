@@ -23,6 +23,12 @@ export interface Ajustes {
   temas: Partial<Record<Sistema, IdTema | 'auto'>>
   /** Colores de la pantalla en los juegos de Game Boy sin color */
   paletaGb: PaletaGb
+  /** Tamaño de los botones del mando: 0,8, 1, 1,15 o 1,3 */
+  escalaMando: number
+  /** Distribución del mando en vertical */
+  modoMando: 'dos-manos' | 'una-mano'
+  /** Mano del modo una mano */
+  mano: 'derecha' | 'izquierda'
 }
 
 export const POR_DEFECTO: Ajustes = {
@@ -35,6 +41,9 @@ export const POR_DEFECTO: Ajustes = {
   bienvenidaVista: false,
   temas: {},
   paletaGb: 'auto',
+  escalaMando: 1,
+  modoMando: 'dos-manos',
+  mano: 'derecha',
 }
 
 const CLAVE = 'puchiemulator-ajustes'

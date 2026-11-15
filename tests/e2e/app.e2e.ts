@@ -23,8 +23,18 @@ async function colorCentral(page: Page): Promise<[number, number, number]> {
   })
 }
 
+const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy' }
+
+/** Abre la biblioteca de una consola desde el inicio. */
+async function entrar(page: Page, consola: string) {
+  await page.getByTestId('consolas').getByRole('button', { name: new RegExp(`^${consola},`) }).click()
+}
+
+/** Añade una ROM desde el inicio y entra en la biblioteca de su consola. */
 async function anadir(page: Page, fichero: string) {
   await page.getByTestId('selector').setInputFiles(rom(fichero))
+  await expect(page.getByText(/añadido|ya estaba/i)).toBeVisible()
+  await entrar(page, CONSOLA[fichero])
 }
 
 async function pulsar(page: Page, etiqueta: string, ms = 300) {
@@ -34,12 +44,12 @@ async function pulsar(page: Page, etiqueta: string, ms = 300) {
   await page.waitForTimeout(ms)
 }
 
-test('biblioteca vacía, añadir un juego de GBA y jugar con los botones', async ({ page }) => {
+test('inicio sin juegos, añadir un juego de GBA y jugar con los botones', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('Aún no hay juegos')).toBeVisible()
+  await expect(page.getByText(/Añade tus juegos con/)).toBeVisible()
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(3)
 
   await anadir(page, 'prueba.gba')
-  await expect(page.getByText('Juego añadido')).toBeVisible()
   await expect(page.getByRole('button', { name: /prueba.*Game Boy Advance/i })).toBeVisible()
 
   await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
@@ -122,7 +132,7 @@ test('un fichero que no es un juego se rechaza', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('selector').setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
   await expect(page.getByText(/no es un juego/)).toBeVisible()
-  await expect(page.getByText('Aún no hay juegos')).toBeVisible()
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(3)
 })
 
 test.describe('en horizontal', () => {
@@ -180,6 +190,7 @@ test('la partida guardada dentro del juego se conserva en el iPhone al cerrar la
 
   // Se cierra la app sin pasar por el menú
   await page.reload()
+  await entrar(page, 'Game Boy Advance')
   await page.getByRole('button', { name: /Opciones de/ }).click()
   await expect(page.getByText(/Partida guardada/).locator('..')).toContainText('hoy')
   // Si la app se cierra a la fuerza puede no haber estado «auto»: entonces el botón es «Jugar»
@@ -283,7 +294,7 @@ test('la hoja de bienvenida sale la primera vez y no vuelve', async ({ page }) =
   await page.getByRole('button', { name: 'Entendido' }).click()
   await expect(page.getByRole('dialog', { name: 'Bienvenido' })).toBeHidden()
   await page.reload()
-  await expect(page.getByText('Aún no hay juegos')).toBeVisible()
+  await expect(page.getByText(/Añade tus juegos con/)).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Bienvenido' })).toBeHidden()
 })
 
@@ -299,6 +310,7 @@ test('ajustes: registro con lo ocurrido, copias de seguridad y restaurar con Des
   await page.getByRole('button', { name: 'Menú' }).click()
   await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
 
+  await page.getByRole('button', { name: 'Consolas' }).click()
   await page.getByRole('button', { name: 'Ajustes' }).click()
   await page.getByRole('button', { name: /Ver registro/ }).click()
   const registro = page.getByRole('textbox', { name: 'Registro' })
@@ -321,6 +333,97 @@ test('ajustes: registro con lo ocurrido, copias de seguridad y restaurar con Des
   // La restauración deja también una copia previa
   await expect(copias.getByRole('button', { name: /Antes de recuperar/ })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Juegos' }).click()
-  await expect(page.getByTestId('biblioteca')).toBeVisible()
+  await page.getByRole('button', { name: 'Consolas' }).click()
+  await expect(page.getByTestId('consolas')).toBeVisible()
+})
+
+test('inicio: cada juego va a su consola, recuentos, seguir jugando y foto de la consola', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  // Desde la biblioteca de GBA se añade uno de Game Boy: va a su consola y se avisa
+  await page.getByTestId('selector').setInputFiles(rom('prueba.gb'))
+  await expect(page.getByText('Juego añadido a Game Boy')).toBeVisible()
+  await expect(page.getByTestId('biblioteca').getByRole('button', { name: /prueba, Game Boy$/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: /prueba, Game Boy Advance/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await page.getByRole('button', { name: 'Consolas' }).click()
+
+  const consolas = page.getByTestId('consolas')
+  await expect(consolas.getByRole('button', { name: 'Game Boy, 1 juego', exact: true })).toBeVisible()
+  await expect(consolas.getByRole('button', { name: 'Game Boy Color, sin juegos' })).toBeVisible()
+  await expect(consolas.getByRole('button', { name: 'Game Boy Advance, 1 juego' })).toBeVisible()
+
+  // Foto propia de una consola y vuelta al dibujo con Deshacer
+  await consolas.getByRole('button', { name: 'Opciones de Game Boy', exact: true }).click()
+  await page.getByTestId('selector-foto-consola').setInputFiles(rom('../../public/icono-512.png'))
+  await expect(page.getByText('Foto puesta')).toBeVisible()
+  await expect(consolas.locator('img')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Deshacer' }).click()
+  await expect(consolas.locator('img')).toHaveCount(0)
+
+  // Seguir jugando abre el último juego y, al salir, vuelve a la biblioteca de su consola
+  await page.getByRole('button', { name: /Seguir jugando a prueba/ }).click()
+  await expect(page.getByTestId('juego')).toBeVisible()
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await expect(page.getByRole('heading', { name: 'Game Boy Advance' })).toBeVisible()
+})
+
+test.describe('mando', () => {
+  test('modo una mano en vertical, para la mano derecha y la izquierda, y tamaño de los botones', async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, 'prueba.gba')
+    await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+    await expect(page.getByText('Cargando…')).toBeHidden()
+    const mando = page.getByTestId('mando')
+    const ancho = page.viewportSize()!.width
+    const caja = async (nombre: string) => (nombre === 'Cruceta' ? mando.getByLabel('Cruceta') : mando.getByRole('button', { name: nombre, exact: true })).boundingBox()
+    const tamNormal = (await caja('Cruceta'))!.width
+
+    await page.getByRole('button', { name: 'Menú' }).click()
+    await page.getByRole('button', { name: /^Mando/ }).click()
+    await page.getByRole('radio', { name: 'Una mano' }).click()
+    await page.getByRole('radio', { name: 'Mano derecha' }).click()
+    await page.getByRole('button', { name: 'Volver al menú' }).click()
+    await page.getByRole('button', { name: 'Seguir jugando' }).click()
+    await expect(page.getByTestId('juego')).toHaveClass(/una-mano/)
+    // Todo en la mitad derecha y abajo
+    for (const n of ['Cruceta', 'A', 'B', 'Start', 'Select', 'L', 'R']) {
+      const c = (await caja(n))!
+      expect(c.x + c.width / 2, n).toBeGreaterThan(ancho * 0.2)
+      expect(c.x + c.width, n).toBeLessThanOrEqual(ancho)
+      expect(c.x, n).toBeGreaterThanOrEqual(0)
+    }
+    await pulsar(page, 'A')
+    await expect.poll(() => colorCentral(page)).toEqual([0, 251, 0])
+    await page.mouse.up()
+
+    // Mano izquierda: en espejo
+    await page.getByRole('button', { name: 'Menú' }).click()
+    await page.getByRole('button', { name: /^Mando/ }).click()
+    await page.getByRole('radio', { name: 'Mano izquierda' }).click()
+    await page.getByRole('radio', { name: 'Enormes' }).click()
+    await page.getByRole('button', { name: 'Volver al menú' }).click()
+    await page.getByRole('button', { name: 'Seguir jugando' }).click()
+    const cruceta = (await caja('Cruceta'))!
+    const a = (await caja('A'))!
+    expect(cruceta.x).toBeLessThan(a.x)
+    expect(cruceta.x).toBeLessThan(ancho * 0.2)
+    for (const n of ['Cruceta', 'A', 'B', 'Start', 'Select', 'L', 'R']) {
+      const c = (await caja(n))!
+      expect(c.x, n).toBeGreaterThanOrEqual(0)
+      expect(c.x + c.width, n).toBeLessThanOrEqual(ancho)
+    }
+
+    // Dos manos con botones enormes: la cruceta crece
+    await page.getByRole('button', { name: 'Menú' }).click()
+    await page.getByRole('button', { name: /^Mando/ }).click()
+    await page.getByRole('radio', { name: 'Dos manos' }).click()
+    await page.getByRole('button', { name: 'Volver al menú' }).click()
+    await page.getByRole('button', { name: 'Seguir jugando' }).click()
+    expect((await caja('Cruceta'))!.width).toBeGreaterThan(tamNormal)
+  })
 })

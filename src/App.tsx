@@ -1,6 +1,7 @@
 /**
- * Navegación: biblioteca, ajustes y juego. Sin rutas en la dirección: la app instalada se abre
- * siempre en la biblioteca, y vuelve a ella si se pasa más de dos horas fuera (salvo en un juego).
+ * Navegación: inicio (consolas), biblioteca de cada consola, ajustes y juego. Sin rutas en la
+ * dirección: la app instalada se abre siempre en el inicio, y vuelve a él si se pasa más de dos
+ * horas fuera (salvo en un juego). Al salir de un juego se vuelve a la biblioteca de su consola.
  */
 import { Gamepad2, Hand, Rewind } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -11,9 +12,12 @@ import { registrar } from './lib/registro'
 import { cargarNovedades, novedadesPosteriores, type Novedad } from './lib/version'
 import { Ajustes } from './pantallas/Ajustes'
 import { Biblioteca } from './pantallas/Biblioteca'
+import { Inicio } from './pantallas/Inicio'
 import { Juego } from './pantallas/Juego'
+import type { Juego as TipoJuego } from './lib/almacen'
+import type { Sistema } from './lib/sistemas'
 
-type Pantalla = { tipo: 'biblioteca' } | { tipo: 'ajustes' } | { tipo: 'juego'; id: string; reanudar: boolean }
+type Pantalla = { tipo: 'inicio' } | { tipo: 'biblioteca'; sistema: Sistema } | { tipo: 'ajustes' } | { tipo: 'juego'; id: string; reanudar: boolean; sistema: Sistema }
 
 const DOS_HORAS = 2 * 60 * 60 * 1000
 
@@ -84,7 +88,7 @@ function AvisoVersion({ visible }: { visible: boolean }) {
 function Bienvenida() {
   const { bienvenidaVista } = useAjustes()
   const consejos = [
-    { icono: Gamepad2, titulo: 'Añade tus juegos', texto: 'Con «+» eliges los ficheros en Archivos. Toca un juego para seguir donde lo dejaste.' },
+    { icono: Gamepad2, titulo: 'Añade tus juegos', texto: 'Con «+» eliges los ficheros en Archivos y cada uno va a su consola. Toca una consola para ver sus juegos.' },
     { icono: Hand, titulo: 'Mantén pulsado un juego', texto: 'Para poner su carátula, cambiarle el nombre o empezar desde el principio.' },
     { icono: Rewind, titulo: 'Guarda, carga y rebobina', texto: 'En el juego tienes guardar y cargar rápido, y rebobinar manteniendo pulsado. Tu partida se guarda sola.' },
   ]
@@ -112,7 +116,7 @@ function Bienvenida() {
 }
 
 function Pantallas() {
-  const [pantalla, setPantalla] = useState<Pantalla>({ tipo: 'biblioteca' })
+  const [pantalla, setPantalla] = useState<Pantalla>({ tipo: 'inicio' })
   const ocultaDesde = useRef(0)
 
   useEffect(() => {
@@ -120,9 +124,9 @@ function Pantallas() {
       if (document.visibilityState === 'hidden') ocultaDesde.current = Date.now()
       else if (ocultaDesde.current && Date.now() - ocultaDesde.current > DOS_HORAS) {
         setPantalla((p) => {
-          if (p.tipo !== 'ajustes') return p
-          registrar('info', 'Vuelta a la biblioteca tras dos horas fuera')
-          return { tipo: 'biblioteca' }
+          if (p.tipo === 'juego' || p.tipo === 'inicio') return p
+          registrar('info', 'Vuelta al inicio tras dos horas fuera')
+          return { tipo: 'inicio' }
         })
       }
     }
@@ -130,15 +134,18 @@ function Pantallas() {
     return () => document.removeEventListener('visibilitychange', alCambiar)
   }, [])
 
+  const jugar = (j: TipoJuego, reanudar: boolean) => setPantalla({ tipo: 'juego', id: j.id, reanudar, sistema: j.sistema })
+
   return (
     <>
-      {pantalla.tipo === 'biblioteca' && (
-        <Biblioteca alJugar={(id, reanudar) => setPantalla({ tipo: 'juego', id, reanudar })} alAjustes={() => setPantalla({ tipo: 'ajustes' })} />
+      {pantalla.tipo === 'inicio' && (
+        <Inicio alAbrirConsola={(sistema) => setPantalla({ tipo: 'biblioteca', sistema })} alJugar={jugar} alAjustes={() => setPantalla({ tipo: 'ajustes' })} />
       )}
-      {pantalla.tipo === 'ajustes' && <Ajustes alVolver={() => setPantalla({ tipo: 'biblioteca' })} />}
-      {pantalla.tipo === 'juego' && <Juego id={pantalla.id} reanudar={pantalla.reanudar} alSalir={() => setPantalla({ tipo: 'biblioteca' })} />}
+      {pantalla.tipo === 'biblioteca' && <Biblioteca sistema={pantalla.sistema} alJugar={jugar} alVolver={() => setPantalla({ tipo: 'inicio' })} />}
+      {pantalla.tipo === 'ajustes' && <Ajustes alVolver={() => setPantalla({ tipo: 'inicio' })} />}
+      {pantalla.tipo === 'juego' && <Juego id={pantalla.id} reanudar={pantalla.reanudar} alSalir={() => setPantalla({ tipo: 'biblioteca', sistema: pantalla.sistema })} />}
       <AvisoVersion visible={pantalla.tipo !== 'juego'} />
-      {pantalla.tipo === 'biblioteca' && <Bienvenida />}
+      {pantalla.tipo === 'inicio' && <Bienvenida />}
     </>
   )
 }
