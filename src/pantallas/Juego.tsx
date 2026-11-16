@@ -9,7 +9,7 @@ import { Mando } from '../componentes/Mando'
 import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
 import { bit, TECLAS } from '../emulador/botones'
 import { cargaAutoFallida, Sesion } from '../emulador/sesion'
-import { aplicarTema, cambiarAjustes, COLOR_NOCHE, useAjustes } from '../lib/ajustes'
+import { aplicarTema, cambiarAjustes, COLOR_NOCHE, leerAjustes, useAjustes } from '../lib/ajustes'
 import { actualizarJuego, estadosDe, leerEstado, leerJuego, leerRomGuardada, RANURAS_USUARIO, renombrarEstado, type Estado, type Ranura } from '../lib/almacen'
 import { cuando } from '../lib/formato'
 import { duracion } from '../lib/estadisticas'
@@ -57,10 +57,13 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [motivoPausa, setMotivoPausa] = useState<'fondo' | 'inactividad'>('fondo')
   // Temporizador de sueño (v0.19.0): hora a la que se para y si ya se ha avisado
   const [finSueno, setFinSueno] = useState<number | null>(null)
+  /** Minutos elegidos en el temporizador, para marcarlos en la hoja */
+  const [minutosSueno, setMinutosSueno] = useState<number | null>(null)
   const avisadoSueno = useRef(false)
   const [hora, setHora] = useState(() => Date.now())
   const [dormir, setDormir] = useState(false)
   const [verSueno, setVerSueno] = useState(false)
+
   // DS: soplar al micrófono (mientras se mantiene) y la tapa cerrada (v0.20.0)
   const [soplando, setSoplando] = useState(false)
   // Botones movibles (v0.20.0): orientación actual y, mientras se edita, el borrador
@@ -99,7 +102,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const ajustesRef = useRef(ajustes)
   ajustesRef.current = ajustes
 
+  // Mientras se colocan los botones, el juego no se reanuda (v0.30.0): ni al volver de segundo plano
+  // ni desde el aviso del temporizador
+  const editandoRef = useRef(false)
   const seguir = useCallback(() => {
+    if (editandoRef.current) return
     setMenu(false)
     setVerNotas(false)
     setVerPantalla(false)
@@ -337,7 +344,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     if (finSueno === null) return
     const mirar = () => {
       const ahora = Date.now()
-      setHora(ahora)
+      // Solo con el menú abierto, que es donde se ve (v0.30.0): si no, se redibujaba todo el juego cada
+      // 5 s mientras se juega
+      if (menuRef.current) setHora(ahora)
       const e = estadoSueno(finSueno, ahora, avisadoSueno.current)
       if (e.avisar) {
         avisadoSueno.current = true
@@ -357,7 +366,16 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     return () => clearInterval(t)
   }, [finSueno, avisar])
 
+  // Al abrir el menú, el tiempo que queda, al día
+  const menuRef = useRef(false)
+  menuRef.current = menu
+  useEffect(() => {
+    if (menu) setHora(Date.now())
+  }, [menu])
+
   const ponerSueno = (minutos: number | null) => {
+    setMinutosSueno(minutos)
+    setHora(Date.now())
     avisadoSueno.current = false
     setFinSueno(minutos ? Date.now() + minutos * 60_000 : null)
     setVerSueno(false)
@@ -385,6 +403,17 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     return () => m.removeEventListener('change', cambio)
   }, [])
 
+  editandoRef.current = !!borrador
+
+  // Si se gira el iPhone mientras se colocan los botones, se guarda lo hecho en la orientación de
+  // antes y se sigue con la de ahora (v0.30.0): antes se guardaba en la de partida lo que se veía en la otra
+  useEffect(() => {
+    if (!borrador || borrador.orientacion === orientacion) return
+    const anterior = leerAjustes().mandos[id]?.disposicion ?? {}
+    cambiarMandoJuego(id, { disposicion: { ...anterior, [borrador.orientacion]: borrador.piezas } })
+    setBorrador({ orientacion, piezas: anterior[orientacion] ?? {} })
+  }, [orientacion, borrador, id])
+
   const colocaciones = borrador?.piezas ?? ajustes.mandos[id]?.disposicion?.[orientacion]
 
   const editarBotones = () => {
@@ -400,6 +429,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     cambiarMandoJuego(id, { disposicion: { ...anterior, [borrador.orientacion]: borrador.piezas } })
     registrar('info', 'Botones colocados', { piezas: Object.keys(borrador.piezas).length, orientacion: borrador.orientacion })
     setBorrador(null)
+    editandoRef.current = false
     seguir()
   }
 
@@ -670,7 +700,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           {[...MINUTOS_SUENO, null].map((m, i) => (
             <div key={m ?? 'apagado'}>
               {i > 0 && <div className="separador" />}
-              <button className="fila" role="radio" aria-checked={m === null ? !finSueno : false} onClick={() => ponerSueno(m)}>
+              <button className="fila" role="radio" aria-checked={m === null ? !finSueno : !!finSueno && minutosSueno === m} onClick={() => ponerSueno(m)}>
                 <span className="flex-1">{m ? `${m} minutos` : 'Apagado'}</span>
               </button>
             </div>

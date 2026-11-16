@@ -18,7 +18,7 @@ const NOMBRE: Record<Pieza, string> = { cruceta: 'Cruceta', botones: 'Botones', 
 
 export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }: Props) {
   const [elegida, setElegida] = useState<Pieza | null>(null)
-  const arrastre = useRef<{ pieza: Pieza; x: number; y: number; inicio: Colocacion } | null>(null)
+  const arrastre = useRef<{ pieza: Pieza; x: number; y: number; inicio: Colocacion; dedo: number } | null>(null)
 
   /** La colocación de una pieza: la guardada o, si no, donde está ahora en pantalla. */
   const colocacionDe = (p: Pieza): Colocacion | null => {
@@ -36,6 +36,8 @@ export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }:
   }
 
   const bajar = (e: EventoPuntero<HTMLDivElement>) => {
+    // Un solo dedo a la vez (v0.30.0): un segundo dedo no le quita la pieza al primero
+    if (arrastre.current) return
     const el = document.elementsFromPoint(e.clientX, e.clientY).find((x) => x.closest('.mando [data-pieza]'))
     const p = el?.closest<HTMLElement>('[data-pieza]')?.dataset.pieza as Pieza | undefined
     if (!p) return
@@ -43,19 +45,20 @@ export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }:
     if (!inicio) return
     e.currentTarget.setPointerCapture?.(e.pointerId)
     setElegida(p)
-    arrastre.current = { pieza: p, x: e.clientX, y: e.clientY, inicio }
+    arrastre.current = { pieza: p, x: e.clientX, y: e.clientY, inicio, dedo: e.pointerId }
   }
 
   const moverDedo = (e: EventoPuntero<HTMLDivElement>) => {
     const a = arrastre.current
-    if (!a) return
+    if (!a || e.pointerId !== a.dedo) return
     const { ancho, alto, giro } = medida()
     const [dx, dy] = vectorJuego(e.clientX - a.x, e.clientY - a.y, giro)
     const c = mover(a.inicio, dx / ancho, dy / alto)
     alCambiar({ ...colocaciones, [a.pieza]: c })
   }
 
-  const subir = () => {
+  const subir = (e: EventoPuntero<HTMLDivElement>) => {
+    if (arrastre.current && e.pointerId !== arrastre.current.dedo) return
     arrastre.current = null
   }
 

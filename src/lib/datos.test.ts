@@ -83,7 +83,7 @@ describe('copia de partidas', () => {
     })
     expect(await leerPartida(id)).toBeUndefined()
 
-    expect(await importarArchivo(texto)).toEqual({ partidas: 1, estados: 1, sesiones: 0, notas: 0 })
+    expect(await importarArchivo(texto)).toMatchObject({ partidas: 1, estados: 1, sesiones: 0, notas: 0 })
     const p = await leerPartida(id)
     expect(new Uint8Array(p!.datos)).toEqual(new Uint8Array([9, 8, 7]))
     expect(new Uint8Array(p!.rtc!)).toEqual(new Uint8Array([1]))
@@ -125,6 +125,44 @@ describe('copia de partidas', () => {
     expect((await leerEstado(id, '9'))?.nombre).toBeUndefined()
     await importarArchivo(texto)
     expect((await leerEstado(id, '9'))?.nombre).toBe('Antes del jefe')
+  })
+
+  it('«Deshacer» al recuperar una copia devuelve los estados y las notas de antes (v0.30.0)', async () => {
+    await guardarEstado({ id, ranura: '3', datos: new Uint8Array([1]).buffer, fecha: 1 })
+    await guardarNota(id, 'Nota vieja')
+    const texto = JSON.stringify(await crearArchivo(true, '0.29.0'))
+    // Después de la copia: estado nuevo con nombre, otro en una ranura que la copia no tiene, y otra nota
+    await guardarEstado({ id, ranura: '3', datos: new Uint8Array([2]).buffer, fecha: 2 })
+    await renombrarEstado(id, '3', 'Antes del jefe')
+    await guardarNota(id, 'Nota nueva')
+    const r = await importarArchivo(texto)
+    expect(new Uint8Array((await leerEstado(id, '3'))!.datos)).toEqual(new Uint8Array([1]))
+    await r.deshacerEstadosYNotas()
+    const e = await leerEstado(id, '3')
+    expect(new Uint8Array(e!.datos)).toEqual(new Uint8Array([2]))
+    expect(e?.nombre).toBe('Antes del jefe')
+    expect((await leerNota(id))?.texto).toBe('Nota nueva')
+  })
+
+  it('«Deshacer» borra los estados que la copia trajo y antes no estaban', async () => {
+    await guardarEstado({ id, ranura: '5', datos: new Uint8Array([1]).buffer, fecha: 1 })
+    const texto = JSON.stringify(await crearArchivo(true, '0.29.0'))
+    _reiniciarConexion()
+    await new Promise<void>((r) => {
+      const p = indexedDB.deleteDatabase('puchiemulator')
+      p.onsuccess = () => r()
+    })
+    const r = await importarArchivo(texto)
+    expect(await leerEstado(id, '5')).toBeDefined()
+    await r.deshacerEstadosYNotas()
+    expect(await leerEstado(id, '5')).toBeUndefined()
+  })
+
+  it('una copia con sesiones de una consola desconocida o colecciones que no son listas se rechaza', () => {
+    const base = { formato: 'puchiemulator-partidas', version: 4, fecha: 1, app: '0.29.0', partidas: [] }
+    expect(() => leerArchivo(JSON.stringify({ ...base, sesiones: [{ juegoId: id, nombre: 'x', sistema: 'psp', inicio: 1, fin: 2, ms: 1 }] }))).toThrow(ErrorArchivo)
+    expect(() => leerArchivo(JSON.stringify({ ...base, estados: {} }))).toThrow(ErrorArchivo)
+    expect(() => leerArchivo(JSON.stringify({ ...base, sesiones: {} }))).toThrow(ErrorArchivo)
   })
 
   it('una copia de antes de las notas (formato 1) se sigue leyendo', () => {

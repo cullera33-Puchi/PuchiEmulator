@@ -1679,3 +1679,51 @@ test('buscador del inicio: juegos de todas las consolas y jugar desde el resulta
   await expect(page.getByText('Cargando…')).toBeHidden()
   await expect(page.getByTestId('juego')).toHaveAttribute('data-sistema', 'snes')
 })
+
+test.describe('gestos con animaciones (v0.30.0)', () => {
+  test.use({ reducedMotion: 'no-preference' })
+
+  const desplazamiento = (page: Page, selector: string) =>
+    page.locator(selector).first().evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).m41)
+
+  test('en un apartado de Ajustes, la pantalla sigue al dedo y vuelve a su sitio si no se suelta del todo', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Ajustes' }).click()
+    await page.waitForTimeout(700)
+    await page.getByRole('button', { name: /^Sonido/ }).click()
+    await page.waitForTimeout(700)
+    const cdp = await page.context().newCDPSession(page)
+    const toque = (type: 'touchStart' | 'touchMove' | 'touchEnd', puntos: { x: number; y: number }[]) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: puntos })
+    await toque('touchStart', [{ x: 5, y: 420 }])
+    for (let x = 20; x <= 120; x += 20) await toque('touchMove', [{ x, y: 420 }])
+    // Antes, la animación de entrada mandaba sobre la posición y el apartado no se movía
+    await expect.poll(() => desplazamiento(page, '.apartado-entra')).toBeGreaterThan(80)
+    await page.waitForTimeout(150)
+    await toque('touchEnd', [])
+    await page.waitForTimeout(700)
+    await expect(page.getByRole('heading', { name: 'Sonido' })).toBeVisible()
+    expect(await desplazamiento(page, '.apartado-entra')).toBe(0)
+  })
+
+  test('un segundo dedo a mitad del gesto lo cancela y no deja nada movido', async ({ page }) => {
+    await page.goto('/')
+    await entrar(page, 'NES')
+    await page.waitForTimeout(700)
+    const cdp = await page.context().newCDPSession(page)
+    const toque = (type: 'touchStart' | 'touchMove' | 'touchEnd', puntos: { x: number; y: number }[]) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: puntos })
+    await toque('touchStart', [{ x: 5, y: 420 }])
+    for (let x = 20; x <= 110; x += 20) await toque('touchMove', [{ x, y: 420 }])
+    await toque('touchStart', [{ x: 110, y: 420 }, { x: 250, y: 300 }])
+    await toque('touchEnd', [])
+    await page.waitForTimeout(700)
+    // La biblioteca, en su sitio y sin estilos sueltos; el inicio de debajo, oculto otra vez
+    await expect(page.getByRole('heading', { name: 'NES', exact: true })).toBeVisible()
+    expect(await page.locator('.capa:not(.fondo)').evaluate((e) => e.style.transform + e.style.boxShadow)).toBe('')
+    expect(await page.locator('.capa.fondo').evaluate((e) => getComputedStyle(e).visibility)).toBe('hidden')
+    // Al volver con el botón, el inicio no queda torcido
+    await page.getByRole('button', { name: 'Consolas' }).click()
+    await page.waitForTimeout(700)
+    expect(await page.locator('.capa').evaluate((e) => e.style.transform)).toBe('')
+    expect(await desplazamiento(page, '.capa')).toBe(0)
+  })
+})

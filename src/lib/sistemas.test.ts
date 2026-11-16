@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import { detectarSistema, leerRom, nombreDesdeFichero, tituloInterno } from './sistemas'
 
@@ -63,6 +64,22 @@ describe('leerRom', () => {
     expect(r?.sistema).toBe('gba')
     expect(r?.nombreFichero).toBe('Prueba comprimida.gba')
     expect(r?.bytes.length).toBe(32768)
+  })
+
+  it('en un zip, la ROM reconocida por la cabecera gana a un texto con extensión de ROM (v0.30.0)', () => {
+    const zip = zipSync({ 'README.md': new TextEncoder().encode('# Juego homebrew\nInstrucciones'), 'juego.nes': fixture('prueba.nes') })
+    const r = leerRom(zip, 'homebrew.zip')
+    expect(r?.sistema).toBe('nes')
+    expect(r?.nombreFichero).toBe('juego.nes')
+    // Un zip con solo un texto no da ningún juego
+    expect(leerRom(zipSync({ 'README.md': new TextEncoder().encode('hola') }), 'texto.zip')).toBeNull()
+  })
+
+  it('reconoce la Mega Drive con la cabecera de 512 bytes de las copiadoras (v0.30.0)', () => {
+    const md = fixture('prueba.md')
+    const conCabecera = new Uint8Array(512 + md.length)
+    conCabecera.set(md, 512)
+    expect(detectarSistema(conCabecera, 'juego.bin')).toBe('md')
   })
 
   it('devuelve null con un zip dañado', () => {

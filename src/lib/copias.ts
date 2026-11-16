@@ -4,9 +4,12 @@
  */
 import {
   aplicarFichas,
+  guardarNota,
   importarNotas,
   importarProgreso,
   importarSesiones,
+  leerEstado,
+  leerNota,
   listarEstados,
   listarJuegos,
   listarNotas,
@@ -19,11 +22,12 @@ import {
   type Partida,
   RANURAS,
   type Ranura,
+  restaurarEstados,
 } from './almacen'
 import type { SesionJuego } from './estadisticas'
 import { cambiarAjustes } from './ajustes'
 import { registrar } from './registro'
-import type { Sistema } from './sistemas'
+import { SISTEMAS, type Sistema } from './sistemas'
 
 export const FORMATO = 'puchiemulator-partidas'
 /** 1: partidas, estados y sesiones. 2: notas de los juegos (v0.14.0). 3: favorito y estado de cada juego (v0.15.0). 4: nueve ranuras y su nombre (v0.19.0). */
@@ -128,7 +132,8 @@ export function leerArchivo(texto: string): { partidas: Partida[]; estados: Esta
     throw new ErrorArchivo('El archivo no es una copia de partidas.')
   }
   const a = datos as Partial<ArchivoPartidas>
-  if (a?.formato !== FORMATO || !Array.isArray(a.partidas) || (a.notas !== undefined && !Array.isArray(a.notas))) throw new ErrorArchivo('El archivo no es una copia de partidas de PuchiEmulator.')
+  const lista = (v: unknown) => v === undefined || Array.isArray(v)
+  if (a?.formato !== FORMATO || !Array.isArray(a.partidas) || !lista(a.notas) || !lista(a.estados) || !lista(a.sesiones)) throw new ErrorArchivo('El archivo no es una copia de partidas de PuchiEmulator.')
   if ((a.version ?? 0) > VERSION_FORMATO) throw new ErrorArchivo('La copia es de una versión más nueva de la app. Actualiza la app y vuelve a intentarlo.')
   const valido = (id: unknown) => typeof id === 'string' && /^[0-9a-f]{40}$/.test(id)
   const partidas: Partida[] = []
@@ -151,7 +156,7 @@ export function leerArchivo(texto: string): { partidas: Partida[]; estados: Esta
   }
   const sesiones: SesionJuego[] = []
   for (const x of a.sesiones ?? []) {
-    if (!valido(x.juegoId) || !Number.isFinite(x.inicio) || !Number.isFinite(x.fin) || !Number.isFinite(x.ms) || x.ms < 0) throw new ErrorArchivo('La copia está dañada.')
+    if (!valido(x.juegoId) || !Number.isFinite(x.inicio) || !Number.isFinite(x.fin) || !Number.isFinite(x.ms) || x.ms < 0 || !(x.sistema in SISTEMAS)) throw new ErrorArchivo('La copia está dañada.')
     sesiones.push({ juegoId: x.juegoId, nombre: String(x.nombre ?? ''), sistema: x.sistema, inicio: x.inicio, fin: x.fin, ms: x.ms })
   }
   const notas: Nota[] = []
@@ -168,14 +173,28 @@ export function leerArchivo(texto: string): { partidas: Partida[]; estados: Esta
 }
 
 /** Importa una copia: sustituye la partida y los estados de los juegos que vienen en ella. */
-export async function importarArchivo(texto: string): Promise<{ partidas: number; estados: number; sesiones: number; notas: number }> {
+export async function importarArchivo(
+  texto: string,
+): Promise<{ partidas: number; estados: number; sesiones: number; notas: number; deshacerEstadosYNotas: () => Promise<void> }> {
   const { partidas, estados, sesiones, notas, fichas } = leerArchivo(texto)
+  // Lo que la copia va a sustituir, para «Deshacer» (v0.30.0): antes solo se devolvían las partidas y
+  // se perdían los estados (con su nombre) y las notas de esos juegos
+  const previos = await Promise.all(estados.map((e) => leerEstado(e.id, e.ranura)))
+  const notasPrevias = await Promise.all(notas.map((n) => leerNota(n.id)))
+  const deshacerEstadosYNotas = async () => {
+    await restaurarEstados(
+      previos.filter((e): e is Estado => !!e),
+      estados.filter((_, i) => !previos[i]).map((e) => [e.id, e.ranura] as const),
+    )
+    await importarNotas(notasPrevias.filter((n): n is Nota => !!n))
+    for (const [i, n] of notas.entries()) if (!notasPrevias[i]) await guardarNota(n.id, '')
+  }
   await importarProgreso(partidas, estados)
   await importarNotas(notas)
   // Favorito y estado, en los juegos que ya están en la biblioteca
   await aplicarFichas(fichas)
   const nuevas = await importarSesiones(sesiones)
-  return { partidas: partidas.length, estados: estados.length, sesiones: nuevas, notas: notas.length }
+  return { partidas: partidas.length, estados: estados.length, sesiones: nuevas, notas: notas.length, deshacerEstadosYNotas }
 }
 
 export function nombreArchivo(fecha = new Date()): string {

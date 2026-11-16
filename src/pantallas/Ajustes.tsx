@@ -164,10 +164,11 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
       const antes = await listarPartidas()
       await crearCopia('previa')
       const r = await importarArchivo(texto)
-      registrar('info', 'Copia de partidas recuperada', r)
+      registrar('info', 'Copia de partidas recuperada', { partidas: r.partidas, estados: r.estados, sesiones: r.sesiones, notas: r.notas })
       recargarCopias()
       avisar(`Recuperadas ${plural(r.partidas, 'partida', 'partidas')}${r.estados ? ` y ${plural(r.estados, 'estado', 'estados')}` : ''}`, {
-        fn: () => void sustituirPartidas(antes).then(() => registrar('info', 'Recuperar copia deshecho')),
+        fn: () =>
+          void Promise.all([sustituirPartidas(antes), r.deshacerEstadosYNotas()]).then(() => registrar('info', 'Recuperar copia deshecho')),
       })
     } catch (e) {
       registrar('aviso', 'Copia de partidas no válida', (e as Error).message)

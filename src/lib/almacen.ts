@@ -306,6 +306,18 @@ export async function borrarEstado(id: string, ranura: Ranura): Promise<void> {
   await terminar(tx)
 }
 
+/**
+ * Deja los estados como estaban (v0.30.0, «Deshacer» al recuperar una copia): vuelve a poner los que
+ * había y borra los que no existían antes.
+ */
+export async function restaurarEstados(previos: Estado[], nuevos: (readonly [string, Ranura])[]): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction('estados', 'readwrite')
+  for (const [id, ranura] of nuevos) tx.objectStore('estados').delete(claveEstado(id, ranura))
+  for (const e of previos) tx.objectStore('estados').put(e)
+  await terminar(tx)
+}
+
 /** Borra la partida guardada y todos los estados de un juego. */
 export async function borrarProgreso(id: string): Promise<void> {
   const estados = await estadosDe(id)

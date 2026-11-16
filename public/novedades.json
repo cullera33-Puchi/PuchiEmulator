@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.30.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Revisión a fondo de la app: unos 20 arreglos pequeños.",
+      "«Ahorrar batería» ya no frena el juego en pantallas de 120 Hz.",
+      "Volver deslizando: un segundo dedo ya no deja la pantalla torcida, y en Ajustes el apartado sigue al dedo.",
+      "Al recuperar una copia, «Deshacer» devuelve también los estados guardados y las notas.",
+      "Los zips con un texto dentro ya no se añaden como juego."
+    ]
+  },
+  {
     "version": "0.29.0",
     "fecha": "16/11/2026",
     "cambios": [

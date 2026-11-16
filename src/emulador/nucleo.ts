@@ -58,9 +58,16 @@ const raizNucleos = () => `${import.meta.env.BASE_URL}nucleos/`
 const listos = new Set<NombreNucleo>()
 const preparados = new Map<NombreNucleo, Promise<{ crear: Fabrica; modulo: WebAssembly.Module }>>()
 
+/** Núcleos compilados que se guardan a la vez (v0.30.0): cada uno ocupa varios megas en memoria */
+const MAX_PREPARADOS = 2
+
 export function prepararNucleo(nombre: NombreNucleo): Promise<{ crear: Fabrica; modulo: WebAssembly.Module }> {
   let p = preparados.get(nombre)
-  if (!p) {
+  if (p) {
+    // El último usado pasa al final: se descarta antes el que lleva más tiempo sin usarse
+    preparados.delete(nombre)
+    preparados.set(nombre, p)
+  } else {
     const raiz = raizNucleos()
     p = (async () => {
       const [{ default: crear }, modulo] = await Promise.all([
@@ -83,6 +90,11 @@ export function prepararNucleo(nombre: NombreNucleo): Promise<{ crear: Fabrica; 
       () => preparados.delete(nombre),
     )
     preparados.set(nombre, p)
+    for (const viejo of preparados.keys()) {
+      if (preparados.size <= MAX_PREPARADOS) break
+      preparados.delete(viejo)
+      listos.delete(viejo)
+    }
   }
   return p
 }

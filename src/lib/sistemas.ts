@@ -96,11 +96,22 @@ function esNes(b: Uint8Array): boolean {
   return b.length >= 16 && b[0] === 0x4e && b[1] === 0x45 && b[2] === 0x53 && b[3] === 0x1a
 }
 
-/** Mega Drive: «SEGA» al principio de la cabecera (0x100), a veces con un espacio delante. */
+/**
+ * Mega Drive: «SEGA» al principio de la cabecera (0x100), a veces con un espacio delante, o 512 bytes
+ * más allá (0x300) si el volcado lleva la cabecera de las copiadoras antiguas (v0.30.0).
+ */
 function esMegaDrive(b: Uint8Array): boolean {
   const en = (o: number) => b.length > o + 4 && b[o] === 0x53 && b[o + 1] === 0x45 && b[o + 2] === 0x47 && b[o + 3] === 0x41
-  return en(0x100) || en(0x101)
+  return en(0x100) || en(0x101) || en(0x300) || en(0x301)
 }
+
+/** Consola por la cabecera, sin mirar la extensión; null si la cabecera no dice nada. */
+function porCabecera(bytes: Uint8Array): boolean {
+  return esNes(bytes) || esGba(bytes) || esGb(bytes) || esMegaDrive(bytes) || sega8(bytes) !== null
+}
+
+/** Tamaño mínimo para fiarse solo de la extensión dentro de un zip: la ROM más pequeña ocupa 8 KB */
+const MINIMO_POR_EXTENSION = 8 * 1024
 
 /**
  * Master System y Game Gear: «TMR SEGA» en 0x7FF0 (o 0x3FF0 y 0x1FF0 en los cartuchos pequeños); la
@@ -205,8 +216,16 @@ export function leerRom(bytes: Uint8Array, nombreFichero: string): RomLeida | nu
     } catch {
       return null
     }
+    // Primero las que se reconocen por la cabecera; después, por la extensión, sin los ficheros muy
+    // pequeños (v0.30.0): un README.md de un zip pasaba por juego de Mega Drive
     const nombres = Object.keys(ficheros).sort((a, b) => Number(!EXTENSIONES[extensionDe(a)]) - Number(!EXTENSIONES[extensionDe(b)]))
     for (const n of nombres) {
+      if (!porCabecera(ficheros[n])) continue
+      const sistema = detectarSistema(ficheros[n], n)
+      if (sistema) return { bytes: ficheros[n], nombreFichero: n, sistema }
+    }
+    for (const n of nombres) {
+      if (ficheros[n].length < MINIMO_POR_EXTENSION) continue
       const sistema = detectarSistema(ficheros[n], n)
       if (sistema) return { bytes: ficheros[n], nombreFichero: n, sistema }
     }

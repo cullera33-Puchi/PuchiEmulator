@@ -152,7 +152,9 @@ function Pantallas() {
   /** Navega con su animación. Mientras dura, se ignoran más toques (guía 4.2). */
   const ir = useCallback((nueva: Pantalla, transicion: Transicion) => {
     const ahora = Date.now()
-    if (ahora < ocupadoHasta.current) return
+    // El «volver» deslizando no se descarta nunca (v0.30.0): la pantalla ya ha salido con el dedo y,
+    // si no se navegara, volvería a aparecer de golpe
+    if (ahora < ocupadoHasta.current && transicion !== 'volver-deslizando') return
     let reducir = false
     try {
       reducir = matchMedia('(prefers-reduced-motion: reduce)').matches

@@ -1220,12 +1220,16 @@ body.en-juego .aviso {
   animation: aparecer 400ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
-/* Apartados de Ajustes (v0.25.0): entrar desde la derecha y volver */
+/*
+ * Apartados de Ajustes (v0.25.0): entrar desde la derecha y volver. Sin relleno al acabar
+ * («backwards», v0.30.0): con «both», la animación seguía mandando sobre la posición y el gesto de
+ * volver no movía el apartado.
+ */
 .apartado-entra {
-  animation: entra-desde-derecha 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: entra-desde-derecha 500ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
 }
 .apartado-vuelve {
-  animation: entra-desde-izquierda 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: entra-desde-izquierda 500ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
 }
 .apartado-sale {
   animation: sale-a-derecha 500ms cubic-bezier(0.32, 0.72, 0, 1) both;

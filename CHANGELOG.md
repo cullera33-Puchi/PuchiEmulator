@@ -1,5 +1,44 @@
 # Cambios
 
+## 0.30.0 (16/11/2026)
+
+Revisión de código de las versiones 0.19 a 0.29 (número 14 del análisis), pedida por el usuario: tres revisiones independientes (bucle del juego, pantallas y gestos, y datos y ajustes), cada hallazgo comprobado antes de corregirlo.
+
+Corregido:
+
+- Ahorrar batería (v0.28.0) contaba llamadas de la pantalla, no tiempo: a 120 Hz, o cuando un fotograma tardaba más de un refresco, el juego podía ir a un 80 % de su velocidad y el sonido cortarse. Ahora se trabaja cuando han pasado unos 33 ms y los refrescos se cuentan en todas las llamadas (`debidos` en `Sesion`).
+- Gesto de volver:
+  - Un segundo dedo a mitad del gesto dejaba la pantalla movida y el inicio torcido. Ahora cancela el gesto y lo deja todo en su sitio.
+  - Un redibujado a mitad del gesto (por ejemplo, al acabar la animación de entrada) quitaba los oyentes. Ahora la función de volver y las opciones van en referencias.
+  - La navegación se hace al acabar la animación, sin el salto final.
+  - El «volver» deslizando ya no se descarta mientras dura otra animación.
+- Apartados de Ajustes: con las animaciones activadas, el gesto de volver no movía el apartado, porque la animación de entrada se quedaba puesta. Ahora usa `backwards`. Prueba de navegador nueva con las animaciones activadas, que fallaba con el código de antes.
+- Recuperar una copia de partidas: «Deshacer» devuelve también los estados (con su nombre) y las notas de antes, y borra los estados que trajo la copia y no estaban (`restaurarEstados`, `deshacerEstadosYNotas`). Antes solo devolvía las partidas.
+- Zips: un README.md (u otro fichero pequeño con extensión de ROM) dentro de un zip se añadía como juego de Mega Drive. Ahora gana la ROM reconocida por la cabecera y, por extensión, solo valen ficheros de 8 KB o más.
+- Mega Drive: se reconoce también con la cabecera de 512 bytes de las copiadoras (`.bin` incluidos).
+- Copias: se rechazan las sesiones de una consola desconocida (rompían Estadísticas) y las colecciones que no son listas, con un mensaje claro.
+- La pausa por no tocar ya no ejecuta los fotogramas de ese refresco después de pausar.
+- Si la apertura de un juego falla, se cierran el hilo del rebobinado, el núcleo y el temporizador.
+- Como mucho, dos núcleos compilados en memoria; antes, todos los usados en la sesión.
+- Registro: `imagenesSeg` cuenta imágenes dibujadas, no refrescos (a 120 Hz anotaba el doble).
+- Inicio: dos recargas cruzadas ya no dejan carátulas rotas en «Seguir jugando».
+- Juego:
+  - Con el temporizador de sueño puesto, el juego ya no se redibuja cada 5 s mientras se juega.
+  - Mientras se colocan los botones, el juego no se reanuda.
+  - Si se gira el iPhone durante la edición, se guarda lo hecho en la orientación de antes.
+  - En el editor de botones, un segundo dedo no le quita la pieza al primero.
+  - El temporizador de sueño marca la opción elegida para VoiceOver.
+
+Revisado y sin cambiar, por diseño o por poco riesgo:
+
+- Guardar en una ranura con nombre conserva el nombre (decisión de la v0.19.0, con prueba).
+- La extensión `.gg` o `.sms` manda sobre la región de la cabecera.
+- Fuera de un zip, un fichero diminuto con extensión de ROM se sigue aceptando.
+- La pausa por no tocar cuenta los cambios de botones, no un botón mantenido, para que un pulgar apoyado no la impida.
+- El inicio que asoma debajo al deslizar puede enseñar un recuento de antes durante el gesto; se pone al día al llegar.
+
+Pruebas: 147 unitarias y 61 de navegador.
+
 ## 0.29.0 (16/11/2026)
 
 Bloque 3 de las mejoras marcadas por el usuario tras el análisis (7). Terminadas las cinco marcadas (1, 2, 3, 4 y 7).

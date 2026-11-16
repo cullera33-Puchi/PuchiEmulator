@@ -49,8 +49,12 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
   const ajustes = useAjustes()
   const selectorFoto = useRef<HTMLInputElement>(null)
 
+  // Si se cruzan dos recargas, solo vale la última (v0.30.0): la primera revocaría las carátulas de la otra
+  const ultimaRecarga = useRef(0)
   const recargar = useCallback(async () => {
+    const llamada = ++ultimaRecarga.current
     const [lista, imagenes, ses, nPartidas] = await Promise.all([listarJuegos(), listarCaratulas(), listarSesiones(), contarPartidas()])
+    if (llamada !== ultimaRecarga.current) return
     setSesiones(ses)
     setPartidas(nPartidas)
     const urls = new Map(imagenes.map((c) => [c.id, URL.createObjectURL(new Blob([c.datos], { type: 'image/jpeg' }))]))
@@ -61,6 +65,7 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
     setJuegos(lista)
     const ultimos = seguirJugando(lista)
     const autos = await Promise.all(ultimos.map((j) => leerEstado(j.id, 'auto')))
+    if (llamada !== ultimaRecarga.current) return
     setRecientes(ultimos.map((j, i) => ({ juego: j, caratula: urls.get(j.id), reanudar: !!autos[i] })))
   }, [])
 
