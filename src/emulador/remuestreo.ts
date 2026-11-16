@@ -178,6 +178,8 @@ export class ControlRitmo {
 
   /** Factor de ritmo para el bloque que se va a enviar en `t`, suavizado. */
   siguiente(t: number): number {
+    // Tras reiniciar, hasta el primer aviso no se sabe lo que hay en cola: ritmo normal (v0.36.0)
+    if (this.momento === 0) return this.factor
     const dt = this.ultimo ? Math.min(t - this.ultimo, 100) : 0
     this.ultimo = t
     const meta = factorRitmo(this.estimado(t), this.objetivo)
@@ -187,6 +189,7 @@ export class ControlRitmo {
 
   reiniciar(): void {
     this.reportado = 0
+    this.momento = 0
     this.enviados = 0
     this.factor = 1
     this.ultimo = 0

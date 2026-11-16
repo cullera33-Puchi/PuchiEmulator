@@ -245,8 +245,12 @@ export class Nucleo {
     try {
       return f()
     } catch (e) {
+      // El error de dentro de las fibras rara vez pasa por donde se guarda el original: si no lo hay,
+      // las funciones salen de la pila del propio error (v0.36.0)
       const original = this.m.errorOriginal as { stack?: string } | undefined
-      const funciones = original?.stack ? funcionesDelFallo(original.stack) : []
+      this.m.errorOriginal = undefined
+      const pila = original?.stack ?? (e as { stack?: string } | undefined)?.stack
+      const funciones = pila ? funcionesDelFallo(pila) : []
       if (!funciones.length) throw e
       throw new Error(`${(e as Error)?.message ?? String(e)} | en: ${funciones.join(' < ')}`)
     }
@@ -274,6 +278,8 @@ export class Nucleo {
     let lienzoGL: OffscreenCanvas | null = null
     if (gl) {
       if (typeof OffscreenCanvas === 'undefined' || !m.specialHTMLTargets) throw new Error('Este aparato no puede dibujar la Nintendo 64 (sin OffscreenCanvas).')
+      // Antes de cargar (v0.36.0): sin WebGL 2 en el lienzo, el núcleo fallaba al descargar con un error sin explicación
+      if (!new OffscreenCanvas(1, 1).getContext('webgl2')) throw new Error('Este aparato no puede dibujar la Nintendo 64 (sin WebGL 2 en el hilo del juego; hace falta una versión más reciente de iOS).')
       // A la medida con la que va a dibujar el núcleo (v0.34.0: se puede elegir 320 x 240)
       const medida = /^(\d+)x(\d+)$/.exec({ ...OPCIONES[nombre], ...extra }['mupen64plus-43screensize'] ?? '')
       lienzoGL = new OffscreenCanvas(medida ? Number(medida[1]) : gl.ancho, medida ? Number(medida[2]) : gl.alto)
@@ -281,6 +287,10 @@ export class Nucleo {
     }
     m._pf_iniciar()
     const n = new Nucleo(m, nombre, lienzoGL)
+    // Si el iPhone se lleva la tarjeta gráfica (memoria, segundo plano), el núcleo seguiría dibujando en
+    // un contexto muerto y la pantalla se quedaría en negro sin aviso: el siguiente fotograma falla con
+    // su explicación y la sesión se para (v0.36.0)
+    lienzoGL?.addEventListener('webglcontextlost', n.alPerderContexto)
     for (const [k, v] of Object.entries({ ...OPCIONES[nombre], ...extra })) n.opcion(k, v)
     return n
   }
@@ -307,13 +317,21 @@ export class Nucleo {
     const p = this.m._malloc(rom.byteLength)
     this.m.HEAPU8.set(rom, p)
     const ext = this.texto(extension)
-    // El puente libera la copia de la ROM cuando el núcleo ya tiene la suya
+    // El puente conserva la ROM hasta descargar (melonDS la relee al reiniciar); con N64 la libera al
+    // cargar, porque el núcleo ya tiene la suya (v0.36.0)
     const ok = this.llamar(() => this.resultado(this.m._pf_cargar(p, rom.byteLength, ext))) === 1
     this.m._free(ext)
     return ok
   }
 
+  /** El iPhone se ha llevado el contexto de WebGL */
+  private contextoPerdido = false
+  private readonly alPerderContexto = () => {
+    this.contextoPerdido = true
+  }
+
   descargar(): void {
+    this.lienzoGL?.removeEventListener('webglcontextlost', this.alPerderContexto)
     this.m._pf_descargar()
   }
 
@@ -359,6 +377,7 @@ export class Nucleo {
 
   /** Ejecuta un fotograma; true si hay imagen nueva. */
   fotograma(): boolean {
+    if (this.contextoPerdido) throw new Error('El iPhone ha retirado la tarjeta gráfica al juego. Vuelve a abrirlo para seguir donde lo dejaste.')
     return this.llamar(() => this.resultado(this.m._pf_fotograma())) === 1
   }
 

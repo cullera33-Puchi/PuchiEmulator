@@ -112,6 +112,13 @@ function pintorElegido(): PreferenciaPintor {
 /** Cada cuánto se guarda el punto donde se dejó mientras se juega: si algo falla, se pierde poco. */
 export const MS_PUNTO_CONTROL = 5 * 60_000
 
+/**
+ * El cierre de la partida anterior (v0.36.0): guardar el estado de una N64 lleva un rato y, si se
+ * abría otro juego mientras, el cierre de la anterior soltaba el hilo y el sonido del nuevo. La
+ * siguiente apertura espera a que termine.
+ */
+let cierreEnCurso: Promise<void> = Promise.resolve()
+
 export class Sesion {
   readonly altavoz = altavoz
   private motor!: ConexionMotor
@@ -137,8 +144,10 @@ export class Sesion {
   private propio = false
   /** Última entrada mandada al hilo, para no repetirla */
   private entradaEnviada = ''
-  /** El sonido ya va directo del hilo al procesador */
-  private sonidoAlHilo = false
+  /** Canal del sonido directo del hilo al procesador, si ya lo hay (su número, para soltar solo el suyo) */
+  private canalSonido: number | null = null
+  /** Última posición de la palanca vista (para contarla como actividad) */
+  private ultimaPalanca = '0,0'
   /** Imágenes que han llegado del hilo (para dar por buena la carga del estado «auto») */
   private imagenesPropias = 0
   // Correr fijo (modo JRPG) y turbo: los aplica el motor en cada fotograma
@@ -211,6 +220,8 @@ export class Sesion {
   }
 
   static async iniciar(o: OpcionesSesion): Promise<Sesion> {
+    // Como mucho 8 s: si el cierre anterior se queda colgado, el juego se abre igual
+    await Promise.race([cierreEnCurso, new Promise((r) => setTimeout(r, 8000))])
     const s = new Sesion(o)
     try {
       await s.preparar()
@@ -434,6 +445,15 @@ export class Sesion {
     this.ultimo = ahora
     this.refresco.medir(dtPantalla)
     const mascara = this.botonesTactil | this.botonesTeclado | this.botonesMandos()
+    // La palanca de un mando físico (N64) también cuenta como actividad (v0.36.0)
+    if (this.n64) {
+      const [px, py] = this.palanca()
+      const firma = `${Math.round(px * 8)},${Math.round(py * 8)}`
+      if (firma !== this.ultimaPalanca) {
+        this.ultimaPalanca = firma
+        if (px || py) this.ultimaActividad = Date.now()
+      }
+    }
     // Si se acaba de pausar por no tocar, no se hace nada más en este refresco (v0.30.0)
     if (this.contarTiempo(dtPantalla, mascara | (this.rebobinando ? 1 << 30 : 0) | (this.velocidad > 1 ? 1 << 29 : 0))) return
     if (this.propio) {
@@ -518,11 +538,11 @@ export class Sesion {
    */
   private avanzarPropio(dt: number): void {
     this.enviarEntrada()
-    if (!this.sonidoAlHilo && this.altavoz.activo) {
+    if (this.canalSonido === null && this.altavoz.activo) {
       const canal = this.altavoz.canalParaHilo()
       if (canal) {
         this.motor.ritmo?.sonido(canal.puerto, canal.frecuencia, canal.objetivo)
-        this.sonidoAlHilo = true
+        this.canalSonido = canal.id
       }
     }
     this.msDesdeControl += dt
@@ -703,7 +723,8 @@ export class Sesion {
   /** Palanca de la pantalla (Nintendo 64), de -1 a 1 en cada eje. */
   ponerPalanca(x: number, y: number): void {
     this.palancaTactil = [x, y]
-    this.ultimaActividad = Date.now()
+    // Soltarla (también al pasar a segundo plano) no cuenta como tocar
+    if (x || y) this.ultimaActividad = Date.now()
     this.enviarEntrada()
   }
 
@@ -798,9 +819,12 @@ export class Sesion {
     if (this.roto || this.cerrada || !this.motor) return false
     const r = await this.motor.guardarEstado()
     if (!r || this.roto) return false
-    // Nintendo 64: el motor no tiene la imagen (la dibuja el núcleo), se toma la que se ve
-    const captura = r.captura ?? (await capturaDelLienzo(this.o.lienzo))
-    await guardarEstado({ id: this.o.juego.id, ranura, datos: r.datos.slice().buffer as ArrayBuffer, fecha: Date.now(), captura })
+    // Nintendo 64: el motor no tiene la imagen (la dibuja el núcleo), se toma la que se ve. No en el
+    // estado «auto», que no se enseña: al pasar a segundo plano, iOS da poco tiempo (v0.36.0)
+    const captura = r.captura ?? (ranura === 'auto' ? undefined : await capturaDelLienzo(this.o.lienzo))
+    // Llega del hilo con su propio búfer: no hace falta copiarlo (16 MB en N64)
+    const datos = r.datos.byteOffset === 0 && r.datos.byteLength === r.datos.buffer.byteLength ? (r.datos.buffer as ArrayBuffer) : (r.datos.slice().buffer as ArrayBuffer)
+    await guardarEstado({ id: this.o.juego.id, ranura, datos, fecha: Date.now(), captura })
     return true
   }
 
@@ -861,7 +885,18 @@ export class Sesion {
     await Promise.all([this.guardarPartidaSiCambia(), this.guardarEstado('auto').catch(() => false), this.guardarTiempo()])
   }
 
-  async cerrar(): Promise<void> {
+  cerrar(): Promise<void> {
+    if (!this.cierre) {
+      this.cierre = this.cerrarAhora()
+      cierreEnCurso = this.cierre.catch(() => undefined)
+    }
+    return this.cierre
+  }
+
+  /** El cierre, una sola vez aunque se pida varias */
+  private cierre: Promise<void> | null = null
+
+  private async cerrarAhora(): Promise<void> {
     if (this.cerrada) return
     this.pausar()
     // Lo que quede de la última medida, si es una partida corta
@@ -871,7 +906,7 @@ export class Sesion {
     this.cerrada = true
     clearInterval(this.temporizadorGuardado)
     this.historial.cerrar()
-    if (this.sonidoAlHilo) this.altavoz.soltarCanalHilo()
+    if (this.canalSonido !== null) this.altavoz.soltarCanalHilo(this.canalSonido)
     await this.motor?.descargar().catch(() => undefined)
   }
 }

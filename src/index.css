@@ -196,7 +196,8 @@
   color: #fff;
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.4);
 }
-.mando.editando [data-pieza] {
+.mando.editando [data-pieza],
+.juego:has(.editor-mando) [data-pieza] {
   opacity: 1;
   outline: 2px dashed rgb(255 255 255 / 0.75);
   outline-offset: 4px;

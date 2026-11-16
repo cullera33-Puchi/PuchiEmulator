@@ -75,6 +75,16 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
     setRecientes(ultimos.map((j, i) => ({ juego: j, caratula: urls.get(j.id), reanudar: !!autos[i] })))
   }, [])
 
+  // Al desmontar, se sueltan las direcciones de las imágenes (v0.36.0)
+  useEffect(() => {
+    const refs = direcciones
+    return () => {
+      for (const d of refs.current.values()) URL.revokeObjectURL(d.url)
+      refs.current = new Map()
+      ultimaRecarga.current++
+    }
+  }, [])
+
   useEffect(() => {
     void recargar()
     // Las que quedaron pendientes (por ejemplo, sin conexión al añadir)

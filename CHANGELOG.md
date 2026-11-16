@@ -1,5 +1,31 @@
 # Cambios
 
+## 0.36.0 (16/11/2026)
+
+Revisión de código de lo hecho desde que entró la Nintendo 64 (v0.32.0 a v0.35.1), pedida por el usuario: tres revisiones independientes (motor, ritmo propio y sonido; interfaz; núcleo y puente de N64). Se comprobó cada hallazgo antes de corregirlo.
+
+Motor y sonido
+- Abrir un juego mientras se cierra el anterior: guardar el estado de una N64 lleva un rato y, si se abría otro juego mientras, el cierre del anterior quitaba al nuevo su receptor de imágenes y su canal de sonido. La apertura espera al cierre anterior (como mucho 8 s), el receptor solo lo quita quien lo puso (`miEvento` en `ConexionHilo`) y cada canal de sonido lleva su número (`soltarCanalHilo(id)`, `idExterno` en `procesador-audio.js`). `cerrar()` es una sola vez aunque se pida varias.
+- Ritmo propio: las medidas del registro ya no cuentan el tiempo en pausa; si cambia el ritmo de la consola, el reloj empieza de nuevo; «Ahorrar batería» deja de pintar las imágenes que luego se tiraban (`sinImagen`); un fallo en un aviso al hilo llega a la página como fallo del juego en lugar de perderse.
+- Cargar un estado con el juego en pausa enseña la imagen cargada en N64 (`imagenTrasCargar`, un fotograma tras cargar).
+- Estado «auto» sin captura (no se enseña) y sin copiar los 16 MB del estado de N64: al pasar a segundo plano, iOS da poco tiempo.
+- La palanca de un mando físico cuenta como actividad (antes, la pausa por no tocar podía saltar jugando solo con ella); soltar la palanca táctil no cuenta.
+- Sonido: tras vaciar la cola (pausa, carga de estado), el ajuste de ritmo va neutro hasta el primer aviso del procesador; antes calculaba con el aviso anterior.
+
+Interfaz
+- Palanca de N64: un segundo dedo en su zona ya no se la quita al primero ni la suelta al levantarse; la zona tiene límite a la izquierda y abajo y no toma toques de otras piezas; el pomo llega al borde del aro a tope.
+- Editor de botones: en N64 la pieza «l» se llama Z y «select», L (nombre del botón que se ve); las herramientas también salen recuadradas al editar.
+- Inicio: suelta las direcciones de las imágenes al desmontarse.
+
+Núcleo de N64
+- Puente (`nucleos/puente.c`, solo con la tarjeta gráfica): libera la copia de la ROM al cargar (el núcleo tiene la suya; hasta 64 MB de memoria menos), destruye el contexto de WebGL al descargar (Safari limita cuántos puede haber) y, si no hubo contexto al cargar, no llama a `retro_deinit`, que arrancaba el emulador sin la parte gráfica y fallaba. Núcleo de N64 recompilado; el resto no cambia.
+- Sin WebGL 2 en el hilo del juego, la N64 avisa al abrir en lugar de fallar sin explicación.
+- Si el iPhone retira la tarjeta gráfica al juego, se para con su explicación en lugar de quedarse en negro.
+- Las funciones de un fallo del núcleo salen ahora también de la pila del propio error: con las fibras, el error original casi nunca se guardaba.
+- Revisado sin fallos: la lista de Asyncify (ninguna función sin instrumentar llama a una instrumentada), el parche de WebGL, las fibras, la palanca, los botones C y el reconocimiento de las ROM.
+- Pendiente, sin urgencia: cada estado guardado de N64 avanza un fotograma y pierde su sonido (comportamiento del núcleo); comprobar la lista de Asyncify en GitHub si se actualiza el núcleo.
+- Pruebas: 163 unitarias y 65 de navegador (nuevas: ritmo del sonido tras vaciar y segundo dedo en la palanca).
+
 ## 0.35.1 (16/11/2026)
 
 Parpadeo al volver al inicio, informado por el usuario (por ejemplo, desde Estadísticas).

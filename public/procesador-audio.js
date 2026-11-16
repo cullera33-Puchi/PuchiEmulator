@@ -26,10 +26,11 @@ class ProcesadorAudio extends AudioWorkletProcessor {
     else if (d.tipo === 'maximo') this.maximo = Math.min(this.capacidad, d.pares)
     else if (d.tipo === 'puerto') {
       this.soltar()
+      this.idExterno = d.id
       this.externo = d.puerto
       this.externo.onmessage = (e) => this.mensaje(e.data)
       this.lectura = this.escritura = this.lleno = 0
-    } else if (d.tipo === 'soltar') this.soltar()
+    } else if (d.tipo === 'soltar' && d.id === this.idExterno) this.soltar()
   }
 
   soltar() {

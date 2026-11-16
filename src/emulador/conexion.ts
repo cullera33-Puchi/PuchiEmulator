@@ -186,8 +186,10 @@ class ConexionHilo implements ConexionMotor {
   puntero = (x: number | null, y: number, pantallas: PantallasDS, principal: PrincipalDS) => this.h.llamar<void>('puntero', [x, y, pantallas, principal])
   opcion = (clave: string, valor: string) => this.h.llamar<void>('opcion', [clave, valor])
   reiniciar = () => this.h.llamar<void>('reiniciar')
+  /** El manejador de eventos de esta partida: al descargar se quita solo si sigue siendo el suyo */
+  private miEvento: ((e: EventoRitmo) => void) | null = null
   descargar = () => {
-    this.h.alEvento = null
+    if (this.h.alEvento === this.miEvento) this.h.alEvento = null
     return this.h.llamar<void>('descargar')
   }
   readonly ritmo: RitmoConexion = {
@@ -201,6 +203,7 @@ class ConexionHilo implements ConexionMotor {
     medida: () => this.h.llamar<MedidaRitmo>('ritmoMedida'),
     alEvento: (f) => {
       this.h.alEvento = f
+      this.miEvento = f
     },
   }
 }

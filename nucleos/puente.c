@@ -58,6 +58,8 @@ static int16_t analogico[2][2];
 static struct retro_hw_render_callback hw;
 static bool hwPedido = false;
 static EMSCRIPTEN_WEBGL_CONTEXT_HANDLE contextoGL = 0;
+/* Sin contexto al cargar (v0.36.0): el emulador no llegó a arrancar y retro_deinit lo arrancaría */
+static bool sinContexto = false;
 
 static uintptr_t framebufferActual(void) { return 0; }
 static retro_proc_address_t procesoGL(const char *nombre) { return (retro_proc_address_t) emscripten_webgl_get_proc_address(nombre); }
@@ -397,7 +399,14 @@ bool pf_cargar(void *datos, size_t tam, const char *extension) {
 	}
 #ifdef PF_GL
 	if (hwPedido && !crearContextoGL()) {
+		sinContexto = true;
 		return false;
+	}
+	/* Nintendo 64 (v0.36.0): el núcleo copia la ROM a su memoria al cargar y no la vuelve a leer, así
+	   que la copia del puente sobra (hasta 64 MB de memoria del módulo, que nunca se devuelve) */
+	if (hwPedido) {
+		free(juego);
+		juego = NULL;
 	}
 #endif
 	retro_get_system_av_info(&av);
@@ -411,10 +420,24 @@ bool pf_cargar(void *datos, size_t tam, const char *extension) {
 
 EMSCRIPTEN_KEEPALIVE
 void pf_descargar(void) {
+#ifdef PF_GL
+	/* Si no hubo contexto, el emulador no llegó a arrancar: retro_deinit lo arrancaría sin la parte
+	   gráfica y fallaría. El módulo se descarta igualmente */
+	if (sinContexto) {
+		return;
+	}
+#endif
 	retro_unload_game();
 	retro_deinit();
 	free(juego);
 	juego = NULL;
+#ifdef PF_GL
+	/* El contexto de WebGL se suelta ya: Safari limita cuántos puede haber a la vez */
+	if (contextoGL > 0) {
+		emscripten_webgl_destroy_context(contextoGL);
+		contextoGL = 0;
+	}
+#endif
 }
 
 EMSCRIPTEN_KEEPALIVE

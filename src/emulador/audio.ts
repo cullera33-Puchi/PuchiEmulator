@@ -88,17 +88,23 @@ export class Altavoz {
    * sin pasar por la página. Devuelve la otra punta del canal, la frecuencia del iPhone y la cola que se
    * busca; null si el sonido aún no está listo (Safari lo activa con un toque).
    */
-  canalParaHilo(): { puerto: MessagePort; frecuencia: number; objetivo: number } | null {
+  canalParaHilo(): { id: number; puerto: MessagePort; frecuencia: number; objetivo: number } | null {
     if (!this.nodo || !this.contexto) return null
     const canal = new MessageChannel()
-    this.nodo.port.postMessage({ tipo: 'puerto', puerto: canal.port1 }, [canal.port1])
-    return { puerto: canal.port2, frecuencia: this.contexto.sampleRate, objetivo: this.objetivo }
+    const id = ++this.ultimoCanal
+    this.nodo.port.postMessage({ tipo: 'puerto', puerto: canal.port1, id }, [canal.port1])
+    return { id, puerto: canal.port2, frecuencia: this.contexto.sampleRate, objetivo: this.objetivo }
   }
 
-  /** El procesador deja de escuchar al hilo y vuelve a avisar a la página. */
-  soltarCanalHilo(): void {
-    this.nodo?.port.postMessage({ tipo: 'soltar' })
+  /**
+   * El procesador deja de escuchar al hilo y vuelve a avisar a la página, si el canal sigue siendo ese
+   * (v0.36.0: el cierre de una partida anterior no suelta el de la nueva).
+   */
+  soltarCanalHilo(id: number): void {
+    this.nodo?.port.postMessage({ tipo: 'soltar', id })
   }
+
+  private ultimoCanal = 0
 
   vaciar(): void {
     this.remuestreo.reiniciar()

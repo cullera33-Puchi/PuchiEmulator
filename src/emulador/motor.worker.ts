@@ -88,8 +88,9 @@ self.onmessage = async (e: MessageEvent<{ id: number; metodo: string; args: unkn
   if (id === 0) {
     try {
       ;(metodos[metodo] as (...a: unknown[]) => unknown)(...args)
-    } catch {
-      // un aviso no tiene a quién contestar
+    } catch (error) {
+      // Un aviso no tiene a quién contestar: si falla el del ritmo propio, se dice como fallo (v0.36.0)
+      if (metodo.startsWith('ritmo')) emitir({ evento: 'fallo', mensaje: (error as Error)?.message ?? String(error) }, [])
     }
     return
   }

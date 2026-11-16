@@ -111,7 +111,7 @@ function SuperNintendo() {
   )
 }
 
-/** NES (v0.23.0): caja gris de sobremesa con la franja oscura y su mando rectangular */
+/** Nintendo 64 (v0.32.0): consola gris carbón con la ranura del cartucho y los cuatro puertos */
 function Nintendo64() {
   return (
     <svg viewBox="0 0 230 160" className="h-full w-auto drop-shadow-md" aria-hidden>
@@ -140,6 +140,7 @@ function Nintendo64() {
   )
 }
 
+/** NES (v0.23.0): caja gris de sobremesa con la franja oscura y su mando rectangular */
 function NES() {
   return (
     <svg viewBox="0 0 230 150" className="h-full w-auto drop-shadow-md" aria-hidden>

@@ -50,6 +50,6 @@ El script descarga el núcleo en `.nucleos/` (ignorado por git), lo compila como
 
 ## Puente
 
-`puente.c` hace de «frontend» libretro mínimo: entorno (opciones, formato de píxel, registro), imagen convertida a RGBA, sonido por fotograma, botones como máscara de bits, partida guardada, reloj del cartucho y estados. Exporta funciones `pf_*` que usa `src/emulador/nucleo.ts`. Es el mismo para todos los núcleos. La ROM se conserva en memoria hasta `pf_descargar`: melonDS no hace copia y la vuelve a leer al reiniciar (v0.13.1).
+`puente.c` hace de «frontend» libretro mínimo: entorno (opciones, formato de píxel, registro), imagen convertida a RGBA, sonido por fotograma, botones como máscara de bits, partida guardada, reloj del cartucho y estados. Exporta funciones `pf_*` que usa `src/emulador/nucleo.ts`. Es el mismo para todos los núcleos. La ROM se conserva en memoria hasta `pf_descargar`: melonDS no hace copia y la vuelve a leer al reiniciar (v0.13.1). Con la tarjeta gráfica (`PF_GL`, Nintendo 64, v0.36.0) se libera al cargar, porque el núcleo copia la suya; `pf_descargar` destruye el contexto de WebGL y, si no lo hubo al cargar, no llama a `retro_deinit` (arrancaría el emulador sin la parte gráfica). Solo se recompiló el núcleo de N64: en el resto no cambia nada.
 
 `libretro.h` es la cabecera pública de la API de libretro (licencia MIT).

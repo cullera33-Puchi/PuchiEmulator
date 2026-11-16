@@ -143,4 +143,15 @@ describe('ControlRitmo', () => {
     c.enviado(800)
     expect(c.estimado(1000 + 1000 / 60)).toBeCloseTo(3000)
   })
+
+  it('tras reiniciar va a ritmo normal hasta el primer aviso', () => {
+    const c = new ControlRitmo(48000, 3360)
+    c.aviso(3000, 1000)
+    c.siguiente(1000)
+    c.reiniciar()
+    // Sin aviso, la cola estimada sería 0 y el ritmo se iría a llenarla con un aviso viejo
+    for (let t = 5000; t < 6000; t += 16) expect(c.siguiente(t)).toBe(1)
+    c.aviso(3360, 6000)
+    expect(c.siguiente(6016)).toBeCloseTo(1, 2)
+  })
 })

@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.36.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Revisión del código de la Nintendo 64: unos 20 fallos corregidos.",
+      "Palanca de N64: un segundo dedo ya no se la quita al primero y el pomo llega al borde.",
+      "Abrir un juego justo después de salir de otro ya no deja al nuevo sin sonido.",
+      "N64 usa menos memoria y avisa si el iPhone le retira la tarjeta gráfica, en lugar de quedarse en negro."
+    ]
+  },
+  {
     "version": "0.35.1",
     "fecha": "16/11/2026",
     "cambios": [

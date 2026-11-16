@@ -72,6 +72,10 @@ const PALANCA_TOPE = 0.7
  */
 const ZONA_DERECHA = 1.5
 const ZONA_ARRIBA = 1.8
+/** Y hasta 2,5 radios a la izquierda y abajo (v0.36.0: antes sin límite, tomaba toques de otras piezas) */
+const ZONA_RESTO = 2.5
+/** Lo que se mueve el pomo a tope, en su propio tamaño: hasta el borde del aro (pomo del 46 %) */
+const RECORRIDO_POMO = (50 - 23) / 46
 
 /** Pantalla táctil (Nintendo DS): el lienzo y a quién avisar del toque (0 a 1 sobre la imagen, o null) */
 export interface Tactil {
@@ -125,7 +129,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     const g = geometriaPalanca()
     if (!g) return false
     const [dx, dy] = vectorJuego(x - g.cx, y - g.cy, giroDe(g.el))
-    return dx <= g.radio * ZONA_DERECHA && dy >= -g.radio * ZONA_ARRIBA
+    return dx <= g.radio * ZONA_DERECHA && dy >= -g.radio * ZONA_ARRIBA && dx >= -g.radio * ZONA_RESTO && dy <= g.radio * ZONA_RESTO
   }
 
   /**
@@ -145,7 +149,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       if (aro.current) aro.current.style.transform = `translate(${(ox / g.factor).toFixed(1)}px, ${(oy / g.factor).toFixed(1)}px)`
     } else if (aro.current) aro.current.style.transform = ''
     if (pomo.current) {
-      pomo.current.style.transform = vx || vy ? `translate(${(vx * PALANCA_TOPE * 50).toFixed(1)}%, ${(vy * PALANCA_TOPE * 50).toFixed(1)}%)` : ''
+      pomo.current.style.transform = vx || vy ? `translate(${(vx * RECORRIDO_POMO * 100).toFixed(1)}%, ${(vy * RECORRIDO_POMO * 100).toFixed(1)}%)` : ''
       pomo.current.classList.toggle('pulsado', !!(vx || vy))
     }
     n64Ref.current?.alPalanca(vx, vy)
@@ -201,9 +205,14 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     const el = document.elementFromPoint(x, y)
     if (!el || !raiz.current?.contains(el)) return { cruceta: false, mascara: 0 }
     if (n64Ref.current) {
-      // Palanca flotante: en la palanca o en su zona, salvo que el dedo caiga en un botón
-      const boton = (el as HTMLElement).closest<HTMLElement>('[data-boton]')
-      if (cruceta.current?.contains(el) || (!boton && enZonaPalanca(x, y))) return { cruceta: false, palanca: true, mascara: 0, centro: [x, y] }
+      // Palanca flotante: en la palanca o en su zona, salvo que el dedo caiga en un botón u otra pieza.
+      // Un solo dedo la lleva: un segundo dedo en la zona no se la quita al primero (v0.36.0)
+      const otraPieza = (el as HTMLElement).closest<HTMLElement>('[data-boton], [data-pieza]')
+      const enPalanca = cruceta.current?.contains(el) || ((!otraPieza || otraPieza === raiz.current) && enZonaPalanca(x, y))
+      if (enPalanca) {
+        if ([...dedos.current.values()].some((d) => d.palanca)) return { cruceta: false, mascara: 0 }
+        return { cruceta: false, palanca: true, mascara: 0, centro: [x, y] }
+      }
     }
     if (cruceta.current?.contains(el)) return { cruceta: true, mascara: desdeCruceta(x, y) }
     if ((el as HTMLElement).closest('[data-accion]')) return { cruceta: false, mascara: 0, accion: true }

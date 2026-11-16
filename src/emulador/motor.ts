@@ -49,6 +49,8 @@ export interface PeticionFotogramas {
   extra: number
   /** Palanca analógica (Nintendo 64), de -1 a 1 en cada eje */
   palanca?: [number, number]
+  /** No hace falta imagen (ahorrar batería con el ritmo propio): no se pinta (v0.36.0) */
+  sinImagen?: boolean
 }
 
 export interface ResultadoFotogramas {
@@ -202,7 +204,8 @@ export class Motor {
       }
     }
     const t1 = performance.now()
-    const imagenes = hayImagen ? this.pintar() : null
+    // Sin imagen pedida, en N64 la del lienzo se queda pendiente (glNuevo) para la próxima vez
+    const imagenes = hayImagen && !p.sinImagen ? this.pintar() : null
     const t2 = performance.now()
     const cambio = this.nucleo.avCambiado()
     return {
@@ -237,7 +240,17 @@ export class Motor {
   cargarEstado(datos: Uint8Array): { ok: boolean; imagenes: Imagenes | null } {
     this.antesDeCargar = this.nucleo.guardarEstado()
     const ok = this.nucleo.cargarEstado(datos)
-    return { ok, imagenes: this.pintar() }
+    return { ok, imagenes: this.imagenTrasCargar() }
+  }
+
+  /**
+   * Imagen del estado recién cargado. En Nintendo 64 la imagen no está en la memoria del núcleo: hay
+   * que hacer un fotograma para que la dibuje (v0.36.0; si no, con el juego en pausa, se seguía viendo
+   * la de antes).
+   */
+  private imagenTrasCargar(): Imagenes | null {
+    if (this.nucleo.lienzoGL) this.fotograma()
+    return this.pintar()
   }
 
   /** Vuelve al momento de antes de la última carga de un estado. */
@@ -246,7 +259,7 @@ export class Motor {
     if (!antes) return { ok: false, imagenes: null }
     this.antesDeCargar = null
     const ok = this.nucleo.cargarEstado(antes)
-    return { ok, imagenes: this.pintar() }
+    return { ok, imagenes: this.imagenTrasCargar() }
   }
 
   /** Rebobinar: carga un estado anterior y hace un fotograma con los botones de entonces. */

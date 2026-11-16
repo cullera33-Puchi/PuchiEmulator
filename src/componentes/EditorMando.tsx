@@ -26,6 +26,18 @@ const NOMBRE: Record<Pieza, string> = {
   menu: 'Menú',
 }
 
+/**
+ * El nombre de una pieza: el del botón que se ve si es uno solo (v0.36.0: en N64, la pieza «l» es la Z
+ * y «select» es la L), o el genérico.
+ */
+function nombreDe(p: Pieza): string {
+  if (p === 'cruceta' || p === 'l' || p === 'r' || p === 'select' || p === 'start') {
+    const etiqueta = document.querySelector(`.juego [data-pieza="${p}"]`)?.getAttribute('aria-label')
+    if (etiqueta) return etiqueta
+  }
+  return NOMBRE[p]
+}
+
 export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }: Props) {
   const [elegida, setElegida] = useState<Pieza | null>(null)
   const arrastre = useRef<{ pieza: Pieza; x: number; y: number; inicio: Colocacion; dedo: number } | null>(null)
@@ -90,7 +102,7 @@ export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }:
       data-elegida={elegida ?? undefined}
     >
       <div className="editor-barra" onPointerDown={(e) => e.stopPropagation()}>
-        <p className="text-[13px] text-zinc-300">{elegida ? `${NOMBRE[elegida]}: arrástrala o cambia su tamaño` : 'Arrastra cada botón a donde lo quieras'}</p>
+        <p className="text-[13px] text-zinc-300">{elegida ? `${nombreDe(elegida)}: arrástrala o cambia su tamaño` : 'Arrastra cada botón a donde lo quieras'}</p>
         <div className="mt-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             <button className="boton-icono" aria-label="Más pequeño" disabled={!elegida} onClick={() => tamano(-1)}>

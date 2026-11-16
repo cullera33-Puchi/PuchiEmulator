@@ -85,7 +85,9 @@ export class RitmoPropio {
   private entrada: EntradaRitmo = { mascara: 0, turbo: 0, correr: 0, extra: 0 }
   private sonido: SonidoHilo | null = null
   private medida = medidaVacia()
-  private inicioMedida = performance.now()
+  /** Tiempo con el bucle en marcha (v0.36.0): las pausas no cuentan en las medidas */
+  private msActivos = 0
+  private desdeActivo = 0
 
   private readonly motor: Motor
   private fps: number
@@ -107,10 +109,12 @@ export class RitmoPropio {
     this.sonido?.vaciar()
     if (this.activo) return
     this.activo = true
+    this.desdeActivo = performance.now()
     this.tick()
   }
 
   parar(): void {
+    if (this.activo) this.msActivos += performance.now() - this.desdeActivo
     this.activo = false
     clearTimeout(this.temporizador)
     this.sonido?.vaciar()
@@ -143,9 +147,12 @@ export class RitmoPropio {
 
   /** Lo medido desde la última vez, y empieza otra medida. */
   tomarMedida(): MedidaRitmo {
-    const m = { ...this.medida, ms: performance.now() - this.inicioMedida }
+    const ahora = performance.now()
+    const ms = this.msActivos + (this.activo ? ahora - this.desdeActivo : 0)
+    const m = { ...this.medida, ms }
     this.medida = medidaVacia()
-    this.inicioMedida = performance.now()
+    this.msActivos = 0
+    this.desdeActivo = ahora
     return m
   }
 
@@ -186,10 +193,15 @@ export class RitmoPropio {
   }
 
   private hacer(n: number, paso: number): void {
-    const r = this.motor.fotogramas({ n, ...this.entrada })
+    // Ahorrar batería: si aún no toca imagen, no se pinta ni se saca del lienzo (v0.36.0)
+    const quiereImagen = !this.limite30 || performance.now() - this.ultimaImagen >= 1000 / 30 - 3
+    const r = this.motor.fotogramas({ n, ...this.entrada, sinImagen: !quiereImagen })
     this.hechos += n
     if (r.tiempos) {
-      this.fps = r.tiempos.fps > 0 ? r.tiempos.fps : this.fps
+      const fps = r.tiempos.fps > 0 ? r.tiempos.fps : this.fps
+      // Con otro ritmo de la consola, el reloj empieza de nuevo: si no, lo que toca saldría mal (v0.36.0)
+      if (fps !== this.fps) this.reiniciarReloj()
+      this.fps = fps
       this.frecuencia = r.tiempos.frecuencia || this.frecuencia
     }
     this.sonido?.enviar(r.audio, this.frecuencia * this.velocidad)
@@ -201,14 +213,7 @@ export class RitmoPropio {
     if (r.msTrabajo > m.maximo) m.maximo = r.msTrabajo
     if (r.msTrabajo > paso * 0.8) m.largos++
     if (!r.imagenes) return
-    const ahora = performance.now()
-    // Ahorrar batería: como mucho unas 30 imágenes por segundo (el juego sigue a su velocidad)
-    if (this.limite30 && ahora - this.ultimaImagen < 1000 / 30 - 3) {
-      r.imagenes.imagen.close()
-      r.imagenes.mini?.close()
-      return
-    }
-    this.ultimaImagen = ahora
+    this.ultimaImagen = performance.now()
     m.imagenes++
     const transferir: Transferable[] = [r.imagenes.imagen]
     if (r.imagenes.mini) transferir.push(r.imagenes.mini)
