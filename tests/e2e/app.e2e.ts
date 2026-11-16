@@ -1594,14 +1594,15 @@ test('volver deslizando: debajo se ve la pantalla anterior y al volver está al 
   await selector(page).setInputFiles(rom('prueba.nes'))
   await expect(page.getByText(/Juego añadido/)).toBeVisible()
 
-  // A mitad del gesto, el inicio se ve debajo
+  // A mitad del gesto, el inicio se ve debajo y se mueve con el dedo (siempre pintado, v0.37.1)
   const fondo = page.locator('.capa.fondo')
-  const soltar = await deslizarDesdeBorde(page, 100, false)
   await expect.poll(() => fondo.evaluate((e) => getComputedStyle(e).visibility)).toBe('visible')
+  const soltar = await deslizarDesdeBorde(page, 100, false)
+  await expect.poll(() => fondo.evaluate((e) => e.style.transform)).toContain('translate3d')
   await soltar()
-  // Sin soltar del todo, vuelve a la biblioteca y el inicio se oculta otra vez
+  // Sin soltar del todo, vuelve a la biblioteca y el inicio queda debajo, en su sitio y sin estilos sueltos
   await expect(page.getByRole('heading', { name: 'NES', exact: true })).toBeVisible()
-  await expect.poll(() => fondo.evaluate((e) => getComputedStyle(e).visibility)).toBe('hidden')
+  await expect.poll(() => fondo.evaluate((e) => e.style.transform + e.style.filter)).toBe('')
 
   // Pasado un tercio, vuelve al inicio sin pantallazo y con el recuento al día
   await deslizarDesdeBorde(page, 300)
@@ -1736,10 +1737,10 @@ test.describe('gestos con animaciones (v0.30.0)', () => {
     await toque('touchStart', [{ x: 110, y: 420 }, { x: 250, y: 300 }])
     await toque('touchEnd', [])
     await page.waitForTimeout(700)
-    // La biblioteca, en su sitio y sin estilos sueltos; el inicio de debajo, oculto otra vez
+    // La biblioteca, en su sitio y sin estilos sueltos; el inicio de debajo, también
     await expect(page.getByRole('heading', { name: 'NES', exact: true })).toBeVisible()
     expect(await page.locator('.capa:not(.fondo)').evaluate((e) => e.style.transform + e.style.boxShadow)).toBe('')
-    expect(await page.locator('.capa.fondo').evaluate((e) => getComputedStyle(e).visibility)).toBe('hidden')
+    expect(await page.locator('.capa.fondo').evaluate((e) => e.style.transform + e.style.filter)).toBe('')
     // Al volver con el botón, el inicio no queda torcido
     await page.getByRole('button', { name: 'Consolas' }).click()
     await page.waitForTimeout(700)

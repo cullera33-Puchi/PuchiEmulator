@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.37.1",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Al volver atrás (por ejemplo, de Estadísticas o de una consola al inicio), la pantalla ya no debería parpadear."
+    ]
+  },
+  {
     "version": "0.37.0",
     "fecha": "16/11/2026",
     "cambios": [

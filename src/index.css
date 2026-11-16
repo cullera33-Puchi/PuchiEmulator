@@ -1270,11 +1270,16 @@ body.en-juego .aviso {
 .capa[data-saliendo] {
   pointer-events: none;
 }
-/* La pantalla de debajo de una apilada: solo se ve mientras se vuelve deslizando (v0.26.1) */
+/*
+ * La pantalla de debajo de una apilada (v0.26.1): queda tapada por la de arriba y se ve al volver.
+ * Desde la v0.37.1 no se oculta (antes, visibility: hidden): oculta, iOS deja de tenerla pintada y
+ * suelta las imágenes ya decodificadas, y al volver la repintaba entera en el primer fotograma de la
+ * animación, que se veía como un parpadeo. Tapada, sigue pintada y aparece al momento.
+ */
 .capa.fondo,
 .oculto-detras {
-  visibility: hidden;
   transform: translate3d(-30%, 0, 0);
+  pointer-events: none;
 }
 
 @keyframes entra-desde-derecha {

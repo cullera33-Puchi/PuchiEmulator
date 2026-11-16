@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.37.1 (16/11/2026)
+
+Parpadeo al volver atrás, informado otra vez por el usuario con la v0.36.0 (el arreglo de la v0.35.1, que conservaba las direcciones de las imágenes, no bastó).
+
+- La pantalla de debajo de una apilada (el inicio bajo una biblioteca, Estadísticas o Ajustes, y la lista de Ajustes bajo un apartado) estaba oculta con `visibility: hidden`. Oculta, iOS deja de tenerla pintada y suelta las imágenes ya decodificadas; al volver, la repintaba entera en el primer fotograma de la animación, y eso era el parpadeo. Ahora se queda pintada debajo, tapada por la de arriba y sin recoger toques (`.capa.fondo` y `.oculto-detras` en `src/index.css`). No se puede reproducir aquí (Chromium no suelta lo oculto): pendiente de que el usuario lo confirme.
+- Pruebas: 173 unitarias y 68 de navegador (las de volver deslizando comprueban ahora que el inicio de debajo se mueve con el dedo y queda sin estilos sueltos).
+
 ## 0.37.0 (16/11/2026)
 
 PlayStation en pruebas, pedida por el usuario (fila 6 de la hoja de ruta y 16 del análisis), revisando lo aprendido con la N64 para no repetirlo. Decisiones del usuario: CHD y BIN con CUE, BIOS propia opcional, una tarjeta de memoria por juego y primera entrega jugable (sin varios discos por juego ni palancas analógicas, que van después).
