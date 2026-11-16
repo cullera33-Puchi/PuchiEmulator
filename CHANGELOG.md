@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.34.0 (16/11/2026)
+
+Nintendo 64, a partir del tercer registro del usuario («ha mejorado mucho, pero aún va con un poco de lag y la palanca se siente brusca»). Con el ritmo propio el juego ya va a su velocidad (49,6 fotogramas por segundo de 50, unos 5,5 ms cada uno), pero solo se veían unas 14 imágenes por segundo, en tandas de 3 o 4 fotogramas, y la pantalla de la app seguía a unos 20 refrescos por segundo: la tarjeta gráfica no daba abasto.
+
+- Dibujo de GLideN64 en WebGL (`nucleos/n64_webgl.patch`, `opengl_UnbufferedDrawer`): WebGL no tiene vértices en la memoria del programa y Emscripten los imita subiendo cada atributo por separado (posición, color, textura…) en cada dibujo, unas cinco veces los mismos vértices y unas 15 llamadas. Ahora los vértices y los índices se suben una vez por dibujo a un búfer propio y los atributos apuntan dentro. Los punteros se ponen en cada dibujo: el gestor de estado de libretro (glsm) los vuelve a poner entre fotogramas sin búfer, y con la caché de GLideN64 la imagen salía negra.
+- ROM de prueba: con B, una lista de órdenes del RDP (rectángulo rojo y triángulo cian) que dibuja GLideN64 con la tarjeta gráfica. Con ella se comprueba el parche: misma imagen y la mitad de bytes subidos en los fotogramas con dibujo (con dos atributos; los triángulos de los juegos llevan cuatro o cinco).
+- Resolución de Nintendo 64 por juego (Pantalla): alta (640 x 480, como hasta ahora) o normal (320 x 240, la de la consola; la tarjeta gráfica trabaja la cuarta parte). Se aplica al volver a abrir el juego; el lienzo del núcleo se crea a esa medida.
+- Palanca sin saltos (`vectorPalanca`): la inclinación empieza en 0 al salir de la zona muerta (antes saltaba al 8 %) y el imán de rectas y diagonales (8 grados) reparte el ángulo de alrededor en lugar de saltar al salir de él.
+- Pruebas: 161 unitarias y 65 de navegador (nuevas: el dibujo con el RDP y la resolución normal).
+
 ## 0.33.0 (16/11/2026)
 
 Nintendo 64, a partir del segundo registro del usuario («va un poco mejor, pero rasca, el audio se corta y hay retraso en el mando»). El núcleo ya va rápido (unos 3,5 ms por fotograma en escenas sencillas), pero la pantalla de la app se refrescaba unas 25 veces por segundo, con parones de hasta medio segundo, y era ese refresco el que pedía los fotogramas, mandaba los botones y llenaba el sonido. Decisiones del usuario: ritmo propio primero solo en N64, y palanca que siga al pulgar y más precisa en rectas y diagonales.

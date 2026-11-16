@@ -49,6 +49,11 @@ export interface Ajustes {
   pantallaGrande: boolean
   /** Imagen de Super Nintendo: como en la televisión (4:3) o píxel exacto (8:7) */
   snesAspecto: 'tv' | 'pixel'
+  /**
+   * Resolución con la que dibuja la Nintendo 64 (v0.34.0): alta (640 x 480, el doble) o normal
+   * (320 x 240, la de la consola: la tarjeta gráfica trabaja la cuarta parte). Al volver a abrir el juego
+   */
+  resolucionN64: 'alta' | 'normal'
   /** Filtro de imagen (v0.15.0): ninguno, el de la consola (rejilla en las portátiles, líneas en la tele), rejilla LCD o líneas de TV */
   filtro: 'ninguno' | 'consola' | 'lcd' | 'tv'
   /** Emulación en un hilo aparte (v0.31.0). Solo para descartar problemas: desactivada, va en el principal */
@@ -108,6 +113,7 @@ export const POR_DEFECTO: Ajustes = {
   caratulasAuto: true,
   pantallaGrande: true,
   snesAspecto: 'tv',
+  resolucionN64: 'alta',
   filtro: 'ninguno',
   limite30: false,
   emulacionEnHilo: true,

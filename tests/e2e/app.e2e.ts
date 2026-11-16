@@ -1815,6 +1815,7 @@ async function tono(page: Page): Promise<string> {
   const alto = (v: number) => v > 180
   const bajo = (v: number) => v < 70
   if (alto(r) && alto(g) && bajo(b)) return 'amarillo'
+  if (bajo(r) && alto(g) && alto(b)) return 'cian'
   if (alto(r) && bajo(g) && alto(b)) return 'magenta'
   if (alto(r) && bajo(g) && bajo(b)) return 'rojo'
   if (bajo(r) && alto(g) && bajo(b)) return 'verde'
@@ -1874,6 +1875,12 @@ test('Nintendo 64 (en pruebas): palanca, A, botones C, Z, estados y partida guar
   await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('verde')
   await page.waitForTimeout(1500)
 
+  // Con B, la ROM dibuja con el RDP (por GLideN64 y la tarjeta gráfica, v0.34.0): un rectángulo rojo y
+  // encima un triángulo cian, en el centro
+  await pulsar(page, 'B')
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('cian')
+  await page.mouse.up()
+
   // Al volver a abrir el juego desde el principio, la ROM encuentra la marca en la EEPROM: rojo
   await page.reload()
   await entrar(page, 'Nintendo 64')
@@ -1881,4 +1888,17 @@ test('Nintendo 64 (en pruebas): palanca, A, botones C, Z, estados y partida guar
   await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
   await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
   await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('rojo')
+})
+
+test('Nintendo 64: resolución normal (320 x 240) por juego, y el RDP dibuja igual (v0.34.0)', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ bienvenidaVista: true, coloresConsola: false, ultimaCopia: Date.now(), resolucionN64: 'normal' })))
+  await page.goto('/')
+  await anadir(page, 'prueba.z64')
+  await page.getByRole('button', { name: /prueba, Nintendo 64/ }).first().click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('azul')
+  await expect.poll(() => page.getByTestId('pantalla').evaluate((c: HTMLCanvasElement) => `${c.width}x${c.height}`)).toBe('320x240')
+  await pulsar(page, 'B')
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('cian')
+  await page.mouse.up()
 })

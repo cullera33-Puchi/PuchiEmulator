@@ -1,4 +1,5 @@
-diff -ru a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp b/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp
+diff --git a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp b/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp
+index ffbcde6..59a5e01 100644
 --- a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp
 +++ b/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp
 @@ -4,6 +4,11 @@
@@ -13,7 +14,7 @@ diff -ru a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFa
  
  #ifdef OS_ANDROID
  #include <Graphics/OpenGLContext/GraphicBuffer/GraphicBufferWrapper.h>
-@@ -153,12 +158,21 @@
+@@ -153,12 +158,21 @@ public:
  	{
  		if (_range > m_size)
  			_range = static_cast<u32>(m_size);
@@ -35,7 +36,7 @@ diff -ru a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFa
  	}
  
  	void bind() override {
-@@ -173,6 +187,9 @@
+@@ -173,6 +187,9 @@ private:
  	CachedBindBuffer * m_bind;
  	size_t m_size;
  	GLuint m_PBO;
@@ -45,10 +46,11 @@ diff -ru a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFa
  };
  
  template<typename T>
-diff -ru a/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp b/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp
+diff --git a/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp b/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp
+index 0d80351..9ce22ed 100644
 --- a/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp
 +++ b/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp
-@@ -384,6 +384,11 @@
+@@ -384,6 +384,11 @@ graphics::ColorBufferReader * ContextImpl::createColorBufferReader(CachedTexture
  		return new ColorBufferReaderWithEGLImage(_pTexture, m_cachedFunctions->getCachedBindTexture());
  #endif
  
@@ -60,3 +62,261 @@ diff -ru a/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp b/GLideN64
  	if (m_glInfo.bufferStorage && m_glInfo.renderer != Renderer::Intel)
  		return new ColorBufferReaderWithBufferStorage(_pTexture, m_cachedFunctions->getCachedBindBuffer());
  
+diff --git a/GLideN64/src/Graphics/OpenGLContext/opengl_UnbufferedDrawer.cpp b/GLideN64/src/Graphics/OpenGLContext/opengl_UnbufferedDrawer.cpp
+index 0737b9e..94a64b7 100644
+--- a/GLideN64/src/Graphics/OpenGLContext/opengl_UnbufferedDrawer.cpp
++++ b/GLideN64/src/Graphics/OpenGLContext/opengl_UnbufferedDrawer.cpp
+@@ -31,10 +31,70 @@ UnbufferedDrawer::UnbufferedDrawer(const GLInfo & _glinfo, CachedVertexAttribArr
+ 
+ UnbufferedDrawer::~UnbufferedDrawer()
+ {
++#ifdef __EMSCRIPTEN__
++	if (m_vbo != 0) {
++		GLuint buffers[2] = { m_vbo, m_ebo };
++		glDeleteBuffers(2, buffers);
++	}
++#endif
++}
++
++void UnbufferedDrawer::_uploadVertices(const void * _vertices, u32 _bytes)
++{
++#ifdef __EMSCRIPTEN__
++	if (m_vbo == 0) {
++		GLuint buffers[2];
++		glGenBuffers(2, buffers);
++		m_vbo = buffers[0];
++		m_ebo = buffers[1];
++	}
++	glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
++	glBufferData(GL_ARRAY_BUFFER, _bytes, _vertices, GL_STREAM_DRAW);
++	m_base = static_cast<const u8*>(_vertices);
++#endif
++}
++
++void UnbufferedDrawer::_attribPointer(u32 _index, s32 _size, u32 _type, bool _normalized, s32 _stride, const void * _ptr)
++{
++#ifdef __EMSCRIPTEN__
++	// The vertices are in m_vbo (bound by _uploadVertices): the pointer becomes an offset into them.
++	// The attribute keeps m_vbo as its buffer, so the cache of pointers stays valid across draws
++	const GLintptr offset = static_cast<const u8*>(_ptr) - m_base;
++	glVertexAttribPointer(_index, _size, GLenum(_type), _normalized ? GL_TRUE : GL_FALSE, _stride, reinterpret_cast<const void*>(offset));
++#else
++	glVertexAttribPointer(_index, _size, GLenum(_type), _normalized ? GL_TRUE : GL_FALSE, _stride, _ptr);
++#endif
++}
++
++void UnbufferedDrawer::_drawElements(u32 _mode, s32 _count, u32 _type, const void * _elements, u32 _elementsBytes, u32 _offset)
++{
++#ifdef __EMSCRIPTEN__
++	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
++	if (_offset == 0)
++		glBufferData(GL_ELEMENT_ARRAY_BUFFER, _elementsBytes, _elements, GL_STREAM_DRAW);
++	glDrawElements(GLenum(_mode), _count, GLenum(_type), reinterpret_cast<const void*>(GLintptr(_offset)));
++	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
++#else
++	glDrawElements(GLenum(_mode), _count, GLenum(_type), static_cast<const u8*>(_elements) + _offset);
++#endif
++}
++
++void UnbufferedDrawer::_endDraw()
++{
++#ifdef __EMSCRIPTEN__
++	// Same state as without the buffer: the attributes keep pointing into m_vbo
++	glBindBuffer(GL_ARRAY_BUFFER, 0);
++#endif
+ }
+ 
+ bool UnbufferedDrawer::_updateAttribPointer(u32 _index, const void * _ptr)
+ {
++#ifdef __EMSCRIPTEN__
++	// WebGL: the pointer goes into the uploaded vertices and is set again at every draw. Something else
++	// (the libretro GL state manager) may set the attributes again between frames without the buffer
++	// bound, so a cached pointer can't be trusted
++	return true;
++#endif
+ 	if (m_attribsData[_index] == _ptr)
+ 		return false;
+ 
+@@ -44,18 +104,19 @@ bool UnbufferedDrawer::_updateAttribPointer(u32 _index, const void * _ptr)
+ 
+ void UnbufferedDrawer::drawTriangles(const graphics::Context::DrawTriangleParameters & _params)
+ {
++	_uploadVertices(_params.vertices, _params.verticesCount * sizeof(SPVertex));
+ 	{
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::position, true);
+ 		const void * ptr = &_params.vertices->x;
+ 		if (_updateAttribPointer(triangleAttrib::position, ptr))
+-			glVertexAttribPointer(triangleAttrib::position, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
++			_attribPointer(triangleAttrib::position, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
+ 	}
+ 
+ 	if (_params.combiner->usesShade()) {
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::color, true);
+ 		const void * ptr = _params.flatColors ? &_params.vertices->flat_r : &_params.vertices->r;
+ 		if (_updateAttribPointer(triangleAttrib::color, ptr))
+-			glVertexAttribPointer(triangleAttrib::color, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
++			_attribPointer(triangleAttrib::color, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
+ 	}
+ 	else
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::color, false);
+@@ -64,7 +125,7 @@ void UnbufferedDrawer::drawTriangles(const graphics::Context::DrawTriangleParame
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::texcoord, true);
+ 		const void * ptr = &_params.vertices->s;
+ 		if (_updateAttribPointer(triangleAttrib::texcoord, ptr))
+-			glVertexAttribPointer(triangleAttrib::texcoord, 2, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
++			_attribPointer(triangleAttrib::texcoord, 2, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
+ 	} else
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::texcoord, false);
+ 
+@@ -72,14 +133,14 @@ void UnbufferedDrawer::drawTriangles(const graphics::Context::DrawTriangleParame
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::modify, true);
+ 		const void * ptr = &_params.vertices->modify;
+ 		if (_updateAttribPointer(triangleAttrib::modify, ptr))
+-			glVertexAttribPointer(triangleAttrib::modify, 4, GL_BYTE, GL_FALSE, sizeof(SPVertex), ptr);
++			_attribPointer(triangleAttrib::modify, 4, GL_BYTE, GL_FALSE, sizeof(SPVertex), ptr);
+ 	}
+ 
+ 	if (m_useCoverage) {
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::barycoords, true);
+ 		const void * ptr = &_params.vertices->bc0;
+ 		if (_updateAttribPointer(triangleAttrib::barycoords, ptr))
+-			glVertexAttribPointer(triangleAttrib::barycoords, 2, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
++			_attribPointer(triangleAttrib::barycoords, 2, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
+ 	}
+ 
+ 	if (isHWLightingAllowed())
+@@ -94,10 +155,12 @@ void UnbufferedDrawer::drawTriangles(const graphics::Context::DrawTriangleParame
+ 	if (config.frameBufferEmulation.N64DepthCompare != Config::dcCompatible) {
+ 		if (_params.elements == nullptr) {
+ 			glDrawArrays(GLenum(_params.mode), 0, _params.verticesCount);
++			_endDraw();
+ 			return;
+ 		}
+ 
+-		glDrawElements(GLenum(_params.mode), _params.elementsCount, GL_UNSIGNED_SHORT, _params.elements);
++		_drawElements(GLenum(_params.mode), _params.elementsCount, GL_UNSIGNED_SHORT, _params.elements, _params.elementsCount * sizeof(u16), 0);
++		_endDraw();
+ 		return;
+ 	}
+ 
+@@ -107,6 +170,7 @@ void UnbufferedDrawer::drawTriangles(const graphics::Context::DrawTriangleParame
+ 		if (_params.mode != graphics::drawmode::TRIANGLES) {
+ 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+ 			glDrawArrays(GLenum(_params.mode), 0, _params.verticesCount);
++			_endDraw();
+ 			return;
+ 		}
+ 
+@@ -114,29 +178,32 @@ void UnbufferedDrawer::drawTriangles(const graphics::Context::DrawTriangleParame
+ 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+ 			glDrawArrays(GLenum(_params.mode), i, 3);
+ 		}
++		_endDraw();
+ 		return;
+ 	}
+ 
+ 	for (GLint i = 0; i < GLint(_params.elementsCount); i += 3) {
+ 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+-		glDrawElements(GLenum(_params.mode), 3, GL_UNSIGNED_BYTE, (u8*)_params.elements + i);
++		_drawElements(GLenum(_params.mode), 3, GL_UNSIGNED_BYTE, _params.elements, _params.elementsCount * sizeof(u16), u32(i));
+ 	}
++	_endDraw();
+ }
+ 
+ void UnbufferedDrawer::drawRects(const graphics::Context::DrawRectParameters & _params)
+ {
++	_uploadVertices(_params.vertices, _params.verticesCount * sizeof(RectVertex));
+ 	{
+ 		m_cachedAttribArray->enableVertexAttribArray(rectAttrib::position, true);
+ 		const void * ptr = &_params.vertices->x;
+ 		if (_updateAttribPointer(rectAttrib::position, ptr))
+-			glVertexAttribPointer(rectAttrib::position, 4, GL_FLOAT, GL_FALSE, sizeof(RectVertex), ptr);
++			_attribPointer(rectAttrib::position, 4, GL_FLOAT, GL_FALSE, sizeof(RectVertex), ptr);
+ 	}
+ 
+ 	if (_params.texrect && _params.combiner->usesTile(0)) {
+ 		m_cachedAttribArray->enableVertexAttribArray(rectAttrib::texcoord0, true);
+ 		const void * ptr = &_params.vertices->s0;
+ 		if (_updateAttribPointer(rectAttrib::texcoord0, ptr))
+-			glVertexAttribPointer(rectAttrib::texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(RectVertex), ptr);
++			_attribPointer(rectAttrib::texcoord0, 2, GL_FLOAT, GL_FALSE, sizeof(RectVertex), ptr);
+ 	} else
+ 		m_cachedAttribArray->enableVertexAttribArray(rectAttrib::texcoord0, false);
+ 
+@@ -144,7 +211,7 @@ void UnbufferedDrawer::drawRects(const graphics::Context::DrawRectParameters & _
+ 		m_cachedAttribArray->enableVertexAttribArray(rectAttrib::texcoord1, true);
+ 		const void * ptr = &_params.vertices->s1;
+ 		if (_updateAttribPointer(rectAttrib::texcoord1, ptr))
+-			glVertexAttribPointer(rectAttrib::texcoord1, 2, GL_FLOAT, GL_FALSE, sizeof(RectVertex), ptr);
++			_attribPointer(rectAttrib::texcoord1, 2, GL_FLOAT, GL_FALSE, sizeof(RectVertex), ptr);
+ 	} else
+ 		m_cachedAttribArray->enableVertexAttribArray(rectAttrib::texcoord1, false);
+ 
+@@ -152,7 +219,7 @@ void UnbufferedDrawer::drawRects(const graphics::Context::DrawRectParameters & _
+ 		m_cachedAttribArray->enableVertexAttribArray(rectAttrib::barycoords, true);
+ 		const void * ptr = &_params.vertices->bc0;
+ 		if (_updateAttribPointer(rectAttrib::barycoords, ptr))
+-			glVertexAttribPointer(rectAttrib::barycoords, 2, GL_FLOAT, GL_FALSE, sizeof(RectVertex), ptr);
++			_attribPointer(rectAttrib::barycoords, 2, GL_FLOAT, GL_FALSE, sizeof(RectVertex), ptr);
+ 	}
+ 
+ 	m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::position, false);
+@@ -163,22 +230,24 @@ void UnbufferedDrawer::drawRects(const graphics::Context::DrawRectParameters & _
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::barycoords, false);
+ 
+ 	glDrawArrays(GLenum(_params.mode), 0, _params.verticesCount);
++	_endDraw();
+ }
+ 
+ void UnbufferedDrawer::drawLine(f32 _width, SPVertex * _vertices)
+ {
++	_uploadVertices(_vertices, 2 * sizeof(SPVertex));
+ 	{
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::position, true);
+ 		const void * ptr = &_vertices->x;
+ 		if (_updateAttribPointer(triangleAttrib::position, ptr))
+-			glVertexAttribPointer(triangleAttrib::position, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
++			_attribPointer(triangleAttrib::position, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
+ 	}
+ 
+ 	{
+ 		m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::color, true);
+ 		const void * ptr = &_vertices->r;
+ 		if (_updateAttribPointer(triangleAttrib::color, ptr))
+-			glVertexAttribPointer(triangleAttrib::color, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
++			_attribPointer(triangleAttrib::color, 4, GL_FLOAT, GL_FALSE, sizeof(SPVertex), ptr);
+ 	}
+ 
+ 	m_cachedAttribArray->enableVertexAttribArray(triangleAttrib::texcoord, false);
+@@ -195,4 +264,5 @@ void UnbufferedDrawer::drawLine(f32 _width, SPVertex * _vertices)
+ 
+ 	glLineWidth(_width);
+ 	glDrawArrays(GL_LINES, 0, 2);
++	_endDraw();
+ }
+diff --git a/GLideN64/src/Graphics/OpenGLContext/opengl_UnbufferedDrawer.h b/GLideN64/src/Graphics/OpenGLContext/opengl_UnbufferedDrawer.h
+index 547cb83..6da3198 100644
+--- a/GLideN64/src/Graphics/OpenGLContext/opengl_UnbufferedDrawer.h
++++ b/GLideN64/src/Graphics/OpenGLContext/opengl_UnbufferedDrawer.h
+@@ -20,6 +20,21 @@ namespace opengl {
+ 
+ 	private:
+ 		bool _updateAttribPointer(u32 _index, const void * _ptr);
++		// Puts a vertex attribute: a client pointer, or an offset into the uploaded vertices (WebGL)
++		void _attribPointer(u32 _index, s32 _size, u32 _type, bool _normalized, s32 _stride, const void * _ptr);
++		// Draws indexed vertices from a client array of indices (uploaded once in WebGL)
++		void _drawElements(u32 _mode, s32 _count, u32 _type, const void * _elements, u32 _elementsBytes, u32 _offset);
++		// WebGL: uploads the vertices of a draw once, before pointing the attributes into them
++		void _uploadVertices(const void * _vertices, u32 _bytes);
++		void _endDraw();
++
++#ifdef __EMSCRIPTEN__
++		// WebGL 2 has no client-side arrays: Emscripten emulates them by uploading every enabled attribute
++		// separately at each draw. Upload the vertices and indices once per draw instead (PuchiEmulator).
++		u32 m_vbo = 0;
++		u32 m_ebo = 0;
++		const u8 * m_base = nullptr;
++#endif
+ 
+ 		const GLInfo & m_glInfo;
+ 		CachedVertexAttribArray * m_cachedAttribArray;

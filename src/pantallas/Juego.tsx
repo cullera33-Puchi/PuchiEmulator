@@ -145,6 +145,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             opciones: {
               mgba_gb_colors: paletaPara(temaJuego, ajustesRef.current.paletaGb),
               mgba_color_correction: controlesDe(ajustesRef.current, juego.id).coloresConsola ? 'Auto' : 'OFF',
+              // Nintendo 64 (v0.34.0): resolución con la que dibuja; el lienzo del núcleo se crea a esa medida
+              ...(juego.sistema === 'n64' ? { 'mupen64plus-43screensize': controlesDe(ajustesRef.current, juego.id).resolucionN64 === 'normal' ? '320x240' : '640x480' } : {}),
             },
             alCambiarTamano: (ancho, alto) => setNativo({ ancho, alto }),
             alInactividad: () => {

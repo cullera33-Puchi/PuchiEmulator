@@ -25,6 +25,7 @@ export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sist
   const s = juego?.sistema
   const verSnes = !s || s === 'snes'
   const verDS = !s || s === 'nds'
+  const verN64 = !s || s === 'n64'
   // La corrección de color es de mGBA: Game Boy Color y GBA
   const verColores = !s || s === 'gb' || s === 'gbc' || s === 'gba'
   return (
@@ -62,6 +63,23 @@ export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sist
                   ['pixel', 'Píxel exacto (8:7)'],
                 ]}
                 alCambiar={(v) => cambiar({ snesAspecto: v })}
+              />
+            </div>
+          </>
+        )}
+        {verN64 && (
+          <>
+            <div className="separador" />
+            <div className="fila flex-col items-stretch gap-2 py-3">
+              <span>Resolución de Nintendo 64</span>
+              <Segmentado
+                etiqueta="Resolución de Nintendo 64"
+                valor={a.resolucionN64}
+                opciones={[
+                  ['alta', 'Alta (640 x 480)'],
+                  ['normal', 'Normal (320 x 240)'],
+                ]}
+                alCambiar={(v) => cambiar({ resolucionN64: v })}
               />
             </div>
           </>
@@ -152,6 +170,7 @@ export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sist
           : 'Para los juegos que no tengan los suyos: dentro de cada juego, en Menú, Pantalla, se cambian solo para ese juego. '}
         Lo más grande posible: sin margen ni marco, de borde a borde en vertical y a toda la altura en horizontal.
         {verColores && ' Colores como en la consola: la GBA y la Game Boy Color tenían pantallas apagadas y los juegos se pintaron con colores muy vivos para compensarlo; así se ven como en la consola.'}
+        {verN64 && ' Resolución de Nintendo 64: «Normal» es la de la consola; se ve más pixelada, pero la tarjeta gráfica del iPhone trabaja la cuarta parte. Pruébala si el juego da tirones. Se aplica al volver a abrir el juego.'}
         {verDS && ' Pantallas de DS: «Libro» es para los juegos que se juegan con la consola de lado (Hotel Dusk, Last Window, Brain Training): gira el iPhone y elige el lado de la táctil como en el juego. En «Grande y pequeña», arrastra la miniatura para moverla y tócala para cambiar cuál va grande. «Lado a lado» se ve mejor con el iPhone en horizontal.'}
         {' Filtro «Consola»: la rejilla de la pantalla LCD en las portátiles y las líneas de la tele en Super Nintendo.'}
         {' Ahorrar batería: el juego va a su velocidad, pero la imagen se actualiza 30 veces por segundo en lugar de 60. Se ve algo menos fluido y el iPhone dibuja la mitad de veces; la emulación cuesta lo mismo.'}

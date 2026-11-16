@@ -274,7 +274,9 @@ export class Nucleo {
     let lienzoGL: OffscreenCanvas | null = null
     if (gl) {
       if (typeof OffscreenCanvas === 'undefined' || !m.specialHTMLTargets) throw new Error('Este aparato no puede dibujar la Nintendo 64 (sin OffscreenCanvas).')
-      lienzoGL = new OffscreenCanvas(gl.ancho, gl.alto)
+      // A la medida con la que va a dibujar el núcleo (v0.34.0: se puede elegir 320 x 240)
+      const medida = /^(\d+)x(\d+)$/.exec({ ...OPCIONES[nombre], ...extra }['mupen64plus-43screensize'] ?? '')
+      lienzoGL = new OffscreenCanvas(medida ? Number(medida[1]) : gl.ancho, medida ? Number(medida[2]) : gl.alto)
       m.specialHTMLTargets['!lienzo'] = lienzoGL
     }
     m._pf_iniciar()

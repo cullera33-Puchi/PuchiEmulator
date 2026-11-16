@@ -100,20 +100,29 @@ describe('funcionesDelFallo', () => {
 })
 
 describe('vectorPalanca', () => {
-  it('zona muerta, tope y recto aunque el dedo vaya algo torcido', () => {
+  it('zona muerta sin salto: empieza en 0 y llega a 1 en el tope', () => {
     expect(vectorPalanca(1, 1, 100)).toEqual([0, 0])
-    const [x, y] = vectorPalanca(200, 10, 100)
-    expect(x).toBeCloseTo(1)
-    expect(y).toBe(0)
-    const [x2, y2] = vectorPalanca(50, -6, 100)
-    expect(x2).toBeCloseTo(Math.hypot(50, 6) / 100)
-    expect(y2).toBe(0)
+    const [x] = vectorPalanca(9, 0, 100)
+    expect(x).toBeGreaterThan(0)
+    expect(x).toBeLessThan(0.02)
+    expect(vectorPalanca(200, 0, 100)[0]).toBeCloseTo(1)
   })
 
-  it('diagonal exacta cerca de los 45 grados y libre entre medias', () => {
-    const [x, y] = vectorPalanca(60, 66, 100)
-    expect(x).toBeCloseTo(y)
-    const [x2, y2] = vectorPalanca(60, 30, 100)
-    expect(y2 / x2).toBeCloseTo(0.5)
+  it('recto aunque el dedo vaya algo torcido, y diagonal exacta cerca de los 45 grados', () => {
+    const [, y] = vectorPalanca(80, -8, 100)
+    expect(y).toBe(0)
+    const [x2, y2] = vectorPalanca(60, 66, 100)
+    expect(x2).toBeCloseTo(y2)
+  })
+
+  it('sin saltos de ángulo al salir del imán', () => {
+    const angulo = (g: number) => {
+      const [x, y] = vectorPalanca(Math.cos((g * Math.PI) / 180) * 80, Math.sin((g * Math.PI) / 180) * 80, 100)
+      return (Math.atan2(y, x) * 180) / Math.PI
+    }
+    expect(angulo(8)).toBeCloseTo(0)
+    expect(angulo(8.5)).toBeLessThan(1.5)
+    expect(angulo(22.5)).toBeCloseTo(22.5)
+    for (let g = 0; g < 90; g += 0.5) expect(Math.abs(angulo(g + 0.5) - angulo(g))).toBeLessThan(2)
   })
 })

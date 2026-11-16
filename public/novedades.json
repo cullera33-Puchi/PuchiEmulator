@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.34.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Nintendo 64: la tarjeta gráfica del iPhone trabaja mucho menos en cada imagen. Debería verse más fluida y con menos retraso.",
+      "Palanca más suave: ya no da saltos al empezar a moverla ni al salir de las rectas y diagonales.",
+      "Nueva opción por juego en Pantalla, «Resolución de Nintendo 64»: «Normal» se ve más pixelada pero va más ligera. Pruébala si da tirones (se aplica al volver a abrir el juego)."
+    ]
+  },
+  {
     "version": "0.33.0",
     "fecha": "16/11/2026",
     "cambios": [
