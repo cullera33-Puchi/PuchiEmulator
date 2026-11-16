@@ -1,9 +1,10 @@
 /**
  * Botones movibles (v0.20.0, bloque 3): cada pieza del mando táctil se puede mover y cambiar de
  * tamaño, por juego y por orientación. Se guarda el centro de cada pieza como fracción de la
- * pantalla (así sirve en cualquier iPhone) y su escala.
+ * pantalla (así sirve en cualquier iPhone) y su escala. Desde la v0.35.0 también las herramientas:
+ * guardar y cargar, las de la derecha (rebobinar, soplar y avance rápido) y el menú.
  */
-export const PIEZAS = ['cruceta', 'botones', 'l', 'r', 'select', 'start'] as const
+export const PIEZAS = ['cruceta', 'botones', 'l', 'r', 'select', 'start', 'guardar', 'herramientas', 'menu'] as const
 export type Pieza = (typeof PIEZAS)[number]
 
 export interface Colocacion {

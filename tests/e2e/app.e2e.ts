@@ -1431,6 +1431,21 @@ test('mover y cambiar de tamaño los botones: por juego, se recuerda y se restab
   await page.getByRole('button', { name: 'Restablecer' }).click()
   await page.getByRole('button', { name: 'Listo' }).click()
   await expect.poll(async () => Math.abs((await a.boundingBox())!.y - original.y)).toBeLessThan(3)
+
+  // Las herramientas también se mueven (v0.35.0): guardar y cargar, hacia arriba, y siguen funcionando
+  const guardar = page.getByRole('button', { name: 'Guardar rápido' })
+  const antes = (await guardar.boundingBox())!
+  await abrirEditor()
+  await page.mouse.move(antes.x + antes.width / 2, antes.y + antes.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(antes.x + 60, antes.y - 120, { steps: 8 })
+  await page.mouse.up()
+  await expect(page.getByTestId('editor-mando')).toHaveAttribute('data-elegida', 'guardar')
+  await page.getByRole('button', { name: 'Listo' }).click()
+  const despues = (await guardar.boundingBox())!
+  expect(despues.y).toBeLessThan(antes.y - 80)
+  await guardar.click()
+  await expect(page.getByText('Guardado rápido', { exact: true })).toBeVisible()
 })
 
 test('girar la pantalla: con el iPhone en vertical, el juego se coloca en horizontal y responde', async ({ page }) => {

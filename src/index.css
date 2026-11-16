@@ -109,6 +109,23 @@
 .giro.girada.izquierda {
   transform: translateY(100dvh) rotate(-90deg);
 }
+/* App instalada en el iPhone (v0.35.0): en iOS 26, lo que va fijado a la pantalla se quedaba unos 62
+   puntos por encima del borde de abajo (lo que mide la franja de la hora), y debajo quedaba una franja
+   negra sin usar. El alto grande de la pantalla (lvh) sí llega hasta abajo */
+@media (display-mode: standalone) {
+  .giro:not(.girada),
+  .giro:not(.girada) .juego {
+    bottom: auto;
+    height: max(100%, 100lvh);
+  }
+  .giro.girada {
+    width: max(100dvh, 100lvh);
+  }
+  .giro.girada.izquierda {
+    transform: translateY(max(100dvh, 100lvh)) rotate(-90deg);
+  }
+}
+
 /* Zonas seguras giradas: lo que era arriba en el iPhone pasa a un lado del juego */
 .giro.girada.derecha .juego {
   --seguro-arriba: max(env(safe-area-inset-right), var(--zona-derecha, 0px));
@@ -189,7 +206,10 @@
 .juego:has(.editor-mando[data-elegida='l']) .mando [data-pieza='l'],
 .juego:has(.editor-mando[data-elegida='r']) .mando [data-pieza='r'],
 .juego:has(.editor-mando[data-elegida='select']) .mando [data-pieza='select'],
-.juego:has(.editor-mando[data-elegida='start']) .mando [data-pieza='start'] {
+.juego:has(.editor-mando[data-elegida='start']) .mando [data-pieza='start'],
+.juego:has(.editor-mando[data-elegida='guardar']) [data-pieza='guardar'],
+.juego:has(.editor-mando[data-elegida='herramientas']) [data-pieza='herramientas'],
+.juego:has(.editor-mando[data-elegida='menu']) [data-pieza='menu'] {
   outline: 3px solid #0a84ff;
 }
 

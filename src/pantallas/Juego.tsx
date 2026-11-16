@@ -23,7 +23,7 @@ import { EditorNotas } from '../componentes/Notas'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
 import { AjustesPantalla } from '../componentes/AjustesPantalla'
 import { EditorMando } from '../componentes/EditorMando'
-import type { DisposicionPiezas, Orientacion } from '../lib/disposicionMando'
+import { estiloPieza, type DisposicionPiezas, type Orientacion, type Pieza } from '../lib/disposicionMando'
 import { bitCorrer, cambiarMandoJuego, controlesDe, extrasJrpg, mandoDe, mascaraTurbo } from '../lib/mandoJuego'
 import { esLibro, type PrincipalDS } from '../emulador/pantallasDS'
 import { MiniaturaDS } from '../componentes/MiniaturaDS'
@@ -426,6 +426,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   }, [orientacion, borrador, id])
 
   const colocaciones = borrador?.piezas ?? ajustes.mandos[id]?.disposicion?.[orientacion]
+  /** Las herramientas también se mueven (v0.35.0): su nombre para el editor y, si se han movido, su sitio */
+  const piezaHerramienta = (p: Pieza) => ({ 'data-pieza': p, style: colocaciones?.[p] ? (estiloPieza(colocaciones[p]!) as React.CSSProperties) : undefined })
 
   const editarBotones = () => {
     setVerMando(false)
@@ -568,7 +570,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         if (!sesion.current?.altavoz.activo) void sesion.current?.altavoz.activar(ajustesRef.current.sonarEnSilencio)
       }} />
 
-      <div className="herramientas izquierda">
+      <div className="herramientas izquierda" {...piezaHerramienta('guardar')}>
         <button className="herramienta" aria-label="Guardar rápido" onClick={() => void guardarRapido()}>
           <Save size={20} />
         </button>
@@ -576,10 +578,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           <FolderOpen size={20} />
         </button>
       </div>
-      <button className="boton-menu herramienta" aria-label="Menú" onClick={abrirMenu}>
+      <button className="boton-menu herramienta" aria-label="Menú" onClick={abrirMenu} {...piezaHerramienta('menu')}>
         <Menu size={22} />
       </button>
-      <div className="herramientas derecha">
+      <div className="herramientas derecha" {...piezaHerramienta('herramientas')}>
         {conRebobinado && (
         <button
           className={`herramienta ${rebobinando ? 'activa' : ''}`}

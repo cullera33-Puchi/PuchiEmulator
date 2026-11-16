@@ -14,7 +14,17 @@ interface Props {
   alListo: () => void
 }
 
-const NOMBRE: Record<Pieza, string> = { cruceta: 'Cruceta', botones: 'Botones', l: 'L', r: 'R', select: 'Select', start: 'Start' }
+const NOMBRE: Record<Pieza, string> = {
+  cruceta: 'Cruceta',
+  botones: 'Botones',
+  l: 'L',
+  r: 'R',
+  select: 'Select',
+  start: 'Start',
+  guardar: 'Guardar y cargar',
+  herramientas: 'Herramientas',
+  menu: 'Menú',
+}
 
 export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }: Props) {
   const [elegida, setElegida] = useState<Pieza | null>(null)
@@ -23,8 +33,9 @@ export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }:
   /** La colocación de una pieza: la guardada o, si no, donde está ahora en pantalla. */
   const colocacionDe = (p: Pieza): Colocacion | null => {
     if (colocaciones[p]) return colocaciones[p]!
-    const el = document.querySelector<HTMLElement>(`.mando [data-pieza="${p}"]`)
-    const mando = el?.closest<HTMLElement>('.mando')
+    // Las del mando y, desde la v0.35.0, las herramientas, que están fuera de él (mismo recuadro)
+    const el = document.querySelector<HTMLElement>(`.juego [data-pieza="${p}"]`)
+    const mando = document.querySelector<HTMLElement>('.mando')
     if (!el || !mando) return null
     // Centro de la pieza en el recuadro del juego (vale también con la pantalla girada)
     return { x: (el.offsetLeft + el.offsetWidth / 2) / mando.clientWidth, y: (el.offsetTop + el.offsetHeight / 2) / mando.clientHeight, escala: 1 }
@@ -38,7 +49,7 @@ export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }:
   const bajar = (e: EventoPuntero<HTMLDivElement>) => {
     // Un solo dedo a la vez (v0.30.0): un segundo dedo no le quita la pieza al primero
     if (arrastre.current) return
-    const el = document.elementsFromPoint(e.clientX, e.clientY).find((x) => x.closest('.mando [data-pieza]'))
+    const el = document.elementsFromPoint(e.clientX, e.clientY).find((x) => x.closest('.juego [data-pieza]'))
     const p = el?.closest<HTMLElement>('[data-pieza]')?.dataset.pieza as Pieza | undefined
     if (!p) return
     const inicio = colocacionDe(p)

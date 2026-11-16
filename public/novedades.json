@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.35.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "La pantalla del juego llega ahora hasta el borde de abajo del iPhone: se acaba la franja negra y los mandos quedan más abajo.",
+      "En Nintendo DS, los mandos tapan menos la pantalla táctil.",
+      "En «Mover y cambiar de tamaño los botones» ya se pueden mover también guardar y cargar, las herramientas y el menú."
+    ]
+  },
+  {
     "version": "0.34.0",
     "fecha": "16/11/2026",
     "cambios": [

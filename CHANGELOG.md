@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.35.0 (16/11/2026)
+
+A partir de dos capturas del usuario con Nintendo DS en vertical: los mandos tapaban la parte de abajo de la pantalla táctil mientras quedaba una franja negra sin usar debajo, y al mover los botones, las herramientas no se podían mover.
+
+- Alto completo en la app instalada (`@media (display-mode: standalone)` en `src/index.css`): en iOS 26, lo que va fijado a la pantalla se quedaba unos 62 puntos por encima del borde de abajo (lo que mide la franja de la hora). El recuadro del juego usa ahora el alto grande de la pantalla (`100lvh`), también girado. Todo baja hasta el borde, y en DS los mandos tapan menos la táctil. No se puede comprobar aquí (el navegador de pruebas no es una app instalada): el registro («Zona segura») lleva ahora `alto` con el alto de la ventana, el grande, el de la pantalla y si va instalada.
+- Las herramientas se mueven con el editor de botones: guardar y cargar (`guardar`), las de la derecha, rebobinar, soplar y avance rápido (`herramientas`), y el menú (`menu`), por juego y por orientación como el resto de piezas. El editor busca las piezas en todo el recuadro del juego, no solo en el mando.
+- Pruebas: 161 unitarias y 65 de navegador (la del editor mueve también guardar y cargar, y comprueba que sigue funcionando).
+
 ## 0.34.0 (16/11/2026)
 
 Nintendo 64, a partir del tercer registro del usuario («ha mejorado mucho, pero aún va con un poco de lag y la palanca se siente brusca»). Con el ritmo propio el juego ya va a su velocidad (49,6 fotogramas por segundo de 50, unos 5,5 ms cada uno), pero solo se veían unas 14 imágenes por segundo, en tandas de 3 o 4 fotogramas, y la pantalla de la app seguía a unos 20 refrescos por segundo: la tarjeta gráfica no daba abasto.

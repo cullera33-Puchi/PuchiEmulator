@@ -55,6 +55,27 @@ function medirAhora(): Medida {
   return m
 }
 
+/**
+ * Altos de la pantalla según el navegador (v0.35.0), para ver en el registro si la app instalada llega
+ * hasta abajo: el de la ventana, el grande (lvh), el de la pantalla y si va instalada.
+ */
+function altos(): { ventana: number; grande: number; pantalla: number; instalada: boolean } {
+  const sonda = document.createElement('div')
+  sonda.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:100lvh;visibility:hidden;pointer-events:none'
+  document.body.appendChild(sonda)
+  const grande = Math.round(sonda.getBoundingClientRect().height)
+  sonda.remove()
+  const vertical = window.innerWidth <= window.innerHeight
+  const pantalla = vertical ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height)
+  let instalada = false
+  try {
+    instalada = matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
+  } catch {
+    // sin matchMedia
+  }
+  return { ventana: window.innerHeight, grande, pantalla, instalada }
+}
+
 function orientacion(): Orientacion {
   return window.innerWidth > window.innerHeight ? 'horizontal' : 'vertical'
 }
@@ -81,7 +102,7 @@ function actualizar(): void {
   const firma = `${o}:${JSON.stringify(medida)}:${JSON.stringify(recordada)}`
   if (firma !== ultimaRegistrada) {
     ultimaRegistrada = firma
-    registrar('info', 'Zona segura', { orientacion: o, ios: medida, usada: recordada })
+    registrar('info', 'Zona segura', { orientacion: o, ios: medida, usada: recordada, alto: altos() })
   }
 }
 
