@@ -15,7 +15,9 @@ export class Historial {
   private siguienteId = 0
   private pendientes = new Map<number, (a: Anterior | null) => void>()
 
-  constructor() {
+  /** El hilo se crea al guardar el primer estado (v0.37.3): con el rebobinado desactivado, nunca */
+  private arrancar(): void {
+    if (this.hilo || this.local) return
     try {
       this.hilo = new Worker(new URL('./rebobinado.worker.ts', import.meta.url), { type: 'module' })
       this.hilo.onmessage = (e: MessageEvent<{ id: number; estado: ArrayBuffer | null; botones: number }>) => {
@@ -39,6 +41,7 @@ export class Historial {
 
   /** Guarda un estado (el historial se queda con él: no hay que volver a usarlo). */
   guardar(estado: Uint8Array, botones: number): void {
+    this.arrancar()
     if (this.hilo) {
       const buffer = estado.byteOffset === 0 && estado.byteLength === estado.buffer.byteLength ? estado.buffer : estado.slice().buffer
       this.hilo.postMessage({ tipo: 'guardar', estado: buffer, botones }, [buffer as ArrayBuffer])

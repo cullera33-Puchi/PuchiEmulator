@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.37.3",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Al volver deslizando, las carátulas del inicio ya no deberían quedarse un momento en blanco.",
+      "Rebobinar desactivado: sin botón y sin el trabajo de guardar estados mientras juegas."
+    ]
+  },
+  {
     "version": "0.37.2",
     "fecha": "17/11/2026",
     "cambios": [

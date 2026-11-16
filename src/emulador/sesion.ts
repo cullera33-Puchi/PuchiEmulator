@@ -262,7 +262,8 @@ export class Sesion {
         extension: info.extension,
         partida: partida ? { datos: partida.datos, rtc: partida.rtc } : undefined,
         estadoAuto: estadoAuto?.datos,
-        conRebobinado: info.rebobinado,
+        // Rebobinar, desactivado salvo que se active en los ajustes (v0.37.3)
+        conRebobinado: info.rebobinado && leerAjustes().rebobinado,
         disposicion: { pantallas: this.pantallas, principal: this.principal, conMini: false },
         pintor: pintorElegido(),
       },

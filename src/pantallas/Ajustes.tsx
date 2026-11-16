@@ -646,7 +646,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
 
   return (
     <>
-        <div ref={pantalla} className={`min-h-dvh bg-[#F2F2F7] dark:bg-black ${saliendo ? 'apartado-vuelve' : apartado ? 'oculto-detras' : ''}`}>
+        <div ref={pantalla} className={`lista-ajustes min-h-dvh bg-[#F2F2F7] dark:bg-black ${saliendo ? 'apartado-vuelve' : apartado ? 'oculto-detras' : ''}`}>
           <div className="mx-auto max-w-lg px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
             {cabecera('Ajustes', 'Consolas', alVolver)}
             {GRUPOS.map((grupo, g) => (

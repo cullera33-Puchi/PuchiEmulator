@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.37.3 (17/11/2026)
+
+Dos peticiones del usuario: el parpadeo al volver deslizando sigue («se ven las carátulas de fondo y desaparecen») y desactivar el rebobinado, que no usa, sin quitarlo del código.
+
+- Parpadeo: durante el gesto, el inicio de debajo va en su propia capa de pantalla (lleva transform); al soltar la perdía, iOS lo repintaba y decodificaba las carátulas en segundo plano, así que salían un momento en blanco. Ahora el inicio y la lista de Ajustes van siempre en su propia capa (`will-change: transform`, `.capa-inicio` y `.lista-ajustes`), y las imágenes del inicio, la biblioteca y las estadísticas se decodifican al pintarlas (`decoding="sync"`). El velo de «Añadiendo…» se pinta en el body (con la capa propia, lo fijo de dentro quedaría atado a la pantalla). Pendiente de que el usuario lo confirme: no se puede reproducir en Chromium.
+- Rebobinar desactivado (ajuste interno `rebobinado`, false por defecto y sin opción en pantalla): sin botón, sin guardar un estado cada 10 fotogramas y sin arrancar su hilo (`Historial` lo crea al guardar el primer estado). El código sigue; la prueba de navegador lo activa en los ajustes para seguir probándolo.
+- Pruebas: 173 unitarias y 68 de navegador.
+
 ## 0.37.2 (17/11/2026)
 
 El usuario sigue viendo parpadear la pantalla al volver atrás con la v0.37.1. Revisado fotograma a fotograma lo que pasa al volver:

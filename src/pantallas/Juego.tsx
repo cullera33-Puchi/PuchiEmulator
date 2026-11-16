@@ -48,7 +48,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [nombre, setNombre] = useState('')
   const [hombros, setHombros] = useState(false)
   const [cuatro, setCuatro] = useState(false)
-  const [conRebobinado, setConRebobinado] = useState(true)
+  const [conRebobinado, setConRebobinado] = useState(false)
   const [esTactil, setEsTactil] = useState(false)
   const [nativo, setNativo] = useState({ ancho: 240, alto: 160 })
   const [error, setError] = useState<string | null>(null)
@@ -135,7 +135,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         setSistema(juego.sistema)
         setHombros(SISTEMAS[juego.sistema].hombros)
         setCuatro(SISTEMAS[juego.sistema].cuatroBotones)
-        setConRebobinado(SISTEMAS[juego.sistema].rebobinado)
+        // Rebobinar, desactivado salvo que se active en los ajustes (v0.37.3)
+        setConRebobinado(SISTEMAS[juego.sistema].rebobinado && ajustesRef.current.rebobinado)
         setEsTactil(SISTEMAS[juego.sistema].tactil)
         const temaJuego = temaPara(juego.sistema, ajustesRef.current.temas[juego.sistema])
         const abrir = (desdeAuto: boolean) =>

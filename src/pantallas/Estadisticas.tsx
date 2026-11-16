@@ -240,7 +240,7 @@ export function Estadisticas({ alVolver }: { alVolver: () => void }) {
                       key={j.juegoId}
                       izquierda={
                         <span className="relative size-11 shrink-0 overflow-hidden rounded-lg" style={{ background: info.color }}>
-                          {imagen ? <img src={imagen} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-[10px] font-bold text-white">{info.corto}</span>}
+                          {imagen ? <img decoding="sync" src={imagen} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-[10px] font-bold text-white">{info.corto}</span>}
                           <span className="absolute top-0.5 left-0.5 grid size-4 place-items-center rounded-full bg-black/55 text-[10px] font-bold text-white">{i + 1}</span>
                         </span>
                       }
@@ -345,7 +345,7 @@ function TusJuegosPorEstado({ juegos, caratulas, ahora }: { juegos: Juego[]; car
               {fin.slice(0, 10).map((j) => (
                 <div key={j.id} className="flex items-center gap-3">
                   <span className="size-9 shrink-0 overflow-hidden rounded-md" style={{ background: SISTEMAS[j.sistema].color }}>
-                    {caratulas.get(j.id) && <img src={caratulas.get(j.id)} alt="" className="h-full w-full object-cover" />}
+                    {caratulas.get(j.id) && <img decoding="sync" src={caratulas.get(j.id)} alt="" className="h-full w-full object-cover" />}
                   </span>
                   <span className="min-w-0 flex-1 truncate">{j.nombre}</span>
                   <span className="shrink-0 text-[13px] text-zinc-500">{j.terminado ? cuandoCorto(j.terminado, ahora) : ''}</span>

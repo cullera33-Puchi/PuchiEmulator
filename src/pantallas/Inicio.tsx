@@ -261,7 +261,7 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
                       }}
                     >
                       <span className="size-11 shrink-0 overflow-hidden rounded-lg" style={{ background: SISTEMAS[j.sistema].color }}>
-                        {fotos.get(j.id) && <img src={fotos.get(j.id)} alt="" className="h-full w-full object-cover" />}
+                        {fotos.get(j.id) && <img decoding="sync" src={fotos.get(j.id)} alt="" className="h-full w-full object-cover" />}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{j.nombre}</span>
@@ -314,7 +314,7 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
             >
               <span className="relative block size-[150px] overflow-hidden rounded-2xl shadow-sm" style={{ background: SISTEMAS[ultimo.juego.sistema].color }}>
                 {ultimo.caratula ? (
-                  <img src={ultimo.caratula} alt="" className="h-full w-full object-cover" />
+                  <img decoding="sync" src={ultimo.caratula} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="flex h-full items-end p-2.5 pr-12 text-[14px] leading-tight font-semibold text-white">{ultimo.juego.nombre}</span>
                 )}
@@ -343,7 +343,7 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
                   >
                     <span className="block size-24 overflow-hidden rounded-xl shadow-sm" style={{ background: SISTEMAS[r.juego.sistema].color }}>
                       {r.caratula ? (
-                        <img src={r.caratula} alt="" className="h-full w-full object-cover" />
+                        <img decoding="sync" src={r.caratula} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <span className="flex h-full items-end p-1.5 text-[11px] leading-tight font-semibold text-white">{r.juego.nombre}</span>
                       )}
@@ -375,7 +375,7 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
               >
                 <span className="absolute inset-0 opacity-15" style={{ background: `linear-gradient(160deg, transparent 40%, ${info.color})` }} />
                 <span className="relative z-[1] flex h-[78px] items-center justify-center px-5 [&_svg]:max-w-full">
-                  {foto ? <img src={foto} alt="" className="h-full w-full rounded-xl object-cover" /> : <DibujoConsola consola={s} />}
+                  {foto ? <img decoding="sync" src={foto} alt="" className="h-full w-full rounded-xl object-cover" /> : <DibujoConsola consola={s} />}
                 </span>
                 <span className="relative z-[1] mt-2 block text-[15px] leading-tight font-semibold">{info.titulo}</span>
                 <span className="relative z-[1] block text-[13px] text-zinc-500">{n ? plural(n, 'juego', 'juegos') : 'Sin juegos'}</span>

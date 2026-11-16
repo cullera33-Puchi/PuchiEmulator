@@ -3,6 +3,7 @@
  * a su consola, aunque se añada desde otra.
  */
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { leerAjustes } from '../lib/ajustes'
 import { pedirPersistencia } from '../lib/almacen'
 import { anadirDisco, anadirFichero, type ResultadoAnadir } from '../lib/biblioteca'
@@ -90,11 +91,14 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
     <>
       {/* Sin filtro de tipo: en el iPhone, Archivos no deja elegir extensiones que no conoce */}
       <input ref={selector} type="file" multiple className="hidden" data-testid="selector" onChange={(e) => void alElegir(e.target.files)} />
-      {anadiendo && (
-        <div className="velo fixed inset-0 z-50 grid place-items-center bg-black/40">
-          <p className="rounded-2xl bg-white px-6 py-4 text-[15px] dark:bg-zinc-800">{anadiendo}</p>
-        </div>
-      )}
+      {/* En el body (v0.37.3): el inicio va en su propia capa y lo fijo dentro quedaría atado a ella */}
+      {anadiendo &&
+        createPortal(
+          <div className="velo fixed inset-0 z-50 grid place-items-center bg-black/40">
+            <p className="rounded-2xl bg-white px-6 py-4 text-[15px] dark:bg-zinc-800">{anadiendo}</p>
+          </div>,
+          document.body,
+        )}
     </>
   )
 

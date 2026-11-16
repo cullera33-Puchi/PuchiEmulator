@@ -230,6 +230,16 @@ test('rebobinar vuelve atrás en el juego y el avance rápido cambia de velocida
   await anadir(page, 'prueba.gba')
   await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
   await expect(page.getByText('Cargando…')).toBeHidden()
+  // Desactivado por decisión del usuario (v0.37.3): sin botón. El código sigue y se prueba activándolo
+  await expect(page.getByRole('button', { name: /Rebobinar/ })).toHaveCount(0)
+  await page.evaluate(() => {
+    const a = JSON.parse(localStorage.getItem('puchiemulator-ajustes') ?? '{}')
+    localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ ...a, rebobinado: true }))
+  })
+  await page.reload()
+  await entrar(page, 'Game Boy Advance')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
   // Un segundo con A pulsado (verde) y medio segundo sin pulsar (azul)
   await page.keyboard.down('KeyX')
   await page.waitForTimeout(1000)

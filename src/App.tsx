@@ -242,7 +242,7 @@ function Pantallas() {
       {capas.map(({ p, rol }) => (
         <div
           key={clave(p)}
-          className={`capa ${rol === 'fondo' ? 'fondo' : clases(transicion, rol)}`}
+          className={`capa capa-${p.tipo} ${rol === 'fondo' ? 'fondo' : clases(transicion, rol)}`}
           data-saliendo={rol === 'saliente' ? '' : undefined}
           aria-hidden={rol !== 'actual' ? true : undefined}
           inert={rol !== 'actual' ? true : undefined}

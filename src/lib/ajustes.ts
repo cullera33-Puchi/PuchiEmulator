@@ -68,6 +68,12 @@ export interface Ajustes {
   mandos: Record<string, MandoGuardado>
   /** Orden de la biblioteca: último jugado, nombre o tiempo jugado */
   ordenBiblioteca: OrdenBiblioteca
+  /**
+   * Rebobinar (v0.37.3): desactivado por decisión del usuario, que no lo usa. El código sigue; sin
+   * esto, no sale el botón, no se guardan estados cada 10 fotogramas ni arranca su hilo. No tiene
+   * opción en pantalla: se activaría poniéndolo a true.
+   */
+  rebobinado: boolean
   /** BIOS de PlayStation del usuario (v0.37.0): su nombre y tamaño; los datos van en IndexedDB */
   biosPsx?: { nombre: string; tam: number }
   /** Última copia de partidas guardada fuera del iPhone (compartida o descargada) */
@@ -123,6 +129,7 @@ export const POR_DEFECTO: Ajustes = {
   tamanoMiniDS: 'mediana',
   mandos: {},
   ordenBiblioteca: 'reciente',
+  rebobinado: false,
 }
 
 const CLAVE = 'puchiemulator-ajustes'

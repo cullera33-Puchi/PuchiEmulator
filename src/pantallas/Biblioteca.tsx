@@ -118,7 +118,7 @@ function Ficha({ juego, caratula, tiempo, alJugar, alOpciones }: { juego: Juego;
             </span>
           )}
           {caratula ? (
-            <img src={caratula} alt="" className="h-full w-full object-contain" draggable={false} />
+            <img decoding="sync" src={caratula} alt="" className="h-full w-full object-contain" draggable={false} />
           ) : (
             <span className="flex h-full w-full flex-col justify-between p-2.5 text-white" style={{ background: `linear-gradient(160deg, ${s.color}, #1c1c1e)` }}>
               <span className="text-[11px] font-bold opacity-80">{s.corto}</span>

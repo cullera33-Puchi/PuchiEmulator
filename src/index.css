@@ -1282,6 +1282,17 @@ body.en-juego .aviso {
   pointer-events: none;
 }
 
+/*
+ * El inicio y la lista de Ajustes, siempre en su propia capa de pantalla (v0.37.3): al volver
+ * deslizando dejaban de tenerla al soltar el dedo, iOS los repintaba y las carátulas salían un
+ * momento en blanco. Nada de lo que llevan dentro va con position: fixed (el velo de «Añadiendo…» se
+ * pinta fuera, en el body), que con esto quedaría atado a la pantalla y no a la ventana.
+ */
+.capa-inicio,
+.lista-ajustes {
+  will-change: transform;
+}
+
 @keyframes entra-desde-derecha {
   from {
     transform: translate3d(100%, 0, 0);
