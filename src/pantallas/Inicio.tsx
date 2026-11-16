@@ -14,7 +14,7 @@ import { leerAjustes, useAjustes } from '../lib/ajustes'
 import { borrarCaratula, contarPartidas, guardarCaratula, leerCaratula, leerEstado, listarCaratulas, listarJuegos, listarSesiones, type Juego } from '../lib/almacen'
 import { duracion, type SesionJuego } from '../lib/estadisticas'
 import { reducirImagen } from '../lib/caratulas'
-import { ordenarConsolas, prepararBiblioteca, seguirJugando } from '../lib/biblioteca'
+import { limpiarDiscosQuitados, ordenarConsolas, prepararBiblioteca, seguirJugando } from '../lib/biblioteca'
 import { aplazarCopia, diasSinCopia, exportarCopia, necesitaCopia } from '../lib/copias'
 import { APP_VERSION } from '../lib/version'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
@@ -87,6 +87,8 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
 
   useEffect(() => {
     void recargar()
+    // Discos de PlayStation de juegos quitados (v0.37.0): se borran al abrir la app
+    void limpiarDiscosQuitados().catch((e) => registrar('aviso', 'No se pudieron borrar los discos quitados', (e as Error)?.message))
     // Las que quedaron pendientes (por ejemplo, sin conexión al añadir)
     if (leerAjustes().caratulasAuto && navigator.onLine !== false) {
       void buscarCaratulasPendientes().then((r) => {

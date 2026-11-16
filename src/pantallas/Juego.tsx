@@ -10,7 +10,8 @@ import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Inter
 import { bit, TECLAS } from '../emulador/botones'
 import { cargaAutoFallida, Sesion } from '../emulador/sesion'
 import { aplicarTema, cambiarAjustes, COLOR_NOCHE, leerAjustes, useAjustes } from '../lib/ajustes'
-import { actualizarJuego, estadosDe, leerEstado, leerJuego, leerRomGuardada, RANURAS_USUARIO, renombrarEstado, type Estado, type Ranura } from '../lib/almacen'
+import { nombreBiosPsx } from '../lib/bios'
+import { actualizarJuego, estadosDe, leerBiosPsx, leerEstado, leerJuego, leerRomGuardada, RANURAS_USUARIO, renombrarEstado, type Estado, type Ranura } from '../lib/almacen'
 import { cuando } from '../lib/formato'
 import { duracion } from '../lib/estadisticas'
 import { registrar } from '../lib/registro'
@@ -124,10 +125,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     ;(async () => {
       try {
         const t0 = performance.now()
-        const [juego, rom] = await Promise.all([leerJuego(id), leerRomGuardada(id)])
+        const [juego, rom, bios] = await Promise.all([leerJuego(id), leerRomGuardada(id), leerBiosPsx()])
         const msLeer = Math.round(performance.now() - t0)
         const preparado = !!juego && (preparadoEnHilo(SISTEMAS[juego.sistema].nucleo) || nucleoPreparado(SISTEMAS[juego.sistema].nucleo))
-        if (!juego || !rom) throw new Error('El juego ya no está en la biblioteca.')
+        // Los discos (PlayStation) no tienen ROM guardada: los abre el motor desde los ficheros de la app
+        if (!juego || (!rom && !juego.disco)) throw new Error('El juego ya no está en la biblioteca.')
         if (cancelado) return
         setNombre(juego.nombre)
         setSistema(juego.sistema)
@@ -140,6 +142,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           Sesion.iniciar({
             juego,
             rom,
+            // BIOS de PlayStation del usuario, si la ha añadido (v0.37.0); si no, la libre del núcleo
+            sistema: juego.sistema === 'psx' && bios ? [{ nombre: nombreBiosPsx(ajustesRef.current.biosPsx?.nombre), datos: bios }] : undefined,
             lienzo: lienzo.current!,
             reanudar: desdeAuto,
             opciones: {
@@ -561,6 +565,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         etiquetas={SISTEMAS[sistema].etiquetas}
         sinSelect={SISTEMAS[sistema].sinSelect}
         n64={SISTEMAS[sistema].n64 ? { alPalanca: (x, y) => sesion.current?.ponerPalanca(x, y) } : undefined}
+        psx={SISTEMAS[sistema].psx}
         colocaciones={colocaciones}
         editando={!!borrador}
         correr={mando.jrpg ? { activo: corriendo, boton: mando.correr, alCambiar: cambiarCorrer } : undefined}

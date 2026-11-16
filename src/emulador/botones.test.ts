@@ -78,6 +78,15 @@ describe('botonesDeMando', () => {
     expect(botonesDeMando(mando([4]), true)).toBe(bit('L'))
     expect(botonesDeMando(mando([7]), true)).toBe(bit('R'))
   })
+
+  it('PlayStation: L1, L2, R1 y R2 por separado; la X (abajo) es la B de libretro', () => {
+    expect(botonesDeMando(mando([4]), false, true)).toBe(bit('L'))
+    expect(botonesDeMando(mando([6]), false, true)).toBe(bit('L2'))
+    expect(botonesDeMando(mando([5]), false, true)).toBe(bit('R'))
+    expect(botonesDeMando(mando([7]), false, true)).toBe(bit('R2'))
+    expect(botonesDeMando(mando([0, 3]), false, true)).toBe(bit('B') | bit('X'))
+    expect(botonesDeMando(mando([], [0.9, 0]), false, true)).toBe(bit('DERECHA'))
+  })
 })
 
 describe('aN64', () => {

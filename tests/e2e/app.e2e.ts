@@ -54,7 +54,7 @@ async function pulsar(page: Page, etiqueta: string, ms = 300) {
 test('inicio sin juegos, añadir un juego de GBA y jugar con los botones', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText(/Añade tus juegos con/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(8)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(9)
 
   await anadir(page, 'prueba.gba')
   await expect(page.getByRole('button', { name: /prueba.*Game Boy Advance/i })).toBeVisible()
@@ -141,7 +141,7 @@ test('un fichero que no es un juego se rechaza', async ({ page }) => {
   await page.goto('/')
   await selector(page).setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
   await expect(page.getByText(/no es un juego/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(8)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(9)
 })
 
 test.describe('en horizontal', () => {
@@ -644,8 +644,8 @@ test('Game Boy y Game Boy Color comparten consola y biblioteca, GBA va aparte, y
   ])
   await expect(page.getByText('2 juegos añadidos')).toBeVisible()
   const consolas = page.getByTestId('consolas')
-  await expect(consolas.getByRole('button')).toHaveCount(9) // su tarjeta con el botón de opciones y las siete vacías juntas (v0.26.0; la N64, desde la v0.32.0)
-  await expect(page.getByTestId('sin-juegos').getByRole('button')).toHaveCount(7)
+  await expect(consolas.getByRole('button')).toHaveCount(10) // su tarjeta con el botón de opciones y las ocho vacías juntas (v0.26.0; la N64, desde la v0.32.0; la PlayStation, desde la v0.37.0)
+  await expect(page.getByTestId('sin-juegos').getByRole('button')).toHaveCount(8)
   await expect(consolas.getByRole('button', { name: 'Game Boy y Game Boy Color, 2 juegos', exact: true })).toBeVisible()
 
   await entrar(page, 'Game Boy y Game Boy Color')
@@ -1931,4 +1931,103 @@ test('Nintendo 64: resolución normal (320 x 240) por juego, y el RDP dibuja igu
   await pulsar(page, 'B')
   await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('cian')
   await page.mouse.up()
+})
+
+test('PlayStation (en pruebas): disco en BIN y CUE, botones, tarjeta de memoria, estados y CHD (v0.37.0)', async ({ page }) => {
+  await page.goto('/')
+  // El CUE con su BIN, elegidos juntos; el disco se copia a los ficheros de la app, no a la memoria
+  await selector(page).setInputFiles([rom('prueba-psx.cue'), rom('prueba-psx.bin')])
+  await expect(page.getByText('Juego añadido a PlayStation')).toBeVisible({ timeout: 15_000 })
+  await entrar(page, 'PlayStation')
+  await expect(page.getByRole('heading', { name: 'PlayStation' })).toBeVisible()
+  // El identificador es el SHA-1 del BIN (el de los datos del disco), calculado por trozos
+  const sha1 = createHash('sha1').update(readFileSync(rom('prueba-psx.bin'))).digest('hex')
+  const juego = await page.evaluate(
+    (id) =>
+      new Promise<{ disco?: { ficheros: string[] } } | undefined>((resolver) => {
+        const r = indexedDB.open('puchiemulator')
+        r.onsuccess = () => {
+          const g = r.result.transaction('juegos').objectStore('juegos').get(id)
+          g.onsuccess = () => resolver(g.result)
+        }
+      }),
+    sha1,
+  )
+  expect(juego?.disco?.ficheros).toEqual(['pista1.bin', 'disco.cue'])
+
+  await page.getByRole('button', { name: /prueba-psx, PlayStation/ }).first().click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect(page.getByTestId('juego')).toHaveAttribute('data-tema', 'plata')
+  // Ritmo propio desde el principio, como la N64
+  const abierto = await page.evaluate(() => (JSON.parse(localStorage.getItem('puchiemulator-registro') ?? '[]') as { m: string; x?: string }[]).filter((e) => e.m === 'Juego abierto').pop())
+  expect(abierto?.x).toContain('"ritmo":"propio"')
+  const mando = page.getByTestId('mando')
+  for (const n of ['Triángulo', 'Círculo', 'Equis', 'Cuadrado', 'L1', 'L2', 'R1', 'R2', 'Select', 'Start']) await expect(mando.getByRole('button', { name: n, exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Rebobinar/ })).toHaveCount(0)
+
+  // Azul al arrancar; con la X, verde y la marca en la tarjeta de memoria
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('azul')
+  await pulsar(page, 'Equis')
+  await expect.poll(() => tono(page)).toBe('verde')
+  await page.mouse.up()
+  for (const [boton, color] of [['Triángulo', 'magenta'], ['R2', 'cian']]) {
+    await pulsar(page, boton)
+    await expect.poll(() => tono(page)).toBe(color)
+    await page.mouse.up()
+  }
+  await page.waitForTimeout(500)
+  await page.getByRole('button', { name: 'Guardar rápido' }).click()
+  await expect(page.getByText('Guardado rápido', { exact: true })).toBeVisible({ timeout: 15_000 })
+  await page.getByRole('button', { name: 'Cargar rápido' }).click()
+  await expect(page.getByText('Guardado rápido cargado')).toBeVisible({ timeout: 15_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('verde')
+
+  // La tarjeta de memoria es la partida del juego: al volver a abrirlo desde el principio, rojo
+  await page.waitForTimeout(1500)
+  await page.reload()
+  await entrar(page, 'PlayStation')
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('rojo')
+})
+
+test('PlayStation: CHD, BIN suelto y CUE sin su BIN (v0.37.0)', async ({ page }) => {
+  await page.goto('/')
+  await selector(page).setInputFiles(rom('prueba-psx.cue'))
+  await expect(page.getByText(/falta su \.bin/)).toBeVisible()
+  // El CHD es el mismo disco, comprimido: es otro juego (otro SHA-1), y arranca igual
+  await selector(page).setInputFiles(rom('prueba-psx.chd'))
+  await expect(page.getByText('Juego añadido a PlayStation')).toBeVisible({ timeout: 15_000 })
+  await entrar(page, 'PlayStation')
+  await page.getByRole('button', { name: /prueba-psx, PlayStation/ }).first().click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('azul')
+  await pulsar(page, 'Equis')
+  await expect.poll(() => tono(page)).toBe('verde')
+  await page.mouse.up()
+  // Un BIN suelto (sin su CUE) también vale si es de una sola pista; si ya está, no se repite
+  await page.goto('/')
+  await selector(page).setInputFiles({ name: 'Otra copia.bin', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba-psx.bin')) })
+  await expect(page.getByText('Juego añadido a PlayStation')).toBeVisible({ timeout: 15_000 })
+  await selector(page).setInputFiles({ name: 'Otra copia.bin', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba-psx.bin')) })
+  await expect(page.getByText(/ya estaba/)).toBeVisible({ timeout: 15_000 })
+})
+
+test('PlayStation: BIOS propia opcional en Ajustes, solo de 512 KB (v0.37.0)', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Ajustes' }).click()
+  await page.getByRole('button', { name: /BIOS de PlayStation/ }).click()
+  await expect(page.getByTestId('bios')).toContainText('La libre del núcleo')
+  await page.getByTestId('selector-bios').setInputFiles({ name: 'otra.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(1000) })
+  await expect(page.getByText(/ocupa 512 KB/)).toBeVisible()
+  // Un fichero inventado del tamaño de una BIOS (en las pruebas no hay BIOS de verdad)
+  await page.getByTestId('selector-bios').setInputFiles({ name: 'SCPH1001.BIN', mimeType: 'application/octet-stream', buffer: Buffer.alloc(512 * 1024) })
+  await expect(page.getByText(/BIOS añadida/)).toBeVisible()
+  await expect(page.getByTestId('bios')).toContainText('SCPH1001.BIN')
+  await page.getByRole('button', { name: 'Quitar la BIOS' }).click()
+  // La confirmación ignora los toques de sus primeros 450 ms (toques fantasma de iOS)
+  await page.waitForTimeout(500)
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Quitar', exact: true }).click()
+  await expect(page.getByTestId('bios')).toContainText('La libre del núcleo')
 })

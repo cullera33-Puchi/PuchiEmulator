@@ -37,6 +37,8 @@ interface Modulo {
   _pf_analogico?(lado: number, x: number, y: number): void
   _pf_imagen_gl?(): number
   _pf_resultado?(): number
+  // Desde la v0.37.0 (PlayStation): cargar por la ruta, sin copiar el juego a la memoria
+  _pf_cargar_ruta?(ruta: number): number
   specialHTMLTargets?: Record<string, unknown>
   /** Nintendo 64 (v0.32.1): el error original de un fallo dentro del núcleo, con su pila */
   errorOriginal?: unknown
@@ -45,6 +47,8 @@ interface Modulo {
     writeFile(ruta: string, datos: Uint8Array): void
     readFile(ruta: string): Uint8Array
     analyzePath(ruta: string): { exists: boolean }
+    mount(tipo: unknown, opciones: { files: File[] }, ruta: string): void
+    filesystems: { WORKERFS?: unknown }
   }
 }
 
@@ -176,6 +180,15 @@ export const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     'mupen64plus-EnableCopyDepthToRDRAM': 'Off',
     // v0.33.0: sin la zona muerta del núcleo (un 15 %): la palanca táctil ya lleva la suya, más pequeña
     'mupen64plus-astick-deadzone': '0',
+  },
+  // PlayStation (v0.37.0): BIOS del usuario si la ha añadido (en /sistema) o, si no, la libre del
+  // núcleo; sin logotipo de la BIOS al arrancar ni saltos de imágenes (el ritmo lo lleva la app)
+  psx: {
+    pcsx_rearmed_bios: 'auto',
+    pcsx_rearmed_show_bios_bootlogo: 'disabled',
+    pcsx_rearmed_region: 'auto',
+    pcsx_rearmed_frameskip_type: 'disabled',
+    pcsx_rearmed_memcard1: 'libretro',
   },
 }
 
@@ -322,6 +335,30 @@ export class Nucleo {
     const ok = this.llamar(() => this.resultado(this.m._pf_cargar(p, rom.byteLength, ext))) === 1
     this.m._free(ext)
     return ok
+  }
+
+  /**
+   * Carga un disco (PlayStation, v0.37.0) sin copiarlo a la memoria: los ficheros se montan en /disco
+   * con WORKERFS, que los lee por trozos con FileReaderSync cuando el núcleo los pide. Solo en el hilo
+   * del motor: en el hilo principal no hay lectura síncrona de ficheros.
+   */
+  cargarDisco(ficheros: File[], principal: string): boolean {
+    const fs = this.m.FS
+    if (!fs?.filesystems.WORKERFS || !this.m._pf_cargar_ruta) throw new Error('Este núcleo no puede abrir discos.')
+    if (!('FileReaderSync' in globalThis)) throw new Error('La PlayStation solo funciona con la emulación en un hilo aparte (Ajustes, Acerca de).')
+    fs.mkdirTree('/disco')
+    fs.mount(fs.filesystems.WORKERFS, { files: ficheros }, '/disco')
+    const ruta = this.texto(`/disco/${principal}`)
+    const ok = this.llamar(() => this.resultado(this.m._pf_cargar_ruta!(ruta))) === 1
+    this.m._free(ruta)
+    return ok
+  }
+
+  /** Deja un fichero en /sistema, donde el núcleo busca la BIOS (PlayStation, v0.37.0) */
+  escribirSistema(nombre: string, datos: Uint8Array): void {
+    if (!this.m.FS) return
+    this.m.FS.mkdirTree('/sistema')
+    this.m.FS.writeFile(`/sistema/${nombre}`, datos)
   }
 
   /** El iPhone se ha llevado el contexto de WebGL */

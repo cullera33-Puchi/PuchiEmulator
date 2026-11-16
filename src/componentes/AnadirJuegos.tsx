@@ -4,7 +4,9 @@
  */
 import { useRef, useState } from 'react'
 import { leerAjustes } from '../lib/ajustes'
-import { anadirFichero } from '../lib/biblioteca'
+import { pedirPersistencia } from '../lib/almacen'
+import { anadirDisco, anadirFichero, type ResultadoAnadir } from '../lib/biblioteca'
+import { agruparDiscos } from '../lib/discos'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
@@ -22,15 +24,37 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
     let repetidos = 0
     const fallidos: string[] = []
     const consolas = new Set<Consola>()
-    for (const [i, f] of Array.from(ficheros).entries()) {
-      setAnadiendo(ficheros.length > 1 ? `Añadiendo ${i + 1} de ${ficheros.length}…` : 'Añadiendo…')
+    let sinEspacio = false
+    const contar = (r: ResultadoAnadir, nombre: string) => {
+      if (r.tipo === 'nuevo') {
+        nuevos++
+        consolas.add(consolaDe(r.juego.sistema))
+      } else if (r.tipo === 'repetido') repetidos++
+      else fallidos.push(nombre)
+    }
+    setAnadiendo('Añadiendo…')
+    // Discos de PlayStation (v0.37.0): el CUE con sus BIN, el CHD o un BIN suelto. Se copian al iPhone
+    // por trozos, sin leerlos enteros a la memoria
+    const { discos, resto, incompletos } = await agruparDiscos(Array.from(ficheros))
+    for (const n of incompletos) fallidos.push(`${n} (falta su .bin: elígelos juntos)`)
+    if (discos.length) await pedirPersistencia().catch(() => false)
+    const total = discos.length + resto.length
+    for (const [i, g] of discos.entries()) {
+      const cual = total > 1 ? `${i + 1} de ${total}: ` : ''
+      setAnadiendo(`${cual}copiando el disco…`)
       try {
-        const r = await anadirFichero(f.name, await f.arrayBuffer())
-        if (r.tipo === 'nuevo') {
-          nuevos++
-          consolas.add(consolaDe(r.juego.sistema))
-        } else if (r.tipo === 'repetido') repetidos++
-        else fallidos.push(f.name)
+        contar(await anadirDisco(g, (f) => setAnadiendo(`${cual}copiando el disco, ${Math.floor(f * 100)} %`)), g.nombreFichero)
+      } catch (e) {
+        const mensaje = (e as Error).message
+        registrar('error', 'No se pudo añadir un disco', mensaje)
+        if (/no cabe/i.test(mensaje)) sinEspacio = true
+        fallidos.push(g.nombreFichero)
+      }
+    }
+    for (const [i, f] of resto.entries()) {
+      setAnadiendo(total > 1 ? `Añadiendo ${discos.length + i + 1} de ${total}…` : 'Añadiendo…')
+      try {
+        contar(await anadirFichero(f.name, await f.arrayBuffer()), f.name)
       } catch (e) {
         registrar('error', 'No se pudo añadir un juego', (e as Error).message)
         fallidos.push(f.name)
@@ -38,7 +62,7 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
     }
     setAnadiendo(null)
     if (selector.current) selector.current.value = ''
-    registrar('info', 'Juegos añadidos', { nuevos, repetidos, fallidos: fallidos.length })
+    registrar('info', 'Juegos añadidos', { nuevos, repetidos, fallidos: fallidos.length, discos: discos.length })
     await alTerminar()
     const partes: string[] = []
     if (nuevos) {
@@ -48,7 +72,8 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
       partes.push((nuevos === 1 ? 'Juego añadido' : plural(nuevos, 'juego añadido', 'juegos añadidos')) + destino)
     }
     if (repetidos) partes.push(repetidos === 1 ? 'uno ya estaba en la biblioteca' : `${repetidos} ya estaban en la biblioteca`)
-    if (fallidos.length) partes.push(fallidos.length === 1 ? `«${fallidos[0]}» no es un juego que se pueda abrir` : `${fallidos.length} ficheros no se han reconocido`)
+    if (sinEspacio) partes.push('no queda espacio en el iPhone para el disco')
+    else if (fallidos.length) partes.push(fallidos.length === 1 ? `«${fallidos[0]}» no es un juego que se pueda abrir` : `${fallidos.length} ficheros no se han reconocido`)
     const texto = partes.join(', ')
     avisar(texto.charAt(0).toUpperCase() + texto.slice(1))
     // Carátulas de los nuevos, por detrás

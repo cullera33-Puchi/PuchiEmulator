@@ -11,13 +11,15 @@ import { expect, test } from '@playwright/test'
 import { OPCIONES } from '../../src/emulador/nucleo'
 import type { NombreNucleo } from '../../src/lib/sistemas'
 
-const CASOS: { nucleo: NombreNucleo; consola: string; rom: string; extension: string; opciones?: Record<string, string> }[] = [
+const CASOS: { nucleo: NombreNucleo; consola: string; rom: string; extension: string; opciones?: Record<string, string>; disco?: string }[] = [
   { nucleo: 'mgba', consola: 'Game Boy Advance', rom: 'prueba.gba', extension: 'gba' },
   { nucleo: 'fceumm', consola: 'NES', rom: 'prueba.nes', extension: 'nes' },
   { nucleo: 'snes9x', consola: 'Super Nintendo', rom: 'prueba.sfc', extension: 'sfc' },
   { nucleo: 'melonds', consola: 'Nintendo DS', rom: 'prueba.nds', extension: 'nds' },
   { nucleo: 'genesis', consola: 'Mega Drive', rom: 'prueba.md', extension: 'md' },
   { nucleo: 'n64', consola: 'Nintendo 64', rom: 'prueba.z64', extension: 'z64' },
+  // PlayStation (v0.37.0): el CD de prueba en BIN con su CUE, que el núcleo lee por la ruta
+  { nucleo: 'psx', consola: 'PlayStation', rom: 'prueba-psx.bin', extension: 'cue', disco: 'prueba-psx.cue' },
 ]
 
 /** Cada ronda dura lo mismo en todas las consolas, para que las rápidas no midan casi nada */
@@ -31,11 +33,12 @@ test('rendimiento de los núcleos', async ({ page }) => {
   const filas: { consola: string; nucleo: string; ms: number; referencia?: number }[] = []
   for (const c of CASOS) {
     const rom = [...readFileSync(`tests/fixtures/${c.rom}`)]
+    const cue = c.disco ? readFileSync(`tests/fixtures/${c.disco}`, 'utf8') : null
     const opciones = { ...OPCIONES[c.nucleo], ...c.opciones }
     const medir = (raiz: string) =>
       page.evaluate(
-        async ({ raiz, nucleo, rom, extension, opciones, msRonda }) => {
-          type M = Record<string, (...a: number[]) => number> & { HEAPU8: Uint8Array; stringToNewUTF8(s: string): number; FS?: { mkdirTree(r: string): void } }
+        async ({ raiz, nucleo, rom, extension, opciones, msRonda, cue }) => {
+          type M = Record<string, (...a: number[]) => number> & { HEAPU8: Uint8Array; stringToNewUTF8(s: string): number; FS?: { mkdirTree(r: string): void; writeFile(r: string, d: Uint8Array | string): void } }
           const { default: crear } = await import(/* @vite-ignore */ `${raiz}${nucleo}.js`)
           const m = (await crear({ locateFile: (r: string) => `${raiz}${r}`, print: () => undefined, printErr: () => undefined })) as M
           // Nintendo 64 dibuja con WebGL 2 en el lienzo que le deja la app (v0.32.0)
@@ -45,10 +48,19 @@ test('rendimiento de los núcleos', async ({ page }) => {
           m._pf_iniciar()
           for (const [k, v] of Object.entries(opciones)) m._pf_opcion(m.stringToNewUTF8(k), m.stringToNewUTF8(v))
           m.FS?.mkdirTree('/sistema')
-          const p = m._malloc(rom.length)
-          m.HEAPU8.set(rom, p)
-          // Con las corrutinas de Nintendo 64, el resultado se lee aparte (pf_resultado)
-          const cargado = m._pf_cargar(p, rom.length, m.stringToNewUTF8(extension))
+          let cargado: number
+          if (cue !== null && m.FS) {
+            // Disco: en la memoria del módulo para medir (en la app, en los ficheros, por WORKERFS)
+            m.FS.mkdirTree('/disco')
+            m.FS.writeFile('/disco/prueba-psx.bin', new Uint8Array(rom))
+            m.FS.writeFile('/disco/prueba-psx.cue', cue)
+            cargado = m._pf_cargar_ruta(m.stringToNewUTF8('/disco/prueba-psx.cue'))
+          } else {
+            const p = m._malloc(rom.length)
+            m.HEAPU8.set(rom, p)
+            // Con las corrutinas de Nintendo 64, el resultado se lee aparte (pf_resultado)
+            cargado = m._pf_cargar(p, rom.length, m.stringToNewUTF8(extension))
+          }
           if ((m._pf_resultado ? m._pf_resultado() : cargado) !== 1) throw new Error(`${nucleo}: no carga la ROM`)
           // Calentamiento: el navegador optimiza el código de WebAssembly en las primeras vueltas
           for (let i = 0; i < 120; i++) m._pf_fotograma()
@@ -64,7 +76,7 @@ test('rendimiento de los núcleos', async ({ page }) => {
           ;(lienzo?.getContext('webgl2') as WebGL2RenderingContext | null)?.getExtension('WEBGL_lose_context')?.loseContext()
           return ms
         },
-        { raiz, nucleo: c.nucleo, rom, extension: c.extension, opciones, msRonda: MS_POR_RONDA },
+        { raiz, nucleo: c.nucleo, rom, extension: c.extension, opciones, msRonda: MS_POR_RONDA, cue },
       )
     const actual: number[] = []
     const anterior: number[] = []

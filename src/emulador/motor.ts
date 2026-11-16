@@ -5,6 +5,8 @@
  * hilo principal si el hilo no arranca. Lo demás (el ritmo, los botones de la pantalla, el sonido, el
  * guardado y el registro) lo lleva `Sesion` en el hilo principal.
  */
+import type { Disco } from '../lib/discos'
+import { ficherosDelDisco } from '../lib/discos'
 import type { NombreNucleo } from '../lib/sistemas'
 import { mascaraConCorrer, mascaraConTurbo } from './mascaras'
 import { Nucleo } from './nucleo'
@@ -17,7 +19,12 @@ const FOTOGRAMAS_POR_ESTADO = 10
 export interface ConfigMotor {
   nucleo: NombreNucleo
   opciones: Record<string, string>
-  rom: ArrayBuffer
+  /** La ROM, para los cartuchos */
+  rom?: ArrayBuffer
+  /** El disco en los ficheros de la app, para la PlayStation (v0.37.0): el motor lo abre él mismo */
+  disco?: Disco
+  /** Ficheros para /sistema antes de cargar (la BIOS de PlayStation del usuario, v0.37.0) */
+  sistema?: { nombre: string; datos: ArrayBuffer }[]
   extension: string
   partida?: { datos: ArrayBuffer; rtc?: ArrayBuffer }
   /** Estado donde se dejó, si se sigue desde ahí */
@@ -99,7 +106,9 @@ export class Motor {
     const nucleo = await Nucleo.cargar(c.nucleo, c.opciones)
     paso('nucleo')
     const partida = c.partida ? { datos: new Uint8Array(c.partida.datos), rtc: c.partida.rtc ? new Uint8Array(c.partida.rtc) : undefined } : undefined
-    if (!nucleo.cargarJuego(new Uint8Array(c.rom), c.extension, partida)) {
+    for (const f of c.sistema ?? []) nucleo.escribirSistema(f.nombre, new Uint8Array(f.datos))
+    const cargado = c.disco ? nucleo.cargarDisco(await ficherosDelDisco(c.disco), c.disco.principal) : !!c.rom && nucleo.cargarJuego(new Uint8Array(c.rom), c.extension, partida)
+    if (!cargado) {
       nucleo.descargar()
       throw new Error('El núcleo no ha podido abrir el juego.')
     }

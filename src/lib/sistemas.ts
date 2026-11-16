@@ -4,8 +4,8 @@
  */
 import { unzipSync } from 'fflate'
 
-export type Sistema = 'gb' | 'gbc' | 'gba' | 'nes' | 'snes' | 'n64' | 'nds' | 'sms' | 'gg' | 'md'
-export type NombreNucleo = 'mgba' | 'snes9x' | 'melonds' | 'fceumm' | 'genesis' | 'n64'
+export type Sistema = 'gb' | 'gbc' | 'gba' | 'nes' | 'snes' | 'n64' | 'psx' | 'nds' | 'sms' | 'gg' | 'md'
+export type NombreNucleo = 'mgba' | 'snes9x' | 'melonds' | 'fceumm' | 'genesis' | 'n64' | 'psx'
 
 export interface InfoSistema {
   nombre: string
@@ -29,6 +29,16 @@ export interface InfoSistema {
   sinSelect?: boolean
   /** Nintendo 64 (v0.32.0): palanca analógica, botones C, Z y la imagen dibujada por el núcleo con WebGL */
   n64?: boolean
+  /**
+   * PlayStation (v0.37.0): el juego es un disco que se lee por su ruta desde los ficheros de la app
+   * (OPFS), no una ROM en memoria; mando con triángulo, círculo, X y cuadrado, y L1, L2, R1 y R2
+   */
+  psx?: boolean
+  /**
+   * El hilo del motor lleva el ritmo de los fotogramas, los botones y el sonido (v0.33.0 en N64; desde
+   * la v0.37.0, también PlayStation, desde el principio)
+   */
+  ritmoPropio?: boolean
 }
 
 export const SISTEMAS: Record<Sistema, InfoSistema> = {
@@ -38,7 +48,9 @@ export const SISTEMAS: Record<Sistema, InfoSistema> = {
   nes: { nombre: 'NES', corto: 'NES', nucleo: 'fceumm', extension: 'nes', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#C8102E' },
   snes: { nombre: 'Super Nintendo', corto: 'SNES', nucleo: 'snes9x', extension: 'sfc', hombros: true, cuatroBotones: true, rebobinado: true, tactil: false, color: '#6E6E80' },
   // Nintendo 64 (v0.32.0), con Mupen64Plus-Next: sin rebobinado (cada estado pesa 16 MB)
-  n64: { nombre: 'Nintendo 64', corto: 'N64', nucleo: 'n64', extension: 'z64', hombros: true, cuatroBotones: false, rebobinado: false, tactil: false, color: '#3A3A42', sinSelect: true, n64: true },
+  n64: { nombre: 'Nintendo 64', corto: 'N64', nucleo: 'n64', extension: 'z64', hombros: true, cuatroBotones: false, rebobinado: false, tactil: false, color: '#3A3A42', sinSelect: true, n64: true, ritmoPropio: true },
+  // PlayStation (v0.37.0), con PCSX ReARMed: sin rebobinado (estados de varios megas), como la N64
+  psx: { nombre: 'PlayStation', corto: 'PS1', nucleo: 'psx', extension: 'cue', hombros: true, cuatroBotones: true, rebobinado: false, tactil: false, color: '#8A8A93', psx: true, ritmoPropio: true },
   nds: { nombre: 'Nintendo DS', corto: 'DS', nucleo: 'melonds', extension: 'nds', hombros: true, cuatroBotones: true, rebobinado: false, tactil: true, color: '#34343C' },
   // Sega (v0.24.0), con Genesis Plus GX
   sms: { nombre: 'Master System', corto: 'SMS', nucleo: 'genesis', extension: 'sms', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#1C1C1E', etiquetas: { B: '1', A: '2', START: 'Pausa' }, sinSelect: true },
@@ -51,7 +63,7 @@ export const SISTEMAS: Record<Sistema, InfoSistema> = {
  * Color van juntas; por dentro siguen siendo dos sistemas, cada uno con su tema y sus opciones.
  * Game Boy Advance va aparte (decisión del usuario).
  */
-export type Consola = 'gb' | 'gba' | 'nes' | 'snes' | 'n64' | 'nds' | 'sms' | 'md'
+export type Consola = 'gb' | 'gba' | 'nes' | 'snes' | 'n64' | 'psx' | 'nds' | 'sms' | 'md'
 
 export interface InfoConsola {
   nombre: string
@@ -70,6 +82,7 @@ export const CONSOLAS_APP: Record<Consola, InfoConsola> = {
   nes: { nombre: 'NES', titulo: 'NES', descripcion: 'También Famicom', sistemas: ['nes'], color: '#C8102E', extensiones: '.nes' },
   snes: { nombre: 'Super Nintendo', titulo: 'Super Nintendo', sistemas: ['snes'], color: '#6E6E80', extensiones: '.sfc, .smc' },
   n64: { nombre: 'Nintendo 64', titulo: 'Nintendo 64', descripcion: 'En pruebas', sistemas: ['n64'], color: '#3A3A42', extensiones: '.z64, .n64, .v64' },
+  psx: { nombre: 'PlayStation', titulo: 'PlayStation', descripcion: 'En pruebas', sistemas: ['psx'], color: '#8A8A93', extensiones: '.chd, .cue y .bin' },
   nds: { nombre: 'Nintendo DS', titulo: 'Nintendo DS', descripcion: 'En pruebas', sistemas: ['nds'], color: '#34343C', extensiones: '.nds' },
   // Master System y Game Gear juntas; Mega Drive aparte (decisión del usuario, 16/11/2026)
   sms: { nombre: 'Master System y Game Gear', titulo: 'Master System y Game Gear', sistemas: ['sms', 'gg'], color: '#1C1C1E', extensiones: '.sms, .gg' },
@@ -77,7 +90,7 @@ export const CONSOLAS_APP: Record<Consola, InfoConsola> = {
 }
 
 /** Orden en el que se enseñan las consolas */
-export const CONSOLAS: Consola[] = ['gb', 'gba', 'nes', 'snes', 'n64', 'nds', 'sms', 'md']
+export const CONSOLAS: Consola[] = ['gb', 'gba', 'nes', 'snes', 'n64', 'psx', 'nds', 'sms', 'md']
 
 export const consolaDe = (s: Sistema): Consola => (s === 'gbc' ? 'gb' : s === 'gg' ? 'sms' : s)
 

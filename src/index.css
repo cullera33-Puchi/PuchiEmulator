@@ -644,6 +644,30 @@
   right: calc(var(--seguro-der) + 16px);
 }
 
+/* PlayStation (v0.37.0): dos botones en cada hombro, L2 y L1 a la izquierda y R1 y R2 a la derecha */
+.hombro.doble {
+  display: flex;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+.hombro.doble > .control {
+  position: static;
+  flex: 1;
+  height: 100%;
+  border-radius: 12px;
+  background: var(--hombro, rgb(255 255 255 / 0.1));
+  color: var(--hombro-texto, rgb(255 255 255 / 0.75));
+  opacity: 1;
+}
+.hombro.doble > .control.pulsado {
+  background: var(--ab-pulsado, rgb(255 255 255 / 0.34));
+}
+.botones-accion .control.simbolo {
+  color: var(--ab-texto, rgb(255 255 255 / 0.85));
+}
+
 .pequeno {
   background: var(--pequeno, rgb(255 255 255 / 0.1));
   color: var(--pequeno-texto, rgb(255 255 255 / 0.75));

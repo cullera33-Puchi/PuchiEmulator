@@ -68,6 +68,8 @@ export interface Ajustes {
   mandos: Record<string, MandoGuardado>
   /** Orden de la biblioteca: último jugado, nombre o tiempo jugado */
   ordenBiblioteca: OrdenBiblioteca
+  /** BIOS de PlayStation del usuario (v0.37.0): su nombre y tamaño; los datos van en IndexedDB */
+  biosPsx?: { nombre: string; tam: number }
   /** Última copia de partidas guardada fuera del iPhone (compartida o descargada) */
   ultimaCopia?: number
   /** «Más tarde» en el aviso de la copia: no se vuelve a avisar hasta esta fecha */

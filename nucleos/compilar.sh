@@ -27,6 +27,8 @@ FCEUMM_REPO="https://github.com/libretro/libretro-fceumm.git"
 FCEUMM_COMMIT="8997c2bf9503f6d50585b11a1fd7207af53a2426"
 GENESIS_REPO="https://github.com/libretro/Genesis-Plus-GX.git"
 GENESIS_COMMIT="b9c2316441978d4015ba30e9a95d9b0e6f8ee981"
+PSX_REPO="https://github.com/libretro/pcsx_rearmed.git"
+PSX_COMMIT="7b0e8f8fadfbce3d170d195b9d9eecaabfa08c8e"
 N64_REPO="https://github.com/libretro/mupen64plus-libretro-nx.git"
 N64_COMMIT="15bada85906593376e8fd697f1b0b3af3a20f512"
 ZLIB_REPO="https://github.com/madler/zlib.git"
@@ -38,7 +40,7 @@ ZLIB_COMMIT="51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"
 OPTIMIZACION="${OPTIMIZACION--msimd128 -flto}"
 export EMCC_CFLAGS="$OPTIMIZACION"
 
-EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion","_pf_puntero","_pf_analogico","_pf_imagen_gl","_pf_resultado"]'
+EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_cargar_ruta","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion","_pf_puntero","_pf_analogico","_pf_imagen_gl","_pf_resultado"]'
 
 traer() { # repo commit carpeta
 	if [ ! -d "$3/.git" ]; then
@@ -209,6 +211,35 @@ compilar_n64() {
 	# convertirlo en «Aborted(...)»: se guarda en el módulo para que la app lo anote en el registro
 	sed -i 's/catch(e){abort(e)}/catch(e){Module.errorOriginal=e;abort(e)}/' "$SALIDA/n64.js"
 	grep -q 'Module.errorOriginal=e' "$SALIDA/n64.js" || { echo "No se ha podido marcar el error original en n64.js" >&2; exit 1; }
+}
+
+compilar_zlib() { # zlib propio en $TRABAJO/zlib.a, sin el puerto de Emscripten (que se descarga aparte)
+	traer "$ZLIB_REPO" "$ZLIB_COMMIT" "$TRABAJO/zlib"
+	local obj="$TRABAJO/zlib-obj"
+	rm -rf "$obj" && mkdir -p "$obj"
+	for f in adler32 crc32 deflate infback inffast inflate inftrees trees zutil compress uncompr; do
+		emcc -O3 ${OPTIMIZACION} -c "$TRABAJO/zlib/$f.c" -o "$obj/zlib_$f.o"
+	done
+	rm -f "$TRABAJO/zlib.a"
+	emar rcs "$TRABAJO/zlib.a" "$obj"/*.o
+}
+
+compilar_psx() {
+	# PlayStation (v0.37.0): PCSX ReARMed con su receta para Emscripten: sin hilos, sin recompilador
+	# (intérprete), GPU de psx_gpu con SIMD de WebAssembly y CHD con libchdr. Lee el disco con fopen:
+	# la app monta el fichero en el hilo del motor (WORKERFS) y el núcleo lo lee por sectores, sin
+	# copiarlo a la memoria. Sin Asyncify ni corrutinas (las que frenaron la N64).
+	traer "$PSX_REPO" "$PSX_COMMIT" "$TRABAJO/psx"
+	traer "$ZLIB_REPO" "$ZLIB_COMMIT" "$TRABAJO/zlib"
+	# Su receta pide el zlib de los «ports» de Emscripten, que se descarga aparte: se usa el nuestro
+	git -C "$TRABAJO/psx" checkout -q -- .
+	sed -i "s|^\(\s*\)CFLAGS += -sUSE_ZLIB=1|\1CFLAGS += -I$TRABAJO/zlib|; s|^\(\s*\)EXTRA_LDFLAGS += -sUSE_ZLIB=1||" "$TRABAJO/psx/Makefile.libretro"
+	(cd "$TRABAJO/psx" && emmake make -f Makefile.libretro platform=emscripten clean >/dev/null &&
+		emmake make -f Makefile.libretro platform=emscripten CFLAGS_OPT="-O3 $OPTIMIZACION" -j"$(nproc)" >/dev/null)
+	cp "$TRABAJO/psx/pcsx_rearmed_libretro_emscripten.bc" "$TRABAJO/psx_libretro.a"
+	compilar_zlib
+	ENLACE_EXTRA="-lworkerfs.js" \
+		enlazar psx emcc "$TRABAJO/psx_libretro.a" "$TRABAJO/zlib.a"
 }
 
 for nucleo in ${@:-mgba snes9x melonds fceumm genesis}; do

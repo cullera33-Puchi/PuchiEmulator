@@ -18,6 +18,7 @@ REPOS = {
     'snes': 'Nintendo_-_Super_Nintendo_Entertainment_System',
     'nds': 'Nintendo_-_Nintendo_DS',
     'n64': 'Nintendo_-_Nintendo_64',
+    'psx': 'Sony_-_PlayStation',
     'sms': 'Sega_-_Master_System_-_Mark_III',
     'gg': 'Sega_-_Game_Gear',
     'md': 'Sega_-_Mega_Drive_-_Genesis',

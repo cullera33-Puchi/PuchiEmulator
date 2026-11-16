@@ -3,7 +3,9 @@
  * La ROM se copia en el iPhone (IndexedDB) para no tener que elegirla cada vez; el fichero original
  * se queda donde estaba.
  */
-import { guardarJuego, leerJuego, type EstadoJuego, type Juego } from './almacen'
+import { guardarJuego, leerJuego, listarJuegos, type EstadoJuego, type Juego } from './almacen'
+import { borrarCarpetaDisco, copiarDisco, limpiarDiscosHuerfanos, type GrupoDisco } from './discos'
+import { registrar } from './registro'
 import { CONSOLAS, CONSOLAS_APP, consolaDe, leerRom, nombreDesdeFichero, tituloInterno, type Consola, type Sistema } from './sistemas'
 
 export async function sha1(bytes: Uint8Array): Promise<string> {
@@ -35,6 +37,38 @@ export async function anadirFichero(nombre: string, contenido: ArrayBuffer): Pro
   const copia = rom.bytes.slice().buffer
   await guardarJuego(juego, copia)
   return { tipo: 'nuevo', juego }
+}
+
+/**
+ * Añade un disco de PlayStation (v0.37.0): se copia a los ficheros de la app por trozos, con su SHA-1
+ * (el de los BIN o el CHD) como identificador. Si ya estaba, se borra la copia nueva.
+ */
+export async function anadirDisco(g: GrupoDisco, alProgreso?: (fraccion: number) => void): Promise<ResultadoAnadir> {
+  const { disco, sha1: id, tam } = await copiarDisco(g, alProgreso)
+  const existente = await leerJuego(id)
+  if (existente) {
+    await borrarCarpetaDisco(disco.carpeta).catch(() => undefined)
+    return { tipo: 'repetido', juego: existente }
+  }
+  const juego: Juego = { id, nombre: g.nombre, sistema: 'psx', titulo: '', nombreFichero: g.nombreFichero, tam, anadido: Date.now(), disco }
+  try {
+    await guardarJuego(juego)
+  } catch (e) {
+    await borrarCarpetaDisco(disco.carpeta).catch(() => undefined)
+    throw e
+  }
+  return { tipo: 'nuevo', juego }
+}
+
+let discosLimpios = false
+
+/** Una vez por apertura de la app: borra los discos de juegos quitados (ya sin «Deshacer»). */
+export async function limpiarDiscosQuitados(): Promise<void> {
+  if (discosLimpios) return
+  discosLimpios = true
+  const enUso = new Set((await listarJuegos()).flatMap((j) => (j.disco ? [j.disco.carpeta] : [])))
+  const borrados = await limpiarDiscosHuerfanos(enUso)
+  if (borrados) registrar('info', 'Discos de juegos quitados borrados', { borrados })
 }
 
 export type OrdenBiblioteca = 'reciente' | 'nombre' | 'tiempo'

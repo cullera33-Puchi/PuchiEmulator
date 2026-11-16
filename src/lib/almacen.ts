@@ -8,6 +8,7 @@
  * El identificador de un juego es el SHA-1 de su ROM: si se quita de la biblioteca y se vuelve a
  * añadir, encuentra su partida.
  */
+import type { Disco } from './discos'
 import type { SesionJuego } from './estadisticas'
 import type { Sistema } from './sistemas'
 
@@ -28,6 +29,11 @@ export interface Juego {
   estado?: EstadoJuego
   /** Fecha en que se marcó como terminado */
   terminado?: number
+  /**
+   * PlayStation (v0.37.0): el disco está en los ficheros de la app (OPFS), no en el almacén `roms`.
+   * Al quitar el juego, la carpeta se queda hasta la siguiente apertura (para «Deshacer»)
+   */
+  disco?: Disco
 }
 
 export type EstadoJuego = 'pendiente' | 'jugando' | 'terminado' | 'abandonado'
@@ -163,16 +169,34 @@ export function leerJuego(id: string): Promise<Juego | undefined> {
   return leer<Juego>('juegos', id)
 }
 
-export async function guardarJuego(juego: Juego, rom: ArrayBuffer): Promise<void> {
+export async function guardarJuego(juego: Juego, rom?: ArrayBuffer): Promise<void> {
   const bd = await abrir()
   const tx = bd.transaction(['juegos', 'roms'], 'readwrite')
   tx.objectStore('juegos').put(juego)
-  tx.objectStore('roms').put(rom, juego.id)
+  if (rom) tx.objectStore('roms').put(rom, juego.id)
   await terminar(tx)
 }
 
 export function actualizarJuego(juego: Juego): Promise<void> {
   return poner('juegos', juego)
+}
+
+/**
+ * BIOS de PlayStation del usuario (v0.37.0): en el almacén de las ROM, con su propia clave. Nunca va
+ * en las copias de partidas (como las ROM).
+ */
+const CLAVE_BIOS_PSX = 'bios:psx'
+
+export function leerBiosPsx(): Promise<ArrayBuffer | undefined> {
+  return leer<ArrayBuffer>('roms', CLAVE_BIOS_PSX)
+}
+
+export async function guardarBiosPsx(datos: ArrayBuffer | null): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction(['roms'], 'readwrite')
+  if (datos) tx.objectStore('roms').put(datos, CLAVE_BIOS_PSX)
+  else tx.objectStore('roms').delete(CLAVE_BIOS_PSX)
+  await terminar(tx)
 }
 
 export function leerRomGuardada(id: string): Promise<ArrayBuffer | undefined> {

@@ -37,4 +37,16 @@ playwright-report
 !tests/fixtures/prueba.sms
 !tests/fixtures/prueba.gg
 !tests/fixtures/prueba.zip
+# Discos de PlayStation y BIOS (v0.37.0): solo el CD de prueba propio
+*.bin
+*.cue
+*.chd
+*.iso
+*.img
+*.pbp
+*.mdf
+*.m3u
+!tests/fixtures/prueba-psx.bin
+!tests/fixtures/prueba-psx.cue
+!tests/fixtures/prueba-psx.chd
 juegos_locales/

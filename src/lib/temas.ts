@@ -5,7 +5,7 @@
  */
 import type { Sistema } from './sistemas'
 
-export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'ochobits' | 'super' | 'negra' | 'carbon' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
+export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'ochobits' | 'super' | 'negra' | 'carbon' | 'plata' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
 
 export interface Tema {
   id: IdTema
@@ -201,6 +201,31 @@ export const TEMAS: Tema[] = [
       '--borde': 'rgb(255 255 255 / 0.1)',
     },
   },
+  {
+    // PlayStation (v0.37.0): gris plata, con los botones grises oscuros y los símbolos en blanco
+    id: 'plata',
+    nombre: 'Plata',
+    arriba: '#c4c4cb',
+    abajo: '#a3a3ac',
+    vars: {
+      '--fondo': 'linear-gradient(180deg, #c4c4cb, #a3a3ac)',
+      '--marco': '#2a2a30',
+      '--marco-relleno': '10px',
+      '--marco-radio': '10px',
+      '--ab': '#3d3d45',
+      '--ab-texto': 'rgb(255 255 255 / 0.9)',
+      '--ab-pulsado': '#62626c',
+      '--cruceta': '#3d3d45',
+      '--cruceta-pulsado': '#62626c',
+      '--pequeno': '#5a5a63',
+      '--pequeno-texto': 'rgb(255 255 255 / 0.9)',
+      '--hombro': '#5a5a63',
+      '--hombro-texto': 'rgb(255 255 255 / 0.9)',
+      '--herramienta': 'rgb(0 0 0 / 0.14)',
+      '--herramienta-texto': 'rgb(0 0 0 / 0.7)',
+      '--borde': 'rgb(0 0 0 / 0.12)',
+    },
+  },
   color('baya', 'Baya', '#c8265e', '#a51a4b'),
   color('kiwi', 'Kiwi', '#9fc93f', '#84ab2d'),
   color('turquesa', 'Turquesa', '#25aaa3', '#1a8b86'),
@@ -209,7 +234,7 @@ export const TEMAS: Tema[] = [
 ]
 
 /** Tema que se usa con «Según la consola». */
-export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', nes: 'ochobits', snes: 'super', n64: 'carbon', nds: 'oscuro', sms: 'negra', gg: 'negra', md: 'negra' }
+export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', nes: 'ochobits', snes: 'super', n64: 'carbon', psx: 'plata', nds: 'oscuro', sms: 'negra', gg: 'negra', md: 'negra' }
 
 export function temaPorId(id: IdTema): Tema {
   return TEMAS.find((t) => t.id === id) ?? TEMAS[0]

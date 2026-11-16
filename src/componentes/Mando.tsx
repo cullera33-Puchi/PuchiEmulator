@@ -5,7 +5,7 @@
  * aspecto de pulsado se cambia directamente en los elementos.
  */
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Footprints } from 'lucide-react'
-import { useEffect, useRef, type PointerEvent as EventoPuntero, type RefObject } from 'react'
+import { useEffect, useRef, type PointerEvent as EventoPuntero, type ReactNode, type RefObject } from 'react'
 import { bit, direccionCruceta, vectorPalanca, type NombreBoton } from '../emulador/botones'
 import { vibracionActiva } from '../lib/ajustes'
 import { NOMBRE_BOTON, type BotonMenu } from '../lib/mandoJuego'
@@ -44,6 +44,11 @@ interface Props {
    * Z en el hombro izquierdo, R en el derecho y L pequeño donde va Select. La palanca da de -1 a 1.
    */
   n64?: { alPalanca: (x: number, y: number) => void }
+  /**
+   * PlayStation (v0.37.0): triángulo, círculo, X y cuadrado en el rombo (los sitios de X, A, B e Y de
+   * libretro) y dos botones en cada hombro, L2 y L1 a la izquierda y R1 y R2 a la derecha
+   */
+  psx?: boolean
 }
 
 interface Dedo {
@@ -90,6 +95,18 @@ const BRAZOS: [NombreBoton, string][] = [
   ['DERECHA', 'derecha'],
 ]
 
+/**
+ * Botones de PlayStation (v0.37.0): formas geométricas de trazo, en el color del texto del tema (sin
+ * los colores de la consola). Van en los sitios de X, A, B e Y del rombo, que son los de libretro.
+ */
+const trazo = { fill: 'none', stroke: 'currentColor', strokeWidth: 2.4, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const }
+const SIMBOLOS_PSX: [NombreBoton, string, string, ReactNode][] = [
+  ['X', 'x', 'Triángulo', <svg key="t" viewBox="0 0 24 24" width="46%" height="46%" aria-hidden><path d="M12 4.5 20.5 19h-17z" {...trazo} /></svg>],
+  ['A', 'a', 'Círculo', <svg key="c" viewBox="0 0 24 24" width="46%" height="46%" aria-hidden><circle cx="12" cy="12" r="7.5" {...trazo} /></svg>],
+  ['B', 'b', 'Equis', <svg key="x" viewBox="0 0 24 24" width="46%" height="46%" aria-hidden><path d="m5.5 5.5 13 13m0-13-13 13" {...trazo} /></svg>],
+  ['Y', 'y', 'Cuadrado', <svg key="q" viewBox="0 0 24 24" width="46%" height="46%" aria-hidden><rect x="5.5" y="5.5" width="13" height="13" rx="0.5" {...trazo} /></svg>],
+]
+
 /** Botones C de Nintendo 64, en cruz encima de A y B */
 const BOTONES_C: [NombreBoton, string, string, typeof ChevronUp][] = [
   ['C_ARRIBA', 'c-arriba', 'C arriba', ChevronUp],
@@ -98,7 +115,7 @@ const BOTONES_C: [NombreBoton, string, string, typeof ChevronUp][] = [
   ['C_ABAJO', 'c-abajo', 'C abajo', ChevronDown],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando, tres, etiquetas, sinSelect, n64 }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando, tres, etiquetas, sinSelect, n64, psx }: Props) {
   // Lo que pone en cada botón: el nombre de la consola o, si no, el de libretro
   const nombre = (b: 'A' | 'B' | 'X' | 'Y' | 'START') => etiquetas?.[b] ?? (b === 'START' ? 'Start' : b)
   // Atributos de cada pieza: su nombre (para el editor) y, si se ha movido, su sitio y su tamaño
@@ -376,28 +393,49 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
             {nombre('Y')}
           </span>
         )}
-        {cuatro && (
+        {psx ? (
           <>
-            <span data-boton="X" className="control x" role="button" aria-label="X">
-              X
+            {SIMBOLOS_PSX.map(([b, clase, etiqueta, simbolo]) => (
+              <span key={b} data-boton={b} className={`control ${clase} simbolo`} role="button" aria-label={etiqueta}>
+                {simbolo}
+              </span>
+            ))}
+          </>
+        ) : (
+          <>
+            {cuatro && (
+              <>
+                <span data-boton="X" className="control x" role="button" aria-label="X">
+                  X
+                </span>
+                <span data-boton="Y" className="control y" role="button" aria-label="Y">
+                  Y
+                </span>
+              </>
+            )}
+            <span data-boton="B" className="control b" role="button" aria-label={nombre('B')}>
+              {nombre('B')}
             </span>
-            <span data-boton="Y" className="control y" role="button" aria-label="Y">
-              Y
+            <span data-boton="A" className="control a" role="button" aria-label={nombre('A')}>
+              {nombre('A')}
             </span>
           </>
         )}
-        <span data-boton="B" className="control b" role="button" aria-label={nombre('B')}>
-          {nombre('B')}
-        </span>
-        <span data-boton="A" className="control a" role="button" aria-label={nombre('A')}>
-          {nombre('A')}
-        </span>
       </div>
       )}
 
       {hombros && (
         <>
-          {n64 ? (
+          {psx ? (
+            <span className="control hombro l doble" aria-label="L2 y L1" {...pieza('l')}>
+              <span data-boton="L2" className="control" role="button" aria-label="L2">
+                L2
+              </span>
+              <span data-boton="L" className="control" role="button" aria-label="L1">
+                L1
+              </span>
+            </span>
+          ) : n64 ? (
             <span data-boton="Z" className="control hombro l" role="button" aria-label="Z" {...pieza('l')}>
               Z
             </span>
@@ -406,9 +444,20 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
               L
             </span>
           )}
-          <span data-boton="R" className="control hombro r" role="button" aria-label="R" {...pieza('r')}>
-            R
-          </span>
+          {psx ? (
+            <span className="control hombro r doble" aria-label="R1 y R2" {...pieza('r')}>
+              <span data-boton="R" className="control" role="button" aria-label="R1">
+                R1
+              </span>
+              <span data-boton="R2" className="control" role="button" aria-label="R2">
+                R2
+              </span>
+            </span>
+          ) : (
+            <span data-boton="R" className="control hombro r" role="button" aria-label="R" {...pieza('r')}>
+              R
+            </span>
+          )}
         </>
       )}
 

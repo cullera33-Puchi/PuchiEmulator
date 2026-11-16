@@ -82,7 +82,7 @@ describe('ordenarConsolas', () => {
       { sistema: 'gba', ms: 1_000 },
     ])
     expect(r.conJuegos).toEqual(['gb', 'nds', 'gba', 'md'])
-    expect(r.sinJuegos).toEqual(['nes', 'snes', 'n64', 'sms'])
+    expect(r.sinJuegos).toEqual(['nes', 'snes', 'n64', 'psx', 'sms'])
   })
 
   it('sin tiempo jugado, la que tiene más juegos y después el orden de siempre', () => {

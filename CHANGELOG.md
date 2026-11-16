@@ -1,5 +1,19 @@
 # Cambios
 
+## 0.37.0 (16/11/2026)
+
+PlayStation en pruebas, pedida por el usuario (fila 6 de la hoja de ruta y 16 del análisis), revisando lo aprendido con la N64 para no repetirlo. Decisiones del usuario: CHD y BIN con CUE, BIOS propia opcional, una tarjeta de memoria por juego y primera entrega jugable (sin varios discos por juego ni palancas analógicas, que van después).
+
+- Núcleo PCSX ReARMed (GPLv2, `7b0e8f8f`) con su receta para Emscripten: sin hilos, intérprete (en WebAssembly no hay recompilador), GPU psx_gpu con SIMD y CHD con libchdr. `-O3 -flto` con SIMD, un 17 % más rápido que solo con SIMD; 64 MB de memoria (la mitad que la N64). 3,7 ms por fotograma con el CD de prueba en el navegador de pruebas (la N64, 5,6; la DS, 6,1). Script: `compilar_psx` y `compilar_zlib` (sin el puerto de zlib de Emscripten, que se descarga aparte).
+- Lo que se aprendió con la N64, aplicado desde el principio: ritmo propio (el hilo del motor lleva los fotogramas, los botones y el sonido: `ritmoPropio` en `SISTEMAS`), sin corrutinas ni Asyncify, sin WebGL en el núcleo (la imagen la pinta el pintor de la app), sin rebobinado (estados de 4,3 MB), estado «auto» sin captura y medida en la prueba de rendimiento de GitHub.
+- Discos sin cargarlos en memoria: se copian por trozos de 8 MB a los ficheros privados de la app (OPFS) en un hilo aparte (`discos.worker.ts`), con su SHA-1 calculado a la vez (`Sha1`, por trozos, porque `crypto.subtle` no los admite); el núcleo los lee sector a sector desde el hilo del motor (WORKERFS y `pf_cargar_ruta` en el puente). Al elegir ficheros, cada CUE se junta con sus BIN por el nombre; un BIN sin CUE vale si es de una sola pista de datos (y un .bin que no empieza como un sector de CD sigue siendo de Mega Drive). La hoja CUE se guarda con los nombres de la copia (`pista1.bin`…). Progreso de la copia en pantalla y aviso si no cabe.
+- Al quitar un juego de PlayStation, su disco se queda hasta la siguiente apertura de la app, para que «Deshacer» lo recupere (`limpiarDiscosQuitados`; no toca las carpetas de menos de una hora).
+- BIOS propia opcional (Ajustes, «BIOS de PlayStation»): solo ficheros de 512 KB, guardada en el iPhone (nunca en las copias de partidas) y dejada en `/sistema` con un nombre que busca el núcleo. Sin ella, la BIOS libre del núcleo.
+- Tarjeta de memoria por juego: la partida del juego, como la memoria de los cartuchos (128 KB).
+- Mando: rombo con triángulo, círculo, X y cuadrado (formas de trazo en un solo color, sin los colores de la consola), L2 y L1 a la izquierda y R1 y R2 a la derecha, Select y Start. Con un mando físico, L1, L2, R1 y R2 por separado. Tema «Plata», dibujo propio de la consola en el inicio e índice de carátulas de PlayStation (9.301 nombres).
+- Disco de prueba propio, sin código de Sony (`scripts/psx_prueba.s`, ensamblado con llvm-mc; `prueba-psx.bin` y `.cue`, y `prueba-psx.chd` con chdman): un ejecutable en un CD ISO 9660 que lee el mando y la tarjeta de memoria por el puerto serie y pinta la pantalla de un color.
+- Pruebas: 173 unitarias y 68 de navegador (nuevas: SHA-1 por trozos, CUE y agrupación de discos, BIOS, mando físico; disco en BIN y CUE con botones, estados y tarjeta de memoria, CHD, BIN suelto, CUE sin su BIN y BIOS en Ajustes).
+
 ## 0.36.0 (16/11/2026)
 
 Revisión de código de lo hecho desde que entró la Nintendo 64 (v0.32.0 a v0.35.1), pedida por el usuario: tres revisiones independientes (motor, ritmo propio y sonido; interfaz; núcleo y puente de N64). Se comprobó cada hallazgo antes de corregirlo.

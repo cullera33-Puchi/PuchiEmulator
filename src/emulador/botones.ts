@@ -16,6 +16,9 @@ export const BOTON = {
   SOPLAR: 12,
   /** Nintendo 64 (v0.32.0): el gatillo Z, que es L2 en el núcleo */
   Z: 12,
+  /** PlayStation (v0.37.0): L2 y R2 */
+  L2: 12,
+  R2: 13,
   /** DS: la tapa cerrada (L3 en melonDS), v0.20.0 */
   TAPA: 14,
   /**
@@ -114,7 +117,7 @@ export function palancaDeMando(mando: Gamepad): [number, number] {
  * Mando físico con la distribución estándar (PlayStation, Xbox o MFi). En Nintendo 64 (v0.32.0), la
  * palanca izquierda va aparte (`palancaDeMando`), la derecha da los botones C y el gatillo izquierdo es Z.
  */
-export function botonesDeMando(mando: Gamepad, n64 = false): number {
+export function botonesDeMando(mando: Gamepad, n64 = false, psx = false): number {
   const p = (i: number) => mando.buttons[i]?.pressed ?? false
   let m = 0
   // Distribución de Nintendo: el botón de abajo es B y el de la derecha es A
@@ -125,8 +128,15 @@ export function botonesDeMando(mando: Gamepad, n64 = false): number {
   if (n64) {
     if (p(4)) m |= bit('L')
     if (p(6)) m |= bit('Z')
+  } else if (psx) {
+    // PlayStation (v0.37.0): L1, L2, R1 y R2, cada uno en el suyo
+    if (p(4)) m |= bit('L')
+    if (p(6)) m |= bit('L2')
   } else if (p(4) || p(6)) m |= bit('L')
-  if (p(5) || p(7)) m |= bit('R')
+  if (psx) {
+    if (p(5)) m |= bit('R')
+    if (p(7)) m |= bit('R2')
+  } else if (p(5) || p(7)) m |= bit('R')
   if (p(8)) m |= bit('SELECT')
   if (p(9)) m |= bit('START')
   if (p(12)) m |= bit('ARRIBA')

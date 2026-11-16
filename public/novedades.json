@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.37.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "PlayStation en pruebas: añade tus discos en CHD o en BIN con su CUE (elígelos juntos).",
+      "El disco se copia al iPhone por trozos, sin llenar la memoria; tarda un poco con los discos grandes.",
+      "Cada juego tiene su tarjeta de memoria, que va en la copia de partidas.",
+      "En Ajustes puedes añadir la BIOS de tu consola; sin ella, se usa una libre con la que funcionan casi todos los juegos."
+    ]
+  },
+  {
     "version": "0.36.0",
     "fecha": "16/11/2026",
     "cambios": [

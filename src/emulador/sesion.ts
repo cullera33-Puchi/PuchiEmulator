@@ -36,7 +36,10 @@ const GUARDAR_TIEMPO_MS = 30_000
 
 export interface OpcionesSesion {
   juego: Juego
-  rom: ArrayBuffer
+  /** La ROM de un cartucho; los discos (PlayStation) los abre el motor desde los ficheros de la app */
+  rom?: ArrayBuffer
+  /** Ficheros para el núcleo antes de cargar (la BIOS de PlayStation del usuario, v0.37.0) */
+  sistema?: { nombre: string; datos: ArrayBuffer }[]
   lienzo: HTMLCanvasElement
   /** Seguir desde el estado «auto» si existe */
   reanudar: boolean
@@ -254,6 +257,8 @@ export class Sesion {
         nucleo: info.nucleo,
         opciones: this.o.opciones ?? {},
         rom,
+        disco: juego.disco,
+        sistema: this.o.sistema,
         extension: info.extension,
         partida: partida ? { datos: partida.datos, rtc: partida.rtc } : undefined,
         estadoAuto: estadoAuto?.datos,
@@ -272,7 +277,8 @@ export class Sesion {
     this.cargaAutoPendiente = m.autoCargado
     this.ponerTiempos(m.fps, m.frecuencia)
     this.mostrar(m.imagenes)
-    this.propio = this.n64 && !!conexion.ritmo
+    // Ritmo propio (v0.33.0 en N64; v0.37.0, PlayStation desde el principio): el hilo lleva el ritmo
+    this.propio = !!info.ritmoPropio && !!conexion.ritmo
     conexion.ritmo?.alEvento(this.propio ? (e) => this.alEventoRitmo(e) : null)
     this.temporizadorGuardado = window.setInterval(() => void this.guardarPartidaSiCambia(), 1000)
   }
@@ -731,7 +737,7 @@ export class Sesion {
   private botonesMandos(): number {
     let m = 0
     try {
-      for (const mando of navigator.getGamepads?.() ?? []) if (mando) m |= botonesDeMando(mando, this.n64)
+      for (const mando of navigator.getGamepads?.() ?? []) if (mando) m |= botonesDeMando(mando, this.n64, !!SISTEMAS[this.o.juego.sistema].psx)
     } catch {
       // sin mandos
     }

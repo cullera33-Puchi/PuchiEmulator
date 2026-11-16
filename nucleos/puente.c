@@ -43,7 +43,7 @@ static int numOpciones = 0;
 static bool opcionesCambiadas = false;
 
 static void *juego = NULL;
-static char rutaJuego[64];
+static char rutaJuego[256];
 
 /* Palancas analógicas (Nintendo 64, v0.32.0): izquierda (la palanca) y derecha (los botones C) */
 static int16_t analogico[2][2];
@@ -371,6 +371,8 @@ void pf_iniciar(void) {
 
 /* Carga una ROM que la app ha copiado en la memoria del módulo. La extensión
  * («gba», «gb», «gbc», «sfc») ayuda a los núcleos que la miran. */
+static bool cargarJuego(struct retro_game_info *juegoInfo);
+
 EMSCRIPTEN_KEEPALIVE
 bool pf_cargar(void *datos, size_t tam, const char *extension) {
 	snprintf(rutaJuego, sizeof(rutaJuego), "/juego.%s", extension);
@@ -392,9 +394,27 @@ bool pf_cargar(void *datos, size_t tam, const char *extension) {
 			fclose(f);
 		}
 	}
+	return cargarJuego(&juegoInfo);
+}
 
+/*
+ * Carga un juego que ya está en el sistema de ficheros del módulo (v0.37.0, PlayStation): los discos
+ * pesan cientos de megas y no se copian a la memoria; el núcleo los lee por su ruta, sector a sector,
+ * desde los ficheros que la app monta (WORKERFS, en el hilo del motor).
+ */
+EMSCRIPTEN_KEEPALIVE
+bool pf_cargar_ruta(const char *ruta) {
+	snprintf(rutaJuego, sizeof(rutaJuego), "%s", ruta);
+	struct retro_game_info juegoInfo;
+	memset(&juegoInfo, 0, sizeof(juegoInfo));
+	juegoInfo.path = rutaJuego;
+	juego = NULL;
+	return cargarJuego(&juegoInfo);
+}
+
+static bool cargarJuego(struct retro_game_info *juegoInfo) {
 	resultado = 0;
-	if (!retro_load_game(&juegoInfo)) {
+	if (!retro_load_game(juegoInfo)) {
 		return false;
 	}
 #ifdef PF_GL

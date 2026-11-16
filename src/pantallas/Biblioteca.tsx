@@ -226,7 +226,7 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
     await recargar()
     avisar('Juego quitado. La partida se conserva', {
       fn: async () => {
-        if (rom) await guardarJuego(j, rom)
+        if (rom || j.disco) await guardarJuego(j, rom)
         if (caratula) await guardarCaratula(caratula)
         registrar('info', 'Quitar juego deshecho')
         await recargar()

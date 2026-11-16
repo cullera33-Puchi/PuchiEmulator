@@ -3,7 +3,7 @@
  * seguridad, registro, aspecto y versión. Es una pantalla apilada: «‹ Juegos» o deslizar desde el
  * borde izquierdo para volver.
  */
-import { ArchiveRestore, ChevronLeft, ChevronRight, FolderOpen, Gamepad2, HardDrive, Image as ImageIcon, Info, Monitor, Moon, Palette, ScrollText, SunMoon, Volume2, type LucideIcon } from 'lucide-react'
+import { ArchiveRestore, ChevronLeft, ChevronRight, Disc, FolderOpen, Gamepad2, HardDrive, Image as ImageIcon, Info, Monitor, Moon, Palette, ScrollText, SunMoon, Volume2, type LucideIcon } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useVolverDeslizando } from '../componentes/gestos'
 import { SelectorTema } from '../componentes/SelectorTema'
@@ -13,7 +13,8 @@ import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { temaPara } from '../lib/temas'
 import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
 import { aplicarTema, cambiarAjustes, useAjustes, type Ajustes as TipoAjustes } from '../lib/ajustes'
-import { espacioUsado, listarJuegos, listarPartidas, pedirPersistencia, sustituirPartidas } from '../lib/almacen'
+import { problemaBiosPsx } from '../lib/bios'
+import { espacioUsado, guardarBiosPsx, listarJuegos, listarPartidas, pedirPersistencia, sustituirPartidas } from '../lib/almacen'
 import { ErrorArchivo, exportarCopia, importarArchivo } from '../lib/copias'
 import { cuando, plural, tamano } from '../lib/formato'
 import { borrarRegistro, copiarTexto, leerRegistro, registrar, suscribirRegistro, textoRegistro } from '../lib/registro'
@@ -30,7 +31,7 @@ function useRegistro() {
 const MOTIVOS: Record<MetaCopia['motivo'], string> = { diaria: 'Diaria', manual: 'Manual', previa: 'Antes de recuperar' }
 
 /** Apartados de Ajustes (v0.25.0): una lista corta, como en los Ajustes del iPhone, y una pantalla por apartado. */
-type Apartado = 'sonido' | 'pantalla' | 'mando' | 'cama' | 'temas' | 'caratulas' | 'partidas' | 'copias' | 'almacenamiento' | 'aspecto' | 'registro' | 'acerca'
+type Apartado = 'sonido' | 'pantalla' | 'mando' | 'cama' | 'temas' | 'caratulas' | 'bios' | 'partidas' | 'copias' | 'almacenamiento' | 'aspecto' | 'registro' | 'acerca'
 
 /** Consolas, núcleo, licencia y código fuente. */
 const NUCLEOS: [string, string, string, string][] = [
@@ -188,6 +189,30 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
     }
   }
 
+  // BIOS de PlayStation (v0.37.0): opcional, solo en el iPhone
+  const selectorBios = useRef<HTMLInputElement>(null)
+  const alElegirBios = async (f: File | undefined) => {
+    if (selectorBios.current) selectorBios.current.value = ''
+    if (!f) return
+    const problema = problemaBiosPsx(f.size)
+    if (problema) {
+      avisar(problema)
+      return
+    }
+    await guardarBiosPsx(await f.arrayBuffer())
+    cambiar({ biosPsx: { nombre: f.name, tam: f.size } })
+    registrar('info', 'BIOS de PlayStation añadida')
+    avisar('BIOS añadida: se usa al abrir el siguiente juego de PlayStation')
+  }
+  const quitarBios = async () => {
+    const ok = await confirmar({ titulo: '¿Quitar la BIOS?', mensaje: 'Los juegos de PlayStation pasan a usar la BIOS libre del núcleo. Las partidas no cambian.', aceptar: 'Quitar', destructivo: true })
+    if (!ok) return
+    await guardarBiosPsx(null)
+    cambiar({ biosPsx: undefined })
+    registrar('info', 'BIOS de PlayStation quitada')
+    avisar('BIOS quitada')
+  }
+
   const restaurar = async (c: MetaCopia) => {
     setCopiaElegida(null)
     const ok = await confirmar({
@@ -295,6 +320,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
     cama: { titulo: 'Para jugar en la cama', icono: Moon, color: '#5856D6' },
     temas: { titulo: 'Temas del juego', icono: Palette, color: '#FF9500' },
     caratulas: { titulo: 'Carátulas', icono: ImageIcon, color: '#AF52DE', valor: a.caratulasAuto ? 'Automáticas' : 'A mano' },
+    bios: { titulo: 'BIOS de PlayStation', icono: Disc, color: '#8A8A93', valor: a.biosPsx ? 'Propia' : 'La libre' },
     partidas: { titulo: 'Guardar y recuperar partidas', icono: FolderOpen, color: '#007AFF' },
     copias: { titulo: 'Copias de seguridad', icono: ArchiveRestore, color: '#34C759', valor: copias ? String(copias.length) : undefined },
     almacenamiento: { titulo: 'Almacenamiento', icono: HardDrive, color: '#8E8E93', valor: espacio ? tamano(espacio.usado) : undefined },
@@ -304,7 +330,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   }
 
   const GRUPOS: Apartado[][] = [
-    ['sonido', 'pantalla', 'mando', 'cama', 'temas', 'caratulas'],
+    ['sonido', 'pantalla', 'mando', 'cama', 'temas', 'caratulas', 'bios'],
     ['partidas', 'copias', 'almacenamiento'],
     ['aspecto'],
     ['registro', 'acerca'],
@@ -418,6 +444,33 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
               </button>
             </div>
             <p className="pie-grupo">La app busca la carátula en el archivo de libretro la primera vez y solo la pone si el nombre coincide con seguridad; si no, la eliges tú desde el juego. Se descarga la imagen elegida; nada más sale del iPhone.</p>
+          </>
+        )
+      case 'bios':
+        return (
+          <>
+            <div className="lista" data-testid="bios">
+              <div className="fila justify-between">
+                <span>BIOS</span>
+                <span className="text-zinc-500">{a.biosPsx ? `${a.biosPsx.nombre}, ${tamano(a.biosPsx.tam)}` : 'La libre del núcleo'}</span>
+              </div>
+              <div className="separador" />
+              <button className="fila text-acento dark:text-acento-oscuro" onClick={() => selectorBios.current?.click()}>
+                {a.biosPsx ? 'Cambiar por otra desde Archivos' : 'Añadir una BIOS desde Archivos'}
+              </button>
+              {a.biosPsx && (
+                <>
+                  <div className="separador" />
+                  <button className="fila text-red-600 dark:text-red-500" onClick={() => void quitarBios()}>
+                    Quitar la BIOS
+                  </button>
+                </>
+              )}
+            </div>
+            <p className="pie-grupo">
+              No hace falta: sin BIOS, los juegos usan la libre del núcleo, con la que funcionan casi todos. Con la de tu consola, algunos funcionan mejor (por ejemplo, la tarjeta de memoria desde el menú de la consola). Se guarda solo en este iPhone: no va en las copias de partidas.
+            </p>
+            <input ref={selectorBios} type="file" className="hidden" data-testid="selector-bios" onChange={(e) => void alElegirBios(e.target.files?.[0])} />
           </>
         )
       case 'partidas':

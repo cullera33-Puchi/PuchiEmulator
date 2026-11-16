@@ -111,6 +111,33 @@ function SuperNintendo() {
   )
 }
 
+/** PlayStation (v0.37.0): consola gris de discos, con la tapa redonda, y su mando con asas */
+function PlayStation() {
+  return (
+    <svg viewBox="0 0 230 160" className="h-full w-auto drop-shadow-md" aria-hidden>
+      {/* Caja gris claro con la tapa del disco redonda y dos botones a la derecha */}
+      <rect x="14" y="12" width="202" height="76" rx="10" fill="#c9c9d0" />
+      <rect x="14" y="62" width="202" height="26" rx="10" fill="#b2b2ba" />
+      <circle cx="78" cy="44" r="27" fill="#b8b8c0" />
+      <circle cx="78" cy="44" r="21" fill="#d6d6dc" />
+      <circle cx="78" cy="44" r="5" fill="#9d9da6" />
+      <circle cx="160" cy="36" r="6" fill="#8e8e98" />
+      <circle cx="186" cy="36" r="6" fill="#8e8e98" />
+      <rect x="146" y="70" width="18" height="9" rx="3" fill="#7d7d87" />
+      <rect x="172" y="70" width="18" height="9" rx="3" fill="#7d7d87" />
+      {/* Mando con dos asas, cruceta y cuatro botones grises */}
+      <path d="M58 104c8-6 106-6 114 0 10 8 16 24 14 36-1 8-9 12-15 7l-16-13H75l-16 13c-6 5-14 1-15-7-2-12 4-28 14-36z" fill="#b8b8c0" />
+      <Cruz x={80} y={118} t={6} color="#5d5d66" />
+      <circle cx="150" cy="111" r="4" fill="#5d5d66" />
+      <circle cx="159" cy="119" r="4" fill="#5d5d66" />
+      <circle cx="150" cy="127" r="4" fill="#5d5d66" />
+      <circle cx="141" cy="119" r="4" fill="#5d5d66" />
+      <rect x="106" y="116" width="8" height="4" rx="2" fill="#7d7d87" />
+      <rect x="118" y="116" width="8" height="4" rx="2" fill="#7d7d87" />
+    </svg>
+  )
+}
+
 /** Nintendo 64 (v0.32.0): consola gris carbón con la ranura del cartucho y los cuatro puertos */
 function Nintendo64() {
   return (
@@ -254,6 +281,7 @@ function NintendoDS() {
 
 export function DibujoConsola({ consola }: { consola: Consola }) {
   if (consola === 'n64') return <Nintendo64 />
+  if (consola === 'psx') return <PlayStation />
   if (consola === 'nds') return <NintendoDS />
   if (consola === 'snes') return <SuperNintendo />
   if (consola === 'nes') return <NES />

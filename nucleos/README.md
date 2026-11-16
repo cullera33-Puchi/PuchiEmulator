@@ -10,6 +10,7 @@ La app usa núcleos libretro existentes compilados a WebAssembly. El resultado e
 | Genesis Plus GX | Mega Drive, Master System y Game Gear | Propia, solo uso no comercial | https://github.com/libretro/Genesis-Plus-GX | `b9c2316441978d4015ba30e9a95d9b0e6f8ee981` |
 | Snes9x | Super Nintendo | Propia, solo uso no comercial | https://github.com/libretro/snes9x | `fae2fea08f74180759ef540ee94259213f503480` |
 | Mupen64Plus-Next (con GLideN64) | Nintendo 64 | GPLv2 | https://github.com/libretro/mupen64plus-libretro-nx | `15bada85906593376e8fd697f1b0b3af3a20f512` |
+| PCSX ReARMed | PlayStation | GPLv2 | https://github.com/libretro/pcsx_rearmed | `7b0e8f8fadfbce3d170d195b9d9eecaabfa08c8e` |
 
 Snes9x es C++ y se enlaza con `em++`. En su modo estático espera que la aplicación aporte zlib y las funciones de ficheros de libretro-common; el script las compila aparte (zlib 1.3.1, `51b7f2ab`, licencia zlib; libretro-common, licencia MIT) y las añade al enlace. El puente se compila siempre como C.
 
@@ -34,6 +35,16 @@ Mupen64Plus-Next (v0.32.0, Nintendo 64) dibuja con la tarjeta gráfica: GLideN64
 - Se compila con `--profiling-funcs` (nombres de las funciones, unos 250 KB) y el script marca el error original de un fallo (`Module.errorOriginal`), para que el registro diga en qué funciones del núcleo ha fallado.
 - El puente crea un contexto WebGL 2 en un `OffscreenCanvas` que la app deja en `specialHTMLTargets['!lienzo']` (`PF_GL` en `puente.c`): la imagen se queda en ese lienzo y la app la recoge con `transferToImageBitmap`. Los botones C son la palanca derecha (`pf_analogico`).
 - Cada estado ocupa 16 MB y la memoria de partida (EEPROM, Controller Pak, SRAM y Flash), 290 KB.
+
+PCSX ReARMed (v0.37.0, PlayStation) se compila con la receta para Emscripten de su propio `Makefile.libretro`: sin hilos, sin recompilador (intérprete), la GPU de psx_gpu con SIMD de WebAssembly y CHD con libchdr. Otros detalles:
+
+- Lo que se aprendió con la N64: sin corrutinas ni Asyncify, sin WebGL (la imagen la pinta el pintor de la app), con `-O3 -flto` y SIMD (un 17 % más rápido que solo con SIMD, medido con `npm run rendimiento`) y en 64 MB de memoria (la que trae Emscripten; no crece con el CD de prueba).
+- zlib: el script cambia en su `Makefile.libretro` el puerto de Emscripten (que se descarga aparte) por nuestra copia, y la compila con las mismas opciones (`compilar_zlib`).
+- El disco no se copia a la memoria: el puente carga el juego por su ruta (`pf_cargar_ruta`, v0.37.0) y la app monta los ficheros del disco en `/disco` con WORKERFS (`-lworkerfs.js`), que los lee por trozos con `FileReaderSync` cuando el núcleo los pide. Solo funciona en el hilo del motor.
+- BIOS: la libre del núcleo (HLE) o, si el usuario ha añadido la suya, la que la app deja en `/sistema` con uno de los nombres que busca el núcleo (`scph5501.bin` y otros).
+- La tarjeta de memoria 1 la gestiona la app como partida del juego (`pcsx_rearmed_memcard1` en `libretro`, 128 KB). Cada estado ocupa unos 4,3 MB.
+
+`puente.c` añade `pf_cargar_ruta` (v0.37.0): carga un juego que ya está en el sistema de ficheros del módulo. No cambia nada para el resto, que no se han recompilado.
 
 El código fuente de cada núcleo está en el repositorio y el commit indicados; el binario se ha compilado de él sin cambios, con `nucleos/compilar.sh`.
 

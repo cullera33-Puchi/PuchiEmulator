@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds, prueba.nes, prueba.md, prueba.sms, prueba.gg, prueba.z64 y prueba.zip).
+"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds, prueba.nes, prueba.md, prueba.sms, prueba.gg, prueba.z64, prueba.zip y el CD de PlayStation: prueba-psx.bin y .cue, y prueba-psx.chd).
 
 Son programas propios y mínimos, sin código ni gráficos de Nintendo: pintan la pantalla de un
 color y cambian de color mientras se pulsa A. Sirven para comprobar imagen, botones y partida guardada
 de punta a punta. El código máquina se ensambló con llvm-mc (armv4t) y a mano (Game Boy); va comentado.
 """
 import pathlib
+import shutil
+import subprocess
 import zipfile
 
 SALIDA = pathlib.Path(__file__).resolve().parent.parent / 'tests' / 'fixtures'
@@ -460,6 +462,128 @@ def n64() -> bytes:
     return bytes(rom)
 
 
+# PlayStation (MIPS, ensamblado con llvm-mc -triple=mipsel -mcpu=mips2 desde scripts/psx_prueba.s; solo
+# llamadas relativas). Va como PSX.EXE en un CD propio (ISO 9660 con SYSTEM.CNF), sin nada de Sony: el
+# núcleo lo arranca con su BIOS libre. Azul al arrancar (rojo si la tarjeta de memoria tiene la marca),
+# verde con la X (y escribe la marca), amarillo con la derecha, magenta con el triángulo y cian con R2.
+PSX_CODIGO = bytes.fromhex(
+    '801f103c141800ae0008083c01000835141808aec606083c60020835141808ae'
+    '0407083c10000835141808ae0005083c141808ae0003083c141808ae00e1083c'
+    '00040835101808ae00e3083c101808ae03e4083c3fbd0835101808ae00e5083c'
+    '101808ae0d000824481008a6880008244e1008a67e0011040000000083001104'
+    '8100042481001104520004247f001104252000007d001104252000007b001104'
+    '25200000790011043f000424050012247600110425200000ffff5226fcff4016'
+    '00000000259840006d00110400000000ff00113c5a0008240200681600000000'
+    'ff0011247010088e0000000001000831fcff001100000000feff0824701008ae'
+    '200011040000000025c820020040493005002011000000003200110400000000'
+    '00ff113425c82002200049300200201100000000ffff19340010493003002011'
+    '00000000ff00193cff003937000249300300201100000000ff00193c00ff3937'
+    '0002083c25401901101808ae101800aef000083c40010835101808aed9ff0010'
+    '0000000025b8e00339001104000000003e001104010004243c00110442000424'
+    '3a00110425200000380011042520000025a04000350011042520000000120200'
+    '2510540027104000ffff423025a040002b00110400000000251080020800e002'
+    '0000000025b8e003210011040000000026001104810004242400110457000424'
+    '220011042520000020001104252000001e001104252000001c0011043f000424'
+    '1a0011045a0004247f0015241700110425200000ffffb526fcffa01600000000'
+    '1200110465000424030015240f00110425200000ffffb526fcffa01600000000'
+    '07001104000000000800e00200000000030008244a1008a60800e00300000000'
+    '4a1000a60800e00300000000401004a2401002920800e00300000000'
+)
+PSX_DIRECCION = 0x80010000
+
+
+def psx_exe() -> bytes:
+    """Ejecutable de PlayStation: cabecera de 2 KB y el código, en bloques de 2 KB."""
+    codigo = PSX_CODIGO.ljust((len(PSX_CODIGO) + 2047) // 2048 * 2048, b'\0')
+    cabecera = bytearray(2048)
+    cabecera[0:8] = b'PS-X EXE'
+    cabecera[0x10:0x14] = PSX_DIRECCION.to_bytes(4, 'little')  # inicio
+    cabecera[0x18:0x1C] = PSX_DIRECCION.to_bytes(4, 'little')  # dónde se carga
+    cabecera[0x1C:0x20] = len(codigo).to_bytes(4, 'little')
+    cabecera[0x30:0x34] = (0x801FFFF0).to_bytes(4, 'little')  # pila
+    cabecera[0x4C:0x4C + 21] = b'PuchiEmulator prueba.'
+    return bytes(cabecera) + codigo
+
+
+def _ambos(n: int, bytes_: int) -> bytes:
+    """Número en los dos órdenes de bytes, como los pide ISO 9660."""
+    return n.to_bytes(bytes_, 'little') + n.to_bytes(bytes_, 'big')
+
+
+def _registro(nombre: bytes, sector: int, tam: int, carpeta: bool) -> bytes:
+    r = bytearray(33 + len(nombre) + (len(nombre) + 1) % 2)
+    r[0] = len(r)
+    r[2:10] = _ambos(sector, 4)
+    r[10:18] = _ambos(tam, 4)
+    r[18:25] = bytes([126, 11, 16, 12, 0, 0, 0])  # 16/11/2026
+    r[25] = 2 if carpeta else 0
+    r[28:32] = _ambos(1, 2)
+    r[32] = len(nombre)
+    r[33:33 + len(nombre)] = nombre
+    return bytes(r)
+
+
+def psx_iso() -> bytes:
+    """CD de datos en ISO 9660 (sectores de 2 KB) con SYSTEM.CNF y PSX.EXE en la raíz."""
+    exe = psx_exe()
+    cnf = b'BOOT = cdrom:\\PSX.EXE;1\r\nTCB = 4\r\nEVENT = 10\r\nSTACK = 801FFFF0\r\n'
+    RAIZ, CNF, EXE = 20, 21, 22
+    total = EXE + len(exe) // 2048 + 8
+    raiz = b''.join([
+        _registro(b'\0', RAIZ, 2048, True),
+        _registro(b'\1', RAIZ, 2048, True),
+        _registro(b'PSX.EXE;1', EXE, len(exe), False),
+        _registro(b'SYSTEM.CNF;1', CNF, len(cnf), False),
+    ]).ljust(2048, b'\0')
+    tabla = bytes([1, 0]) + RAIZ.to_bytes(4, 'little') + (1).to_bytes(2, 'little') + b'\0\0'
+    tabla_m = bytes([1, 0]) + RAIZ.to_bytes(4, 'big') + (1).to_bytes(2, 'big') + b'\0\0'
+    pvd = bytearray(2048)
+    pvd[0:6] = b'\x01CD001'
+    pvd[6] = 1
+    pvd[8:40] = b'PLAYSTATION'.ljust(32)
+    pvd[40:72] = b'PUCHIPRUEBA'.ljust(32)
+    pvd[80:88] = _ambos(total, 4)
+    pvd[120:124] = _ambos(1, 2)
+    pvd[124:128] = _ambos(1, 2)
+    pvd[128:132] = _ambos(2048, 2)
+    pvd[132:140] = _ambos(len(tabla), 4)
+    pvd[140:144] = (18).to_bytes(4, 'little')
+    pvd[148:152] = (19).to_bytes(4, 'big')
+    pvd[156:190] = _registro(b'\0', RAIZ, 2048, True)
+    pvd[190:318] = b' ' * 128
+    pvd[881] = 1
+    fin = bytearray(2048)
+    fin[0:7] = b'\xffCD001\x01'
+    sectores = [bytes(2048)] * 16 + [bytes(pvd), bytes(fin), tabla.ljust(2048, b'\0'), tabla_m.ljust(2048, b'\0'),
+                                      raiz, cnf.ljust(2048, b'\0')]
+    sectores += [exe[i:i + 2048] for i in range(0, len(exe), 2048)]
+    sectores += [bytes(2048)] * (total - len(sectores))
+    return b''.join(sectores)
+
+
+def _bcd(n: int) -> int:
+    return (n // 10) << 4 | n % 10
+
+
+def psx_bin() -> bytes:
+    """El CD como imagen de 2352 bytes por sector (modo 2, forma 1), como las copias en BIN y CUE.
+    Sin códigos de corrección, que el emulador no comprueba."""
+    iso = psx_iso()
+    salida = bytearray()
+    for lba in range(len(iso) // 2048):
+        m, resto = divmod(lba + 150, 75 * 60)
+        segundo, sector = divmod(resto, 75)
+        salida += b'\0' + b'\xff' * 10 + b'\0'
+        salida += bytes([_bcd(m), _bcd(segundo), _bcd(sector), 2])
+        salida += bytes([0, 0, 8, 0]) * 2
+        salida += iso[lba * 2048:(lba + 1) * 2048]
+        salida += bytes(4 + 276)
+    return bytes(salida)
+
+
+PSX_CUE = 'FILE "prueba-psx.bin" BINARY\r\n  TRACK 01 MODE2/2352\r\n    INDEX 01 00:00:00\r\n'
+
+
 def main() -> None:
     SALIDA.mkdir(parents=True, exist_ok=True)
     (SALIDA / 'prueba.gba').write_bytes(gba())
@@ -471,6 +595,16 @@ def main() -> None:
     (SALIDA / 'prueba.sms').write_bytes(sms())
     (SALIDA / 'prueba.gg').write_bytes(gg())
     (SALIDA / 'prueba.z64').write_bytes(n64())
+    (SALIDA / 'prueba-psx.bin').write_bytes(psx_bin())
+    (SALIDA / 'prueba-psx.cue').write_text(PSX_CUE, newline='')
+    # El mismo CD en CHD (comprimido), con chdman (de MAME), si está instalado
+    if shutil.which('chdman'):
+        chd = SALIDA / 'prueba-psx.chd'
+        chd.unlink(missing_ok=True)
+        subprocess.run(['chdman', 'createcd', '-i', str(SALIDA / 'prueba-psx.cue'), '-o', str(chd)], check=True,
+                       stdout=subprocess.DEVNULL)
+    else:
+        print('Sin chdman: prueba-psx.chd no se ha regenerado')
     with zipfile.ZipFile(SALIDA / 'prueba.zip', 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('LEEME.txt', 'ROM de prueba comprimida')
         z.writestr('Prueba comprimida.gba', gba())
