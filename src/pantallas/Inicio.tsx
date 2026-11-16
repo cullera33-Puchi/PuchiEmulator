@@ -3,6 +3,7 @@
  * más jugada a la menos, con su dibujo o una foto del usuario y cuántos juegos tienen; las que no
  * tienen juegos, juntas al final (v0.26.0). Tocar una consola abre su biblioteca.
  */
+import { actualizarUrls, type UrlGuardada } from '../lib/urlsCaratulas'
 import { BarChart3, ChevronRight, Ellipsis, Play, Plus, Search, Settings, ShieldCheck, X } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useAnadirJuegos } from '../componentes/AnadirJuegos'
@@ -51,17 +52,22 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
 
   // Si se cruzan dos recargas, solo vale la última (v0.30.0): la primera revocaría las carátulas de la otra
   const ultimaRecarga = useRef(0)
+  const direcciones = useRef(new Map<string, UrlGuardada>())
   const recargar = useCallback(async () => {
     const llamada = ++ultimaRecarga.current
     const [lista, imagenes, ses, nPartidas] = await Promise.all([listarJuegos(), listarCaratulas(), listarSesiones(), contarPartidas()])
     if (llamada !== ultimaRecarga.current) return
     setSesiones(ses)
     setPartidas(nPartidas)
-    const urls = new Map(imagenes.map((c) => [c.id, URL.createObjectURL(new Blob([c.datos], { type: 'image/jpeg' }))]))
-    setFotos((antes) => {
-      antes.forEach((u) => URL.revokeObjectURL(u))
-      return urls
-    })
+    // Las que no han cambiado conservan su dirección (v0.35.1): si no, parpadeaban al volver al inicio
+    direcciones.current = actualizarUrls(
+      direcciones.current,
+      imagenes,
+      (c) => URL.createObjectURL(new Blob([c.datos], { type: 'image/jpeg' })),
+      (u) => URL.revokeObjectURL(u),
+    )
+    const urls = new Map([...direcciones.current].map(([id, d]) => [id, d.url]))
+    setFotos(urls)
     setJuegos(lista)
     const ultimos = seguirJugando(lista)
     const autos = await Promise.all(ultimos.map((j) => leerEstado(j.id, 'auto')))

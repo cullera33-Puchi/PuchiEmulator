@@ -388,6 +388,11 @@ test('inicio: cada juego va a su consola, recuentos, seguir jugando y foto de la
   await page.getByTestId('selector-foto-consola').setInputFiles(rom('../../public/icono-512.png'))
   await expect(page.getByText('Foto puesta')).toBeVisible()
   await expect(consolas.locator('img')).toHaveCount(1)
+  // Al ir a Ajustes y volver, la foto conserva su dirección: no se vuelve a cargar ni parpadea (v0.35.1)
+  const src = await consolas.locator('img').getAttribute('src')
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
+  await page.getByRole('button', { name: 'Consolas', exact: true }).click()
+  await expect(consolas.locator('img')).toHaveAttribute('src', src!)
   await page.getByRole('button', { name: 'Deshacer' }).click()
   await expect(consolas.locator('img')).toHaveCount(0)
 

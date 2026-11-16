@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.35.1",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Al volver al inicio desde Estadísticas, Ajustes o una consola, las carátulas y las fotos ya no parpadean."
+    ]
+  },
+  {
     "version": "0.35.0",
     "fecha": "16/11/2026",
     "cambios": [

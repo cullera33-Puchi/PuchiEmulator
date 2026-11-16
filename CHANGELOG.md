@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.35.1 (16/11/2026)
+
+Parpadeo al volver al inicio, informado por el usuario (por ejemplo, desde Estadísticas).
+
+- El inicio vuelve a leer los juegos y las imágenes al volver de otra pantalla (v0.26.1). Creaba una dirección nueva para cada carátula y cada foto de consola y tiraba las anteriores, y las imágenes se quedaban un instante en blanco. Ahora se reutiliza la dirección de las que no han cambiado (`actualizarUrls` en `src/lib/urlsCaratulas.ts`, por fecha y tamaño), y solo se crean y se sueltan las nuevas, cambiadas o quitadas.
+- Pruebas: 162 unitarias y 65 de navegador (la del inicio comprueba que la foto de una consola conserva su dirección al ir a Ajustes y volver; con el código anterior fallaba).
+
 ## 0.35.0 (16/11/2026)
 
 A partir de dos capturas del usuario con Nintendo DS en vertical: los mandos tapaban la parte de abajo de la pantalla táctil mientras quedaba una franja negra sin usar debajo, y al mover los botones, las herramientas no se podían mover.
