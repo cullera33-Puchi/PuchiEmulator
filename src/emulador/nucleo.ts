@@ -174,6 +174,8 @@ export const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     // (fotos hechas dentro del juego, destellos que deberían taparse detrás de las paredes)
     'mupen64plus-EnableCopyColorToRDRAM': 'Off',
     'mupen64plus-EnableCopyDepthToRDRAM': 'Off',
+    // v0.33.0: sin la zona muerta del núcleo (un 15 %): la palanca táctil ya lleva la suya, más pequeña
+    'mupen64plus-astick-deadzone': '0',
   },
 }
 

@@ -1829,6 +1829,9 @@ test('Nintendo 64 (en pruebas): palanca, A, botones C, Z, estados y partida guar
   await page.getByRole('button', { name: /PUCHIPRUEBA|prueba, Nintendo 64/ }).first().click()
   await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
   await expect(page.getByTestId('juego')).toHaveAttribute('data-tema', 'carbon')
+  // El hilo marca el ritmo de los fotogramas (v0.33.0)
+  const abierto = await page.evaluate(() => (JSON.parse(localStorage.getItem('puchiemulator-registro') ?? '[]') as { m: string; x?: string }[]).filter((e) => e.m === 'Juego abierto').pop())
+  expect(abierto?.x).toContain('"ritmo":"propio"')
   const mando = page.getByTestId('mando')
   for (const n of ['A', 'B', 'Z', 'L', 'R', 'Start', 'C arriba', 'C abajo', 'C izquierda', 'C derecha']) await expect(mando.getByRole('button', { name: n, exact: true })).toBeVisible()
   await expect(mando.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
@@ -1844,15 +1847,19 @@ test('Nintendo 64 (en pruebas): palanca, A, botones C, Z, estados y partida guar
   await page.getByRole('button', { name: 'Guardar rápido' }).click()
   await expect(page.getByText('Guardado rápido', { exact: true })).toBeVisible({ timeout: 15_000 })
 
-  // La palanca a la derecha: amarillo; al soltarla vuelve al centro
+  // La palanca a la derecha: amarillo; al soltarla vuelve al centro. Es flotante (v0.33.0): el pulgar
+  // se apoya fuera de su dibujo (más abajo y a la izquierda), ese punto hace de centro y el aro va allí
   const palanca = (await page.getByTestId('palanca').boundingBox())!
-  await page.mouse.move(palanca.x + palanca.width / 2, palanca.y + palanca.height / 2)
+  const [x0, y0] = [palanca.x + palanca.width * 0.2, palanca.y + palanca.height * 1.1]
+  await page.mouse.move(x0, y0)
   await page.mouse.down()
-  await page.mouse.move(palanca.x + palanca.width, palanca.y + palanca.height / 2, { steps: 5 })
+  await expect(page.getByTestId('palanca').locator('.aro')).toHaveAttribute('style', /translate/)
+  await page.mouse.move(x0 + palanca.width / 2, y0 + 4, { steps: 5 })
   await expect.poll(() => tono(page)).toBe('amarillo')
   await expect(page.getByTestId('palanca').locator('.pomo')).toHaveClass(/pulsado/)
   await page.mouse.up()
   await expect(page.getByTestId('palanca').locator('.pomo')).not.toHaveClass(/pulsado/)
+  await expect(page.getByTestId('palanca').locator('.aro')).not.toHaveAttribute('style', /translate\(/)
 
   // Un botón C: magenta
   await pulsar(page, 'C derecha')

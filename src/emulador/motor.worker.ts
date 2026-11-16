@@ -4,11 +4,27 @@
  */
 import { Motor, type ConfigMotor, type PeticionFotogramas } from './motor'
 import { prepararNucleo } from './nucleo'
+import { RitmoPropio, SonidoHilo, type EntradaRitmo, type EventoRitmo } from './ritmoPropio'
 import type { Disposicion } from './pintor'
 import type { NombreNucleo } from '../lib/sistemas'
 import type { PantallasDS, PrincipalDS } from './pantallasDS'
 
 let motor: Motor | null = null
+/** Ritmo propio (v0.33.0): el bucle de fotogramas del hilo, si la página lo pide (Nintendo 64) */
+let ritmo: RitmoPropio | null = null
+
+const emitir = (e: EventoRitmo, transferir: Transferable[]) => (self as unknown as Worker).postMessage(e, transferir)
+
+const conRitmo = (): RitmoPropio => {
+  const m = usar()
+  ritmo ??= new RitmoPropio(m, m.fps, m.frecuencia, emitir)
+  return ritmo
+}
+
+const soltarRitmo = () => {
+  ritmo?.cerrar()
+  ritmo = null
+}
 
 /** Lo que se puede pasar sin copiar dentro de un resultado */
 function transferibles(r: unknown, lista: Transferable[] = []): Transferable[] {
@@ -34,6 +50,7 @@ const metodos: Record<string, (...args: never[]) => unknown> = {
     return true
   },
   crear: async (c: ConfigMotor) => {
+    soltarRitmo()
     motor?.descargar()
     motor = null
     const { motor: m, info } = await Motor.crear(c)
@@ -51,13 +68,31 @@ const metodos: Record<string, (...args: never[]) => unknown> = {
   opcion: (clave: string, valor: string) => usar().opcion(clave, valor),
   reiniciar: () => usar().reiniciar(),
   descargar: () => {
+    soltarRitmo()
     motor?.descargar()
     motor = null
   },
+  ritmoArrancar: (entrada: EntradaRitmo, velocidad: number, limite30: boolean) => conRitmo().arrancar(entrada, velocidad, limite30),
+  ritmoParar: () => ritmo?.parar(),
+  ritmoEntrada: (entrada: EntradaRitmo) => ritmo?.ponerEntrada(entrada),
+  ritmoVelocidad: (v: number) => conRitmo().ponerVelocidad(v),
+  ritmoLimite30: (activo: boolean) => conRitmo().ponerLimite30(activo),
+  ritmoSonido: (puerto: MessagePort, frecuenciaSalida: number, objetivo: number) => conRitmo().ponerSonido(new SonidoHilo(puerto, frecuenciaSalida, objetivo)),
+  ritmoVaciarSonido: () => ritmo?.vaciarSonido(),
+  ritmoMedida: () => conRitmo().tomarMedida(),
 }
 
 self.onmessage = async (e: MessageEvent<{ id: number; metodo: string; args: unknown[] }>) => {
   const { id, metodo, args } = e.data
+  // Avisos sin respuesta (id 0): los botones del ritmo propio, que llegan a cada cambio
+  if (id === 0) {
+    try {
+      ;(metodos[metodo] as (...a: unknown[]) => unknown)(...args)
+    } catch {
+      // un aviso no tiene a quién contestar
+    }
+    return
+  }
   try {
     const r = await (metodos[metodo] as (...a: unknown[]) => unknown)(...args)
     ;(self as unknown as Worker).postMessage({ id, r }, transferibles(r))

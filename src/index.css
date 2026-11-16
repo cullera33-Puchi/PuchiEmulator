@@ -572,11 +572,18 @@
   filter: brightness(1.3);
 }
 
-/* Palanca de Nintendo 64: un aro con el pomo, que sigue al dedo */
+/* Palanca de Nintendo 64: un aro con el pomo, que sigue al dedo. Flotante (v0.33.0): el aro va a
+   donde se apoya el pulgar mientras dura el toque */
 .cruceta.palanca {
   border-radius: 9999px;
-  background: var(--cruceta, rgb(255 255 255 / 0.13));
   opacity: var(--opacidad-mando);
+}
+.cruceta.palanca .aro {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--cruceta, rgb(255 255 255 / 0.13));
+  pointer-events: none;
 }
 .cruceta.palanca .pomo {
   position: absolute;

@@ -6,7 +6,7 @@
  */
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Footprints } from 'lucide-react'
 import { useEffect, useRef, type PointerEvent as EventoPuntero, type RefObject } from 'react'
-import { bit, direccionCruceta, type NombreBoton } from '../emulador/botones'
+import { bit, direccionCruceta, vectorPalanca, type NombreBoton } from '../emulador/botones'
 import { vibracionActiva } from '../lib/ajustes'
 import { NOMBRE_BOTON, type BotonMenu } from '../lib/mandoJuego'
 import { estiloPieza, type DisposicionPiezas, type Pieza } from '../lib/disposicionMando'
@@ -50,6 +50,8 @@ interface Dedo {
   cruceta: boolean
   /** El dedo empezó en la palanca (Nintendo 64): la mueve aunque se salga */
   palanca?: boolean
+  /** Palanca flotante (v0.33.0): donde se apoyó el pulgar, que hace de centro */
+  centro?: [number, number]
   mascara: number
   /** El dedo empezó en la imagen de una consola táctil: hace de lápiz */
   tactil?: boolean
@@ -62,8 +64,14 @@ const CRUCETA_AMPLIADA = 1.25
 
 /** La palanca llega a tope a este tanto del radio de su dibujo: no hace falta llevar el dedo al borde */
 const PALANCA_TOPE = 0.7
-/** Zona muerta de la palanca, en fracción del recorrido */
-const PALANCA_MUERTA = 0.08
+/**
+ * Palanca flotante (v0.33.0, pedida por el usuario): el pulgar puede apoyarse en cualquier punto de
+ * una zona amplia alrededor de la palanca, y ese punto hace de centro. La zona, en radios de la
+ * palanca desde su centro: hasta 1,5 a la derecha, 1,8 por encima y sin límite a la izquierda y abajo
+ * (los botones que caigan dentro mandan sobre ella).
+ */
+const ZONA_DERECHA = 1.5
+const ZONA_ARRIBA = 1.8
 
 /** Pantalla táctil (Nintendo DS): el lienzo y a quién avisar del toque (0 a 1 sobre la imagen, o null) */
 export interface Tactil {
@@ -100,25 +108,42 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   const cuatroRef = useRef(cuatroDirecciones)
   cuatroRef.current = cuatroDirecciones
   const pomo = useRef<HTMLSpanElement>(null)
+  const aro = useRef<HTMLSpanElement>(null)
   const n64Ref = useRef(n64)
   n64Ref.current = n64
 
-  /** Mueve la palanca de Nintendo 64 al punto tocado (o la suelta, sin punto) */
-  const moverPalanca = (x?: number, y?: number) => {
+  /** Centro de la palanca en su sitio, su radio en pantalla y lo que mide un píxel suyo en pantalla */
+  const geometriaPalanca = () => {
     const el = cruceta.current
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    return { el, cx: r.left + r.width / 2, cy: r.top + r.height / 2, radio: r.width / 2, factor: el.offsetWidth ? r.width / el.offsetWidth : 1 }
+  }
+
+  /** El punto cae en la zona de la palanca flotante (medido en el juego, por si la pantalla va girada) */
+  const enZonaPalanca = (x: number, y: number) => {
+    const g = geometriaPalanca()
+    if (!g) return false
+    const [dx, dy] = vectorJuego(x - g.cx, y - g.cy, giroDe(g.el))
+    return dx <= g.radio * ZONA_DERECHA && dy >= -g.radio * ZONA_ARRIBA
+  }
+
+  /**
+   * Mueve la palanca de Nintendo 64 (o la suelta, sin dedo). El centro es donde se apoyó el pulgar: el
+   * dibujo va allí mientras dura el toque (palanca flotante, v0.33.0) y vuelve a su sitio al soltar.
+   */
+  const moverPalanca = (d?: Dedo, x?: number, y?: number) => {
+    const g = geometriaPalanca()
     let vx = 0
     let vy = 0
-    if (el && x !== undefined && y !== undefined) {
-      const r = el.getBoundingClientRect()
-      const recorrido = (r.width / 2) * PALANCA_TOPE
+    if (g && d?.centro && x !== undefined && y !== undefined) {
+      const giro = giroDe(g.el)
       // Con la pantalla girada, la dirección se mide en el juego, no en el iPhone
-      const [dx, dy] = vectorJuego(x - (r.left + r.width / 2), y - (r.top + r.height / 2), giroDe(el))
-      const largo = Math.hypot(dx, dy) / recorrido
-      const escala = largo > 1 ? 1 / largo : 1
-      vx = (dx / recorrido) * escala
-      vy = (dy / recorrido) * escala
-      if (Math.hypot(vx, vy) < PALANCA_MUERTA) vx = vy = 0
-    }
+      const [dx, dy] = vectorJuego(x - d.centro[0], y - d.centro[1], giro)
+      ;[vx, vy] = vectorPalanca(dx, dy, g.radio * PALANCA_TOPE)
+      const [ox, oy] = vectorJuego(d.centro[0] - g.cx, d.centro[1] - g.cy, giro)
+      if (aro.current) aro.current.style.transform = `translate(${(ox / g.factor).toFixed(1)}px, ${(oy / g.factor).toFixed(1)}px)`
+    } else if (aro.current) aro.current.style.transform = ''
     if (pomo.current) {
       pomo.current.style.transform = vx || vy ? `translate(${(vx * PALANCA_TOPE * 50).toFixed(1)}%, ${(vy * PALANCA_TOPE * 50).toFixed(1)}%)` : ''
       pomo.current.classList.toggle('pulsado', !!(vx || vy))
@@ -175,7 +200,11 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   const bajoElDedo = (x: number, y: number): Dedo => {
     const el = document.elementFromPoint(x, y)
     if (!el || !raiz.current?.contains(el)) return { cruceta: false, mascara: 0 }
-    if (n64Ref.current && (cruceta.current?.contains(el) || cercaDeLaCruceta(x, y))) return { cruceta: false, palanca: true, mascara: 0 }
+    if (n64Ref.current) {
+      // Palanca flotante: en la palanca o en su zona, salvo que el dedo caiga en un botón
+      const boton = (el as HTMLElement).closest<HTMLElement>('[data-boton]')
+      if (cruceta.current?.contains(el) || (!boton && enZonaPalanca(x, y))) return { cruceta: false, palanca: true, mascara: 0, centro: [x, y] }
+    }
     if (cruceta.current?.contains(el)) return { cruceta: true, mascara: desdeCruceta(x, y) }
     if ((el as HTMLElement).closest('[data-accion]')) return { cruceta: false, mascara: 0, accion: true }
     const boton = (el as HTMLElement).closest<HTMLElement>('[data-boton]')
@@ -199,7 +228,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     const d = bajoElDedo(e.clientX, e.clientY)
     dedos.current.set(e.pointerId, d)
     if (d.tactil) tocar(e.clientX, e.clientY)
-    if (d.palanca) moverPalanca(e.clientX, e.clientY)
+    if (d.palanca) moverPalanca(d, e.clientX, e.clientY)
     if (d.accion) {
       correr?.alCambiar()
       if (vibracionActiva()) vibrar()
@@ -216,7 +245,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       return
     }
     if (d.palanca) {
-      moverPalanca(e.clientX, e.clientY)
+      moverPalanca(d, e.clientX, e.clientY)
       return
     }
     if (d.accion) return
@@ -274,7 +303,9 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     >
       {n64 ? (
         <div ref={cruceta} className="control cruceta palanca" aria-label="Palanca" data-testid="palanca" {...pieza('cruceta')}>
-          <span ref={pomo} className="pomo" />
+          <span ref={aro} className="aro">
+            <span ref={pomo} className="pomo" />
+          </span>
         </div>
       ) : (
         <div ref={cruceta} className="control cruceta" aria-label="Cruceta" {...pieza('cruceta')}>

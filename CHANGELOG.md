@@ -1,5 +1,22 @@
 # Cambios
 
+## 0.33.0 (16/11/2026)
+
+Nintendo 64, a partir del segundo registro del usuario («va un poco mejor, pero rasca, el audio se corta y hay retraso en el mando»). El núcleo ya va rápido (unos 3,5 ms por fotograma en escenas sencillas), pero la pantalla de la app se refrescaba unas 25 veces por segundo, con parones de hasta medio segundo, y era ese refresco el que pedía los fotogramas, mandaba los botones y llenaba el sonido. Decisiones del usuario: ritmo propio primero solo en N64, y palanca que siga al pulgar y más precisa en rectas y diagonales.
+
+- Ritmo propio (`src/emulador/ritmoPropio.ts`), solo Nintendo 64 con el motor en el hilo aparte:
+  - El hilo hace los fotogramas con su reloj (`RitmoPropio`): lo que toca sale del tiempo desde el arranque, hasta 4 seguidos para recuperar y, si va atrasado, se salta ese tiempo (`perdidos`) en lugar de ir a trompicones.
+  - Los botones y la palanca llegan al hilo en cuanto cambian, sin respuesta (`avisar`, id 0), y valen desde el fotograma siguiente.
+  - El sonido va directo del hilo al procesador de audio por su propio canal (`SonidoHilo`, `canalParaHilo` en el altavoz; el procesador acepta un `puerto` y le manda allí sus avisos).
+  - Cada imagen nueva llega a la página como evento y se enseña al momento. «Ahorrar batería» deja como mucho unas 30 por segundo.
+  - La página solo lleva lo de alrededor en su refresco: mandos físicos, punto de control, tiempo jugado, pausa por no tocar y medidas.
+  - Registro: «Juego abierto» dice `ritmo` (`propio` o `pantalla`); «Rendimiento» con ritmo propio lleva `msFotograma`, `perdidos` y `refrescosSeg`.
+- Palanca de N64:
+  - Flotante: el pulgar se apoya en cualquier punto de una zona amplia alrededor de la palanca (hasta 1,5 radios a la derecha y 1,8 por encima, sin límite a la izquierda ni abajo); ese punto hace de centro y el aro va allí mientras dura el toque. Los botones que caen en la zona mandan sobre ella.
+  - Imán: a menos de 9 grados de una recta o de una diagonal, se queda exactamente en ella (`vectorPalanca`, con pruebas).
+  - Sin la zona muerta del núcleo (15 %), que se sumaba a la de la app (8 %).
+- Pruebas: 160 unitarias y 64 de navegador (la de N64 comprueba el ritmo propio y la palanca flotante).
+
 ## 0.32.1 (16/11/2026)
 
 Nintendo 64, a partir del registro del usuario con un juego real: iba a unas 15 imágenes por segundo (la consola pide 50) con parones de hasta 0,7 s, y el núcleo falló a los dos minutos («Unreachable code»).

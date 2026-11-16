@@ -2,6 +2,9 @@
  * Procesador de sonido (AudioWorklet). Recibe bloques estéreo intercalados ya remuestreados a la
  * frecuencia del iPhone y los reproduce desde una cola circular. Cada 50 ms avisa de cuánto queda
  * en la cola para que el emulador ajuste el ritmo y no haya cortes ni retraso creciente.
+ *
+ * Ritmo propio (v0.33.0): la página puede pasar un canal (`puerto`) por el que el hilo del motor
+ * manda las muestras directamente; mientras exista, los avisos van por ese canal.
  */
 class ProcesadorAudio extends AudioWorkletProcessor {
   constructor() {
@@ -13,12 +16,27 @@ class ProcesadorAudio extends AudioWorkletProcessor {
     this.lleno = 0
     this.maximo = this.capacidad
     this.cuentaAviso = 0
-    this.port.onmessage = (e) => {
-      const d = e.data
-      if (d.tipo === 'muestras') this.encolar(d.muestras)
-      else if (d.tipo === 'vaciar') this.lectura = this.escritura = this.lleno = 0
-      else if (d.tipo === 'maximo') this.maximo = Math.min(this.capacidad, d.pares)
-    }
+    this.externo = null
+    this.port.onmessage = (e) => this.mensaje(e.data)
+  }
+
+  mensaje(d) {
+    if (d.tipo === 'muestras') this.encolar(d.muestras)
+    else if (d.tipo === 'vaciar') this.lectura = this.escritura = this.lleno = 0
+    else if (d.tipo === 'maximo') this.maximo = Math.min(this.capacidad, d.pares)
+    else if (d.tipo === 'puerto') {
+      this.soltar()
+      this.externo = d.puerto
+      this.externo.onmessage = (e) => this.mensaje(e.data)
+      this.lectura = this.escritura = this.lleno = 0
+    } else if (d.tipo === 'soltar') this.soltar()
+  }
+
+  soltar() {
+    if (!this.externo) return
+    this.externo.onmessage = null
+    this.externo.close()
+    this.externo = null
   }
 
   encolar(muestras) {
@@ -55,7 +73,7 @@ class ProcesadorAudio extends AudioWorkletProcessor {
     this.cuentaAviso += n
     if (this.cuentaAviso >= sampleRate / 20) {
       this.cuentaAviso = 0
-      this.port.postMessage(this.lleno)
+      ;(this.externo ?? this.port).postMessage(this.lleno)
     }
     return true
   }

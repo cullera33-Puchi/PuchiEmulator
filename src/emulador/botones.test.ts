@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bit, botonesDeMando, direccionCruceta, palancaDeMando } from './botones'
+import { bit, botonesDeMando, direccionCruceta, palancaDeMando, vectorPalanca } from './botones'
 import { aN64, funcionesDelFallo } from './nucleo'
 
 describe('direccionCruceta', () => {
@@ -96,5 +96,24 @@ describe('funcionesDelFallo', () => {
     const chrome = ['RuntimeError: unreachable', '    at n64.wasm.opengl::Foo() (http://x/n64.wasm:wasm-function[5]:0x1)', '    at n64.wasm.gen_interrupt (http://x/n64.wasm:wasm-function[6]:0x2)', '    at wrapper (http://x/n64.js:7:1)'].join('\n')
     expect(funcionesDelFallo(chrome)).toEqual(['opengl::Foo', 'gen_interrupt'])
     expect(funcionesDelFallo('Error: nada\n    at f (x.js:1:1)')).toEqual([])
+  })
+})
+
+describe('vectorPalanca', () => {
+  it('zona muerta, tope y recto aunque el dedo vaya algo torcido', () => {
+    expect(vectorPalanca(1, 1, 100)).toEqual([0, 0])
+    const [x, y] = vectorPalanca(200, 10, 100)
+    expect(x).toBeCloseTo(1)
+    expect(y).toBe(0)
+    const [x2, y2] = vectorPalanca(50, -6, 100)
+    expect(x2).toBeCloseTo(Math.hypot(50, 6) / 100)
+    expect(y2).toBe(0)
+  })
+
+  it('diagonal exacta cerca de los 45 grados y libre entre medias', () => {
+    const [x, y] = vectorPalanca(60, 66, 100)
+    expect(x).toBeCloseTo(y)
+    const [x2, y2] = vectorPalanca(60, 30, 100)
+    expect(y2 / x2).toBeCloseTo(0.5)
   })
 })

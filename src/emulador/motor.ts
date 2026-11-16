@@ -131,6 +131,15 @@ export class Motor {
     }
   }
 
+  /** Fotogramas por segundo y frecuencia del sonido del núcleo, ahora */
+  get fps(): number {
+    return this.nucleo.fps
+  }
+
+  get frecuencia(): number {
+    return this.nucleo.frecuenciaAudio
+  }
+
   get tipoPintor(): TipoPintor {
     return this.nucleo.lienzoGL ? 'webgl' : this.pintor.tipo
   }

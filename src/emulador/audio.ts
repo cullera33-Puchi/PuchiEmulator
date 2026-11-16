@@ -83,6 +83,23 @@ export class Altavoz {
     }
   }
 
+  /**
+   * Canal directo para el ritmo propio (v0.33.0): el hilo del motor manda las muestras al procesador
+   * sin pasar por la página. Devuelve la otra punta del canal, la frecuencia del iPhone y la cola que se
+   * busca; null si el sonido aún no está listo (Safari lo activa con un toque).
+   */
+  canalParaHilo(): { puerto: MessagePort; frecuencia: number; objetivo: number } | null {
+    if (!this.nodo || !this.contexto) return null
+    const canal = new MessageChannel()
+    this.nodo.port.postMessage({ tipo: 'puerto', puerto: canal.port1 }, [canal.port1])
+    return { puerto: canal.port2, frecuencia: this.contexto.sampleRate, objetivo: this.objetivo }
+  }
+
+  /** El procesador deja de escuchar al hilo y vuelve a avisar a la página. */
+  soltarCanalHilo(): void {
+    this.nodo?.port.postMessage({ tipo: 'soltar' })
+  }
+
   vaciar(): void {
     this.remuestreo.reiniciar()
     this.ritmo?.reiniciar()

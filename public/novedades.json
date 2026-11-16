@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.33.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Nintendo 64: el juego marca su propio ritmo, sin esperar a la pantalla de la app. Debería dar menos tirones y cortar menos el sonido.",
+      "Los botones llegan al juego en cuanto los tocas: menos retraso.",
+      "La palanca sigue a tu pulgar: apóyalo donde quieras alrededor de ella y ese punto hace de centro.",
+      "La palanca se queda recta o en diagonal exacta cuando vas casi recto."
+    ]
+  },
+  {
     "version": "0.32.1",
     "fecha": "16/11/2026",
     "cambios": [

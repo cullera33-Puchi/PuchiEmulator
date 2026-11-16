@@ -145,3 +145,26 @@ export function botonesDeMando(mando: Gamepad, n64 = false): number {
   if (Math.hypot(x, y) > 0.5) m |= direccionCruceta(x, y)
   return m
 }
+
+/** Palanca táctil de Nintendo 64 (v0.33.0): zona muerta, en fracción del recorrido */
+export const PALANCA_MUERTA = 0.08
+/** Grados alrededor de las rectas y las diagonales en los que la palanca se queda justo en ellas */
+export const PALANCA_IMAN = 9
+
+/**
+ * Inclinación de la palanca a partir del desplazamiento del dedo (dx y dy en las mismas unidades que
+ * `recorrido`, que es lo que hay que mover para llegar a tope). Devuelve x e y de -1 a 1 (y hacia
+ * abajo es positivo). Con zona muerta, sin pasar de 1 y con imán: cerca de una recta o de una
+ * diagonal se queda exactamente en ella, para poder ir recto (lo que pedía el usuario en la v0.32.1).
+ */
+export function vectorPalanca(dx: number, dy: number, recorrido: number): [number, number] {
+  if (recorrido <= 0) return [0, 0]
+  const largo = Math.min(1, Math.hypot(dx, dy) / recorrido)
+  if (largo < PALANCA_MUERTA) return [0, 0]
+  let angulo = Math.atan2(dy, dx)
+  const octavo = Math.PI / 4
+  const cercano = Math.round(angulo / octavo) * octavo
+  if (Math.abs(angulo - cercano) <= (PALANCA_IMAN * Math.PI) / 180) angulo = cercano
+  const limpio = (v: number) => (Math.abs(v) < 1e-9 ? 0 : v)
+  return [limpio(Math.cos(angulo) * largo), limpio(Math.sin(angulo) * largo)]
+}

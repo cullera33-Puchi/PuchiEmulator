@@ -17,6 +17,7 @@ import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
 import { bit, botonesDeMando, palancaDeMando } from './botones'
+import type { EntradaRitmo, EventoRitmo } from './ritmoPropio'
 import { Historial } from './historial'
 import { limitarRecuperacion, planRitmo, Refresco, refrescosPasados } from './ritmo'
 import { tocaPausar } from '../lib/sueno'
@@ -129,6 +130,17 @@ export class Sesion {
   /** Nintendo 64 (v0.32.0): palanca de la pantalla, de -1 a 1 */
   private palancaTactil: [number, number] = [0, 0]
   private readonly n64: boolean
+  /**
+   * Ritmo propio (v0.33.0, solo Nintendo 64 en el hilo aparte): el hilo hace los fotogramas a su
+   * ritmo y manda las imágenes; aquí solo se le pasan los botones en cuanto cambian
+   */
+  private propio = false
+  /** Última entrada mandada al hilo, para no repetirla */
+  private entradaEnviada = ''
+  /** El sonido ya va directo del hilo al procesador */
+  private sonidoAlHilo = false
+  /** Imágenes que han llegado del hilo (para dar por buena la carga del estado «auto») */
+  private imagenesPropias = 0
   // Correr fijo (modo JRPG) y turbo: los aplica el motor en cada fotograma
   private correr = 0
   private turbo = 0
@@ -249,6 +261,8 @@ export class Sesion {
     this.cargaAutoPendiente = m.autoCargado
     this.ponerTiempos(m.fps, m.frecuencia)
     this.mostrar(m.imagenes)
+    this.propio = this.n64 && !!conexion.ritmo
+    conexion.ritmo?.alEvento(this.propio ? (e) => this.alEventoRitmo(e) : null)
     this.temporizadorGuardado = window.setInterval(() => void this.guardarPartidaSiCambia(), 1000)
   }
 
@@ -294,6 +308,54 @@ export class Sesion {
     this.debidos = 0
     this.porHacer = 0
     this.peticion = requestAnimationFrame(this.bucle)
+    if (this.propio) {
+      this.entradaEnviada = ''
+      this.motor.ritmo?.arrancar(this.entrada(), this.velocidad, this.limite30)
+    }
+  }
+
+  /** Imagen nueva o fallo que manda el hilo en el ritmo propio. */
+  private alEventoRitmo(e: EventoRitmo): void {
+    if (e.evento === 'fallo') {
+      this.fallar(new Error(e.mensaje))
+      return
+    }
+    if (!this.corriendo || this.roto) {
+      e.imagenes.imagen.close()
+      e.imagenes.mini?.close()
+      return
+    }
+    this.mostrar(e.imagenes)
+    if (this.cargaAutoPendiente && ++this.imagenesPropias >= 120) {
+      this.cargaAutoPendiente = false
+      marcarCargaAuto(null)
+    }
+  }
+
+  /** Botones de ahora para el hilo: los de la pantalla, el teclado y los mandos, y la palanca. */
+  private entrada(): EntradaRitmo {
+    return {
+      mascara: this.botonesTactil | this.botonesTeclado | this.botonesMandos(),
+      turbo: this.turbo,
+      correr: this.correr,
+      extra: this.extra,
+      palanca: this.n64 ? this.palanca() : undefined,
+    }
+  }
+
+  /** Ritmo propio: manda los botones al hilo si han cambiado (al tocar, y en cada refresco por los mandos). */
+  private enviarEntrada(): void {
+    if (!this.propio || !this.corriendo) return
+    const e = this.entrada()
+    const clave = `${e.mascara}|${e.turbo}|${e.correr}|${e.extra}|${e.palanca?.[0] ?? 0}|${e.palanca?.[1] ?? 0}`
+    if (clave === this.entradaEnviada) return
+    this.entradaEnviada = clave
+    this.motor.ritmo?.entrada(e)
+  }
+
+  /** El hilo hace los fotogramas a su ritmo (v0.33.0, Nintendo 64) */
+  get ritmoPropio(): boolean {
+    return this.propio
   }
 
   get enMarcha(): boolean {
@@ -304,6 +366,7 @@ export class Sesion {
     if (!this.corriendo) return
     this.corriendo = false
     cancelAnimationFrame(this.peticion)
+    if (this.propio) this.motor.ritmo?.parar()
     this.altavoz.pausar()
     void this.guardarTiempo()
   }
@@ -373,6 +436,10 @@ export class Sesion {
     const mascara = this.botonesTactil | this.botonesTeclado | this.botonesMandos()
     // Si se acaba de pausar por no tocar, no se hace nada más en este refresco (v0.30.0)
     if (this.contarTiempo(dtPantalla, mascara | (this.rebobinando ? 1 << 30 : 0) | (this.velocidad > 1 ? 1 << 29 : 0))) return
+    if (this.propio) {
+      this.avanzarPropio(dtPantalla)
+      return
+    }
     if (this.rebobinando) {
       this.irAtras(dtPantalla)
       return
@@ -444,6 +511,34 @@ export class Sesion {
     this.enviar(n, mascara, this.frecuencia * this.velocidad * ritmoReal)
   }
 
+  /**
+   * Ritmo propio: el refresco de la pantalla solo lleva lo de alrededor (los mandos físicos, el sonido
+   * directo en cuanto Safari lo deja sonar, el punto de control y las medidas); los fotogramas los hace
+   * el hilo a su ritmo.
+   */
+  private avanzarPropio(dt: number): void {
+    this.enviarEntrada()
+    if (!this.sonidoAlHilo && this.altavoz.activo) {
+      const canal = this.altavoz.canalParaHilo()
+      if (canal) {
+        this.motor.ritmo?.sonido(canal.puerto, canal.frecuencia, canal.objetivo)
+        this.sonidoAlHilo = true
+      }
+    }
+    this.msDesdeControl += dt
+    if (this.msDesdeControl >= MS_PUNTO_CONTROL) {
+      this.msDesdeControl = 0
+      void this.guardarEstado('auto').then(
+        (ok) => ok && registrar('info', 'Punto de control'),
+        (e) => registrar('error', 'No se pudo guardar el punto de control', (e as Error)?.message),
+      )
+    }
+    this.medida.tiempo += dt
+    this.medida.refrescos++
+    this.medida.modo = 'propio'
+    if (this.medida.tiempo >= 30_000) this.anotarRendimiento()
+  }
+
   /** Pide `n` fotogramas al motor y, al volver, enseña la imagen, suena y guarda lo de rebobinar. */
   private enviar(n: number, mascara: number, frecuenciaSonido: number): void {
     this.enVuelo = true
@@ -487,6 +582,10 @@ export class Sesion {
   private anotarRendimiento(): void {
     const m = this.medida
     if (m.refrescos === 0) return
+    if (this.propio) {
+      this.anotarRendimientoPropio()
+      return
+    }
     const presupuesto = this.refresco.ms || 1000 / 60
     registrar('info', 'Rendimiento', {
       sistema: this.o.juego.sistema,
@@ -508,6 +607,43 @@ export class Sesion {
       juegoSeg: Math.round((m.fotogramas / m.tiempo) * 10_000) / 10,
     })
     this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '' }
+  }
+
+  /** Rendimiento del ritmo propio: lo mide el hilo; aquí, los refrescos de la página. */
+  private anotarRendimientoPropio(): void {
+    const m = this.medida
+    this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '' }
+    const ritmo = this.motor.ritmo
+    if (!ritmo) return
+    const presupuesto = this.refresco.ms || 1000 / 60
+    void ritmo.medida().then(
+      (h) => {
+        const seg = h.ms / 1000 || 1
+        registrar('info', 'Rendimiento', {
+          sistema: this.o.juego.sistema,
+          ritmo: 'propio',
+          pantallaHz: Math.round(1000 / presupuesto),
+          limite30: this.limite30,
+          hilo: this.enHilo,
+          pintor: this.pintor,
+          consolaHz: Math.round(100_000 / this.paso) / 100,
+          segundos: Math.round(seg),
+          // Lo que tarda cada tanda de fotogramas en el hilo y solo el dibujo
+          mediaMs: h.tandas ? Math.round((h.trabajo / h.tandas) * 10) / 10 : 0,
+          msFotograma: h.fotogramas ? Math.round((h.trabajo / h.fotogramas) * 10) / 10 : 0,
+          pintarMs: h.tandas ? Math.round((h.pintar / h.tandas) * 100) / 100 : 0,
+          maxMs: Math.round(h.maximo * 10) / 10,
+          largos: h.largos,
+          // Fotogramas que tocaban y no se hicieron (el juego se frena)
+          perdidos: h.perdidos,
+          refrescos: m.refrescos,
+          refrescosSeg: Math.round((m.refrescos / (m.tiempo / 1000 || 1)) * 10) / 10,
+          imagenesSeg: Math.round((h.imagenes / seg) * 10) / 10,
+          juegoSeg: Math.round((h.fotogramas / seg) * 10) / 10,
+        })
+      },
+      () => undefined,
+    )
   }
 
   private irAtras(dt: number): void {
@@ -541,6 +677,7 @@ export class Sesion {
   /** Avance rápido: 1 (normal), 2 o 4 veces más rápido. */
   ponerVelocidad(v: number): void {
     this.velocidad = v
+    if (this.propio) this.motor.ritmo?.velocidad(v)
     this.acumulado = 0
     this.dtPendiente = 0
     this.debidos = 0
@@ -567,6 +704,7 @@ export class Sesion {
   ponerPalanca(x: number, y: number): void {
     this.palancaTactil = [x, y]
     this.ultimaActividad = Date.now()
+    this.enviarEntrada()
   }
 
   private botonesMandos(): number {
@@ -606,6 +744,7 @@ export class Sesion {
     const b = bit(boton)
     this.extra = activo ? this.extra | b : this.extra & ~b
     this.ultimaActividad = Date.now()
+    this.enviarEntrada()
   }
 
   /** 30 imágenes por segundo (v0.28.0), por juego: menos dibujo y menos refrescos de pantalla */
@@ -613,24 +752,29 @@ export class Sesion {
     if (activo === this.limite30) return
     this.limite30 = activo
     this.dtPendiente = 0
+    if (this.propio) this.motor.ritmo?.limite30(activo)
   }
 
   /** Turbo: máscara de los botones con turbo (0, ninguno). */
   ponerTurbo(mascara: number): void {
     this.turbo = mascara
+    this.enviarEntrada()
   }
 
   /** Correr fijo: máscara del botón que queda pulsado (0, ninguno). */
   ponerCorrer(mascara: number): void {
     this.correr = mascara
+    this.enviarEntrada()
   }
 
   ponerBotonesTactil(mascara: number): void {
     this.botonesTactil = mascara
+    this.enviarEntrada()
   }
 
   ponerBotonesTeclado(mascara: number): void {
     this.botonesTeclado = mascara
+    this.enviarEntrada()
   }
 
   /** Guarda la partida del juego si ha cambiado desde la última vez. */
@@ -665,6 +809,7 @@ export class Sesion {
     if (!estado) return false
     const r = await this.motor.cargarEstado(new Uint8Array(estado.datos))
     this.altavoz.vaciar()
+    if (this.propio) this.motor.ritmo?.vaciarSonido()
     this.porHacer = 0
     this.mostrar(r.imagenes)
     return r.ok
@@ -674,6 +819,7 @@ export class Sesion {
   async deshacerCarga(): Promise<boolean> {
     const r = await this.motor.deshacerCarga()
     this.altavoz.vaciar()
+    if (this.propio) this.motor.ritmo?.vaciarSonido()
     this.porHacer = 0
     this.mostrar(r.imagenes)
     return r.ok
@@ -688,6 +834,7 @@ export class Sesion {
     this.porHacer = 0
     this.motor.reiniciar().catch((e) => this.fallar(e))
     this.altavoz.vaciar()
+    if (this.propio) this.motor.ritmo?.vaciarSonido()
   }
 
   /** Error dentro del núcleo: se para, se anota y no se vuelve a guardar nada de esta sesión. */
@@ -696,6 +843,7 @@ export class Sesion {
     this.roto = true
     this.corriendo = false
     cancelAnimationFrame(this.peticion)
+    if (this.propio) this.motor?.ritmo?.parar()
     clearInterval(this.temporizadorGuardado)
     this.altavoz.pausar()
     const mensaje = (e as Error)?.message ?? String(e)
@@ -723,6 +871,7 @@ export class Sesion {
     this.cerrada = true
     clearInterval(this.temporizadorGuardado)
     this.historial.cerrar()
+    if (this.sonidoAlHilo) this.altavoz.soltarCanalHilo()
     await this.motor?.descargar().catch(() => undefined)
   }
 }

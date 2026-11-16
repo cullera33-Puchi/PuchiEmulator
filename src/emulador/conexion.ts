@@ -8,6 +8,7 @@ import { Motor, type ConfigMotor, type InfoMotor, type PeticionFotogramas, type 
 import { prepararNucleo } from './nucleo'
 import type { PantallasDS, PrincipalDS } from './pantallasDS'
 import type { Disposicion, Imagenes } from './pintor'
+import type { EntradaRitmo, EventoRitmo, MedidaRitmo } from './ritmoPropio'
 
 /** El hilo no ha arrancado o ha dejado de contestar (no es un fallo del juego) */
 export class ErrorHilo extends Error {}
@@ -29,6 +30,26 @@ export interface ConexionMotor {
   opcion(clave: string, valor: string): Promise<void>
   reiniciar(): Promise<void>
   descargar(): Promise<void>
+  /** Ritmo propio (v0.33.0): solo en el hilo aparte */
+  readonly ritmo?: RitmoConexion
+}
+
+/**
+ * El bucle de fotogramas del hilo (`ritmoPropio.ts`), visto desde la página. Los avisos no esperan
+ * respuesta: los botones tienen que llegar cuanto antes.
+ */
+export interface RitmoConexion {
+  arrancar(entrada: EntradaRitmo, velocidad: number, limite30: boolean): void
+  parar(): void
+  entrada(e: EntradaRitmo): void
+  velocidad(v: number): void
+  limite30(activo: boolean): void
+  /** Canal directo al procesador de audio, con su frecuencia y la cola que se busca */
+  sonido(puerto: MessagePort, frecuenciaSalida: number, objetivo: number): void
+  vaciarSonido(): void
+  medida(): Promise<MedidaRitmo>
+  /** Imágenes nuevas y fallos que manda el hilo por su cuenta */
+  alEvento(f: ((e: EventoRitmo) => void) | null): void
 }
 
 /** El motor en el hilo principal: las mismas llamadas, sin mensajes. */
@@ -69,10 +90,20 @@ class Hilo {
   private siguiente = 1
   private readonly pendientes = new Map<number, { resolver: (r: unknown) => void; rechazar: (e: unknown) => void }>()
   caido = false
+  /** A quién se pasan los eventos del ritmo propio (imágenes y fallos) */
+  alEvento: ((e: EventoRitmo) => void) | null = null
 
   constructor() {
     this.hilo = new Worker(new URL('./motor.worker.ts', import.meta.url), { type: 'module' })
-    this.hilo.onmessage = (e: MessageEvent<{ id: number; r?: unknown; error?: string }>) => {
+    this.hilo.onmessage = (e: MessageEvent<{ id: number; r?: unknown; error?: string } | EventoRitmo>) => {
+      if ('evento' in e.data) {
+        if (this.alEvento) this.alEvento(e.data)
+        else if (e.data.evento === 'imagen') {
+          e.data.imagenes.imagen.close()
+          e.data.imagenes.mini?.close()
+        }
+        return
+      }
       const p = this.pendientes.get(e.data.id)
       if (!p) return
       this.pendientes.delete(e.data.id)
@@ -100,6 +131,16 @@ class Hilo {
         rechazar(new ErrorHilo((e as Error)?.message ?? 'No se ha podido hablar con el hilo'))
       }
     })
+  }
+
+  /** Aviso sin respuesta (id 0). */
+  avisar(metodo: string, args: unknown[] = [], transferir: Transferable[] = []): void {
+    if (this.caido) return
+    try {
+      this.hilo.postMessage({ id: 0, metodo, args }, transferir)
+    } catch {
+      // si el hilo se ha caído, lo dirá la siguiente llamada
+    }
   }
 
   terminar(): void {
@@ -145,7 +186,23 @@ class ConexionHilo implements ConexionMotor {
   puntero = (x: number | null, y: number, pantallas: PantallasDS, principal: PrincipalDS) => this.h.llamar<void>('puntero', [x, y, pantallas, principal])
   opcion = (clave: string, valor: string) => this.h.llamar<void>('opcion', [clave, valor])
   reiniciar = () => this.h.llamar<void>('reiniciar')
-  descargar = () => this.h.llamar<void>('descargar')
+  descargar = () => {
+    this.h.alEvento = null
+    return this.h.llamar<void>('descargar')
+  }
+  readonly ritmo: RitmoConexion = {
+    arrancar: (entrada, velocidad, limite30) => this.h.avisar('ritmoArrancar', [entrada, velocidad, limite30]),
+    parar: () => this.h.avisar('ritmoParar'),
+    entrada: (e) => this.h.avisar('ritmoEntrada', [e]),
+    velocidad: (v) => this.h.avisar('ritmoVelocidad', [v]),
+    limite30: (activo) => this.h.avisar('ritmoLimite30', [activo]),
+    sonido: (puerto, frecuenciaSalida, objetivo) => this.h.avisar('ritmoSonido', [puerto, frecuenciaSalida, objetivo], [puerto]),
+    vaciarSonido: () => this.h.avisar('ritmoVaciarSonido'),
+    medida: () => this.h.llamar<MedidaRitmo>('ritmoMedida'),
+    alEvento: (f) => {
+      this.h.alEvento = f
+    },
+  }
 }
 
 /**

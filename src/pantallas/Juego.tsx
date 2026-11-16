@@ -186,6 +186,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           // Dónde va la emulación y con qué se pinta (v0.31.0)
           hilo: creada.enHilo,
           pintor: creada.pintor,
+          // Quién marca el ritmo de los fotogramas: el hilo (Nintendo 64, v0.33.0) o la pantalla
+          ritmo: creada.ritmoPropio ? 'propio' : 'pantalla',
           ...(creada.pintorMs ? { pintorMs: { webgl: Math.round(creada.pintorMs.webgl * 100) / 100, '2d': Math.round(creada.pintorMs['2d'] * 100) / 100 } } : {}),
           ...(creada.motivoLocal ? { motivo: creada.motivoLocal } : {}),
           ms: { leer: msLeer, ...creada.tiempos, total: Math.round(performance.now() - t0) },
