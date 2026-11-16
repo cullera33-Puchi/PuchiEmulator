@@ -1,0 +1,191 @@
+/**
+ * Conexión con el motor de la partida (v0.31.0). Normalmente, un hilo aparte (`motor.worker.ts`), uno
+ * solo para toda la app: así el núcleo que se prepara al abrirla ya está compilado allí. Si el hilo no
+ * arranca o no contesta, el mismo motor en el hilo principal (como hasta la v0.30.0).
+ */
+import type { NombreNucleo } from '../lib/sistemas'
+import { Motor, type ConfigMotor, type InfoMotor, type PeticionFotogramas, type ResultadoFotogramas } from './motor'
+import { prepararNucleo } from './nucleo'
+import type { PantallasDS, PrincipalDS } from './pantallasDS'
+import type { Disposicion, Imagenes } from './pintor'
+
+/** El hilo no ha arrancado o ha dejado de contestar (no es un fallo del juego) */
+export class ErrorHilo extends Error {}
+
+/** Lo que tarda como mucho en abrir un juego el hilo antes de darlo por perdido */
+const ESPERA_CREAR_MS = 20_000
+
+export interface ConexionMotor {
+  readonly enHilo: boolean
+  crear(c: ConfigMotor): Promise<InfoMotor>
+  fotogramas(p: PeticionFotogramas): Promise<ResultadoFotogramas>
+  partidaSiCambia(): Promise<{ datos: Uint8Array; rtc?: Uint8Array } | null>
+  guardarEstado(): Promise<{ datos: Uint8Array; captura?: ArrayBuffer } | null>
+  cargarEstado(datos: Uint8Array): Promise<{ ok: boolean; imagenes: Imagenes | null }>
+  deshacerCarga(): Promise<{ ok: boolean; imagenes: Imagenes | null }>
+  irA(estado: Uint8Array, botones: number): Promise<Imagenes | null>
+  ponerDisposicion(d: Disposicion): Promise<Imagenes | null>
+  puntero(x: number | null, y: number, pantallas: PantallasDS, principal: PrincipalDS): Promise<void>
+  opcion(clave: string, valor: string): Promise<void>
+  reiniciar(): Promise<void>
+  descargar(): Promise<void>
+}
+
+/** El motor en el hilo principal: las mismas llamadas, sin mensajes. */
+class ConexionLocal implements ConexionMotor {
+  readonly enHilo = false
+  private motor: Motor | null = null
+
+  private usar(): Motor {
+    if (!this.motor) throw new Error('No hay ningún juego abierto en el motor')
+    return this.motor
+  }
+
+  async crear(c: ConfigMotor): Promise<InfoMotor> {
+    const { motor, info } = await Motor.crear(c)
+    this.motor = motor
+    return info
+  }
+
+  fotogramas = async (p: PeticionFotogramas) => this.usar().fotogramas(p)
+  partidaSiCambia = async () => this.usar().partidaSiCambia()
+  guardarEstado = async () => this.usar().guardarEstado()
+  cargarEstado = async (datos: Uint8Array) => this.usar().cargarEstado(datos)
+  deshacerCarga = async () => this.usar().deshacerCarga()
+  irA = async (estado: Uint8Array, botones: number) => this.usar().irA(estado, botones)
+  ponerDisposicion = async (d: Disposicion) => this.usar().ponerDisposicion(d)
+  puntero = async (x: number | null, y: number, pantallas: PantallasDS, principal: PrincipalDS) => this.usar().puntero(x, y, pantallas, principal)
+  opcion = async (clave: string, valor: string) => this.usar().opcion(clave, valor)
+  reiniciar = async () => this.usar().reiniciar()
+  descargar = async () => {
+    this.motor?.descargar()
+    this.motor = null
+  }
+}
+
+/** El hilo, compartido por todas las partidas; se vuelve a crear si se cae. */
+class Hilo {
+  private readonly hilo: Worker
+  private siguiente = 1
+  private readonly pendientes = new Map<number, { resolver: (r: unknown) => void; rechazar: (e: unknown) => void }>()
+  caido = false
+
+  constructor() {
+    this.hilo = new Worker(new URL('./motor.worker.ts', import.meta.url), { type: 'module' })
+    this.hilo.onmessage = (e: MessageEvent<{ id: number; r?: unknown; error?: string }>) => {
+      const p = this.pendientes.get(e.data.id)
+      if (!p) return
+      this.pendientes.delete(e.data.id)
+      if (e.data.error !== undefined) p.rechazar(new Error(e.data.error))
+      else p.resolver(e.data.r)
+    }
+    const caer = (motivo: string) => {
+      this.caido = true
+      for (const p of this.pendientes.values()) p.rechazar(new ErrorHilo(motivo))
+      this.pendientes.clear()
+    }
+    this.hilo.onerror = (e) => caer(e.message || 'El hilo del motor no ha arrancado')
+    this.hilo.onmessageerror = () => caer('Mensaje del hilo ilegible')
+  }
+
+  llamar<T>(metodo: string, args: unknown[] = [], transferir: Transferable[] = []): Promise<T> {
+    if (this.caido) return Promise.reject(new ErrorHilo('El hilo del motor se ha caído'))
+    const id = this.siguiente++
+    return new Promise<T>((resolver, rechazar) => {
+      this.pendientes.set(id, { resolver: resolver as (r: unknown) => void, rechazar })
+      try {
+        this.hilo.postMessage({ id, metodo, args }, transferir)
+      } catch (e) {
+        this.pendientes.delete(id)
+        rechazar(new ErrorHilo((e as Error)?.message ?? 'No se ha podido hablar con el hilo'))
+      }
+    })
+  }
+
+  terminar(): void {
+    this.caido = true
+    this.hilo.terminate()
+  }
+}
+
+let hilo: Hilo | null = null
+
+function hiloVivo(): Hilo {
+  if (!hilo || hilo.caido) hilo = new Hilo()
+  return hilo
+}
+
+class ConexionHilo implements ConexionMotor {
+  readonly enHilo = true
+  private readonly h = hiloVivo()
+
+  async crear(c: ConfigMotor): Promise<InfoMotor> {
+    let espera = 0
+    const limite = new Promise<never>((_, rechazar) => {
+      espera = window.setTimeout(() => rechazar(new ErrorHilo('El hilo del motor no contesta')), ESPERA_CREAR_MS)
+    })
+    try {
+      return await Promise.race([this.h.llamar<InfoMotor>('crear', [c]), limite])
+    } catch (e) {
+      // Si no contesta, se descarta: la próxima vez se crea otro
+      if (e instanceof ErrorHilo) this.h.terminar()
+      throw e
+    } finally {
+      clearTimeout(espera)
+    }
+  }
+
+  fotogramas = (p: PeticionFotogramas) => this.h.llamar<ResultadoFotogramas>('fotogramas', [p])
+  partidaSiCambia = () => this.h.llamar<{ datos: Uint8Array; rtc?: Uint8Array } | null>('partidaSiCambia')
+  guardarEstado = () => this.h.llamar<{ datos: Uint8Array; captura?: ArrayBuffer } | null>('guardarEstado')
+  cargarEstado = (datos: Uint8Array) => this.h.llamar<{ ok: boolean; imagenes: Imagenes | null }>('cargarEstado', [datos])
+  deshacerCarga = () => this.h.llamar<{ ok: boolean; imagenes: Imagenes | null }>('deshacerCarga')
+  irA = (estado: Uint8Array, botones: number) => this.h.llamar<Imagenes | null>('irA', [estado, botones], [estado.buffer as ArrayBuffer])
+  ponerDisposicion = (d: Disposicion) => this.h.llamar<Imagenes | null>('ponerDisposicion', [d])
+  puntero = (x: number | null, y: number, pantallas: PantallasDS, principal: PrincipalDS) => this.h.llamar<void>('puntero', [x, y, pantallas, principal])
+  opcion = (clave: string, valor: string) => this.h.llamar<void>('opcion', [clave, valor])
+  reiniciar = () => this.h.llamar<void>('reiniciar')
+  descargar = () => this.h.llamar<void>('descargar')
+}
+
+/**
+ * Abre el juego en el motor: en el hilo aparte si se puede (y si no se ha desactivado en Ajustes); si
+ * el hilo no arranca o no contesta, en el hilo principal. Un fallo del juego (ROM o núcleo) no cambia
+ * de hilo: se devuelve tal cual.
+ */
+export async function abrirMotor(c: ConfigMotor, enHilo: boolean): Promise<{ conexion: ConexionMotor; info: InfoMotor; motivoLocal?: string }> {
+  if (enHilo && typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined') {
+    try {
+      const conexion = new ConexionHilo()
+      return { conexion, info: await conexion.crear(c) }
+    } catch (e) {
+      if (!(e instanceof ErrorHilo)) throw e
+      const local = new ConexionLocal()
+      return { conexion: local, info: await local.crear(c), motivoLocal: e.message }
+    }
+  }
+  const local = new ConexionLocal()
+  return { conexion: local, info: await local.crear(c), motivoLocal: enHilo ? 'Sin hilos ni OffscreenCanvas' : 'Desactivado en Ajustes' }
+}
+
+/** Núcleos que ya están compilados en el hilo (para el registro de la apertura). */
+const preparadosEnHilo = new Set<NombreNucleo>()
+export const preparadoEnHilo = (n: NombreNucleo) => preparadosEnHilo.has(n)
+
+/**
+ * Deja compilado un núcleo donde se va a usar: en el hilo aparte o, si no, en el principal (v0.28.0,
+ * en el hilo desde la v0.31.0).
+ */
+export async function prepararMotor(n: NombreNucleo, enHilo: boolean): Promise<'hilo' | 'principal'> {
+  if (enHilo && typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined') {
+    try {
+      await hiloVivo().llamar('preparar', [n])
+      preparadosEnHilo.add(n)
+      return 'hilo'
+    } catch (e) {
+      if (!(e instanceof ErrorHilo)) throw e
+    }
+  }
+  await prepararNucleo(n)
+  return 'principal'
+}

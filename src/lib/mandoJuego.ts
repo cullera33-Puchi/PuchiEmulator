@@ -113,15 +113,8 @@ export function extrasJrpg(sistema: Sistema, menu: BotonMenu): ('X' | 'Y')[] {
   return (['X', 'Y'] as const).filter((b) => b !== menu)
 }
 
-/**
- * Botones que llegan al juego con «correr fijo». Si el usuario toca el botón que está fijo (por
- * ejemplo, B para cancelar), el juego no lo notaría porque ya está pulsado: se suelta unos
- * fotogramas (`hueco`) para que vea una pulsación nueva.
- */
-export function mascaraConCorrer(base: number, correr: number, hueco: boolean): number {
-  if (!correr) return base
-  return hueco ? base & ~correr : base | correr
-}
+// Correr fijo y turbo: en src/emulador/mascaras.ts desde la v0.31.0, para el hilo del motor
+export { FOTOGRAMAS_TURBO, mascaraConCorrer, mascaraConTurbo } from '../emulador/mascaras'
 
 export const bitCorrer = (b: BotonCorrer) => bit(b)
 
@@ -142,14 +135,4 @@ export function mascaraTurbo(mandos: Ajustes['mandos'], juegoId: string, sistema
   return (mandos[juegoId]?.turbo ?? []).filter((b) => validos.includes(b)).reduce((m, b) => m | bit(b), 0)
 }
 
-/** Fotogramas que dura cada mitad del turbo: 3 pulsado y 3 suelto, unas diez pulsaciones por segundo. */
-export const FOTOGRAMAS_TURBO = 3
 
-/**
- * Turbo (v0.19.0): mientras se mantiene un botón con turbo, el juego lo ve pulsarse y soltarse solo.
- * `fotograma` es un contador que avanza uno por fotograma emulado.
- */
-export function mascaraConTurbo(base: number, turbo: number, fotograma: number): number {
-  if (!turbo || !(base & turbo)) return base
-  return Math.floor(fotograma / FOTOGRAMAS_TURBO) % 2 ? base & ~turbo : base
-}

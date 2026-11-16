@@ -20,7 +20,7 @@ import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { cuando, plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
 import { CONSOLAS_APP, SISTEMAS, type Consola, type NombreNucleo } from '../lib/sistemas'
-import { prepararNucleo } from '../emulador/nucleo'
+import { prepararMotor } from '../emulador/conexion'
 
 interface Props {
   /** Falso mientras está debajo de otra pantalla (v0.26.1): al volver a ser la de arriba, se recarga */
@@ -130,8 +130,9 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
       nucleosPreparados = true
       for (const n of nucleos) {
         const t0 = performance.now()
-        prepararNucleo(n).then(
-          () => registrar('info', 'Núcleo preparado', { nucleo: n, ms: Math.round(performance.now() - t0) }),
+        // En el hilo del motor, que es donde se va a usar (v0.31.0)
+        prepararMotor(n, leerAjustes().emulacionEnHilo !== false).then(
+          (donde) => registrar('info', 'Núcleo preparado', { nucleo: n, donde, ms: Math.round(performance.now() - t0) }),
           (e) => registrar('aviso', 'No se pudo preparar el núcleo', { nucleo: n, error: (e as Error)?.message }),
         )
       }

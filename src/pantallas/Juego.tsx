@@ -16,6 +16,7 @@ import { duracion } from '../lib/estadisticas'
 import { registrar } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { nucleoPreparado } from '../emulador/nucleo'
+import { preparadoEnHilo } from '../emulador/conexion'
 import { paletaPara, temaPara } from '../lib/temas'
 import { SelectorTema } from '../componentes/SelectorTema'
 import { EditorNotas } from '../componentes/Notas'
@@ -125,7 +126,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         const t0 = performance.now()
         const [juego, rom] = await Promise.all([leerJuego(id), leerRomGuardada(id)])
         const msLeer = Math.round(performance.now() - t0)
-        const preparado = !!juego && nucleoPreparado(SISTEMAS[juego.sistema].nucleo)
+        const preparado = !!juego && (preparadoEnHilo(SISTEMAS[juego.sistema].nucleo) || nucleoPreparado(SISTEMAS[juego.sistema].nucleo))
         if (!juego || !rom) throw new Error('El juego ya no está en la biblioteca.')
         if (cancelado) return
         setNombre(juego.nombre)
@@ -182,8 +183,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           sistema: juego.sistema,
           reanudar,
           nucleoPreparado: preparado,
+          // Dónde va la emulación y con qué se pinta (v0.31.0)
+          hilo: creada.enHilo,
+          pintor: creada.pintor,
+          ...(creada.pintorMs ? { pintorMs: { webgl: Math.round(creada.pintorMs.webgl * 100) / 100, '2d': Math.round(creada.pintorMs['2d'] * 100) / 100 } } : {}),
+          ...(creada.motivoLocal ? { motivo: creada.motivoLocal } : {}),
           ms: { leer: msLeer, ...creada.tiempos, total: Math.round(performance.now() - t0) },
         })
+        if (creada.motivoLocal && ajustesRef.current.emulacionEnHilo !== false) registrar('aviso', 'La emulación va en el hilo principal', creada.motivoLocal)
         void actualizarJuego(alAbrir(juego))
         void leerEstado(juego.id, 'rapida').then((e) => !cancelado && setHayRapido(!!e))
         setCargando(false)
@@ -330,7 +337,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       avisar('Aún no hay guardado rápido')
       return
     }
-    avisar('Guardado rápido cargado', { fn: () => s.deshacerCarga() })
+    avisar('Guardado rápido cargado', { fn: () => void s.deshacerCarga() })
   }
 
   // Pantallas de DS: se aplican al abrir el juego y al cambiarlas

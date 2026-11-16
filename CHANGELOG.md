@@ -1,5 +1,24 @@
 # Cambios
 
+## 0.31.0 (16/11/2026)
+
+Mejoras 5 y 6 del análisis de rendimiento, pedidas por el usuario: la emulación en un hilo aparte y el dibujo con la tarjeta gráfica.
+
+- Hilo aparte (5):
+  - El núcleo, los fotogramas (con turbo y correr fijo), los estados para rebobinar y el dibujo van en el motor (`src/emulador/motor.ts`), dentro de un hilo propio (`motor.worker.ts`), uno solo para toda la app.
+  - `Sesion` se queda en el hilo principal con el ritmo de la pantalla, los botones, el tiempo jugado, el sonido, el rebobinado y el guardado, y habla con el motor por `conexion.ts`. Si el motor aún no ha terminado lo anterior, los fotogramas que tocan se suman al siguiente envío.
+  - Cada imagen vuelve pintada y se enseña sin copiarla (`ImageBitmap` y `bitmaprenderer`, con respaldo en 2D).
+  - El núcleo que se prepara al abrir la app (v0.28.0) se compila ya en el hilo.
+  - Si el hilo no arranca o no contesta en 20 s, el mismo motor va en el hilo principal (respaldo, anotado en el registro). Ajustes, Acerca de, «Emulación en un hilo aparte» lo desactiva para descartar problemas.
+  - Medido en el navegador de pruebas con la ROM de DS: el hilo principal pasa de estar ocupado un 50 % del tiempo a un 4 %, con el juego a 60 fotogramas por segundo; con Super Nintendo, del 6 % al 4 %.
+- Tarjeta gráfica (6):
+  - Pintor con WebGL 2 (`src/emulador/pintor.ts`): el fotograma como textura y cada pantalla como un rectángulo en su sitio (`cuadrosDS`, con prueba frente a `aNucleo`), también las disposiciones de DS. Respaldo en 2D, como antes.
+  - Al abrir cada juego se miden los dos y se usa el más rápido en ese aparato. En el navegador de pruebas, que imita la tarjeta por software, gana el 2D (0,3 ms frente a 1,4 ms por imagen). En el iPhone lo dirá el registro («Juego abierto», `pintor` y `pintorMs`).
+  - Prueba de navegador que compara las cinco disposiciones de DS píxel a píxel con los dos pintores.
+- Registro: «Juego abierto» lleva `hilo`, `pintor` y `pintorMs`; «Rendimiento», `hilo`, `pintor` y `pintarMs`.
+- Correr fijo y turbo pasan a `src/emulador/mascaras.ts` (el hilo no puede cargar los ajustes); `mandoJuego.ts` los reexporta.
+- Pruebas: 151 unitarias y 63 de navegador. Las que leen píxeles copian el lienzo a uno 2D.
+
 ## 0.30.0 (16/11/2026)
 
 Revisión de código de las versiones 0.19 a 0.29 (número 14 del análisis), pedida por el usuario: tres revisiones independientes (bucle del juego, pantallas y gestos, y datos y ajustes), cada hallazgo comprobado antes de corregirlo.

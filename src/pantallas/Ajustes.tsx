@@ -558,6 +558,13 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
                 <ChevronRight size={18} className="text-zinc-400" />
               </button>
             </div>
+            <div className="lista mt-6">
+              <div className="fila justify-between">
+                <span>Emulación en un hilo aparte</span>
+                <Interruptor etiqueta="Emulación en un hilo aparte" activo={a.emulacionEnHilo !== false} alCambiar={(v) => cambiar({ emulacionEnHilo: v })} />
+              </div>
+            </div>
+            <p className="pie-grupo">Déjalo activado: el juego va en su propio hilo y no compite con la app. Desactívalo solo si un juego no se ve o va peor que antes; vuelve a ir como hasta la versión 0.30. Cuenta al abrir el siguiente juego.</p>
             <p className="cabecera-grupo mt-6">Núcleos de emulación</p>
             <div className="lista">
               {NUCLEOS.map(([consolas, nombre, licencia, url], i) => (

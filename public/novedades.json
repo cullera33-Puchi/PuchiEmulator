@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.31.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "El juego va ahora en su propio hilo: abrir el menú, guardar o tocar la app ya no le roba tiempo.",
+      "Pensado sobre todo para Nintendo DS, que es la que más exige al iPhone.",
+      "La imagen se dibuja con la tarjeta gráfica o como antes, lo que vaya más rápido en tu iPhone.",
+      "Si notas algo raro, en Ajustes, Acerca de, puedes desactivar «Emulación en un hilo aparte»."
+    ]
+  },
+  {
     "version": "0.30.0",
     "fecha": "16/11/2026",
     "cambios": [

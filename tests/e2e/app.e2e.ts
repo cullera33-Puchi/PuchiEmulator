@@ -22,7 +22,7 @@ test.beforeEach(async ({ page }, info) => {
 /** Color del píxel central de la pantalla del juego. */
 async function colorCentral(page: Page): Promise<[number, number, number]> {
   return page.getByTestId('pantalla').evaluate((c: HTMLCanvasElement) => {
-    const d = c.getContext('2d')!.getImageData(c.width >> 1, c.height >> 1, 1, 1).data
+    const d = ((t) => { t.width = c.width; t.height = c.height; const g = t.getContext('2d')!; g.drawImage(c, 0, 0); return g })(document.createElement('canvas')).getImageData(c.width >> 1, c.height >> 1, 1, 1).data
     return [d[0], d[1], d[2]] as [number, number, number]
   })
 }
@@ -730,7 +730,7 @@ test('Nintendo DS (en pruebas): arranca sin BIOS, dos pantallas, botones, tácti
   const cajaA = (await page.getByTestId('mando').getByRole('button', { name: 'A', exact: true }).boundingBox())!
   const cajaLienzo = (await lienzo.boundingBox())!
   expect(cajaA.y).toBeLessThan(cajaLienzo.y + cajaLienzo.height)
-  const arriba = () => lienzo.evaluate((c: HTMLCanvasElement) => [...c.getContext('2d')!.getImageData(128, 96, 1, 1).data.slice(0, 3)])
+  const arriba = () => lienzo.evaluate((c: HTMLCanvasElement) => [...((t) => { t.width = c.width; t.height = c.height; const g = t.getContext('2d')!; g.drawImage(c, 0, 0); return g })(document.createElement('canvas')).getImageData(128, 96, 1, 1).data.slice(0, 3)])
   await expect.poll(arriba).toEqual([0, 0, 251])
   await pulsar(page, 'A')
   await expect.poll(arriba).toEqual([0, 251, 0])
@@ -810,7 +810,7 @@ test('Nintendo DS: reiniciar varias veces no rompe el juego y se vuelve a abrir'
   await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
   await expect(page.getByText('Cargando…')).toBeHidden()
   const lienzo = page.getByTestId('pantalla')
-  const arriba = () => lienzo.evaluate((c: HTMLCanvasElement) => [...c.getContext('2d')!.getImageData(128, 96, 1, 1).data.slice(0, 3)])
+  const arriba = () => lienzo.evaluate((c: HTMLCanvasElement) => [...((t) => { t.width = c.width; t.height = c.height; const g = t.getContext('2d')!; g.drawImage(c, 0, 0); return g })(document.createElement('canvas')).getImageData(128, 96, 1, 1).data.slice(0, 3)])
   for (let i = 0; i < 3; i++) {
     await page.getByRole('button', { name: 'Menú', exact: true }).click()
     await page.getByRole('button', { name: 'Reiniciar' }).click()
@@ -1094,7 +1094,7 @@ test.describe('pantallas de Nintendo DS', () => {
 
   /** Color de un punto del lienzo (x e y de 0 a 1). */
   const punto = (page: Page, x: number, y: number) =>
-    page.getByTestId('pantalla').evaluate((c: HTMLCanvasElement, [x, y]) => [...c.getContext('2d')!.getImageData(Math.floor(c.width * x), Math.floor(c.height * y), 1, 1).data.slice(0, 3)], [x, y])
+    page.getByTestId('pantalla').evaluate((c: HTMLCanvasElement, [x, y]) => [...((t) => { t.width = c.width; t.height = c.height; const g = t.getContext('2d')!; g.drawImage(c, 0, 0); return g })(document.createElement('canvas')).getImageData(Math.floor(c.width * x), Math.floor(c.height * y), 1, 1).data.slice(0, 3)], [x, y])
 
   async function elegir(page: Page, disposicion: string, tactil?: string) {
     await page.getByRole('button', { name: 'Menú', exact: true }).click()
@@ -1189,7 +1189,7 @@ test.describe('pantallas de Nintendo DS', () => {
     await expect.poll(() => lienzo.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([256, 192])
     const mini = page.getByTestId('miniatura-ds')
     await expect(mini).toBeVisible()
-    const colorMini = () => mini.locator('canvas').evaluate((c: HTMLCanvasElement) => [...c.getContext('2d')!.getImageData(128, 96, 1, 1).data.slice(0, 3)])
+    const colorMini = () => mini.locator('canvas').evaluate((c: HTMLCanvasElement) => [...((t) => { t.width = c.width; t.height = c.height; const g = t.getContext('2d')!; g.drawImage(c, 0, 0); return g })(document.createElement('canvas')).getImageData(128, 96, 1, 1).data.slice(0, 3)])
     // Grande, la táctil; en la miniatura, la de arriba (azul)
     await expect.poll(colorMini).toEqual([0, 0, 251])
     expect(await punto(page, 0.5, 0.5)).not.toEqual([0, 0, 251])
@@ -1726,4 +1726,85 @@ test.describe('gestos con animaciones (v0.30.0)', () => {
     expect(await page.locator('.capa').evaluate((e) => e.style.transform)).toBe('')
     expect(await desplazamiento(page, '.capa')).toBe(0)
   })
+})
+
+test('motor en un hilo aparte con la tarjeta gráfica, y en el principal si se desactiva (v0.31.0)', async ({ page }) => {
+  const abierto = async () => {
+    const r = await page.evaluate(() => JSON.parse(localStorage.getItem('puchiemulator-registro') ?? '[]') as { m: string; x?: string }[])
+    return JSON.parse(r.filter((e) => e.m === 'Juego abierto').at(-1)?.x ?? '{}')
+  }
+  await page.goto('/')
+  await anadir(page, 'prueba.nds')
+  await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  // Elige el pintor midiendo los dos; el registro lo dice
+  await expect.poll(abierto).toMatchObject({ hilo: true })
+  const datos = await abierto()
+  expect(['webgl', '2d']).toContain(datos.pintor)
+  expect(datos.pintorMs.webgl).toBeGreaterThan(0)
+  expect(datos.pintor).toBe(datos.pintorMs.webgl <= datos.pintorMs['2d'] ? 'webgl' : '2d')
+  // La imagen llega del hilo: el lienzo enseña las dos pantallas
+  await expect.poll(() => page.getByTestId('pantalla').evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([256, 384])
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+
+  // Con el ajuste apagado, como hasta la v0.30.0: en el hilo principal, y el juego se ve igual
+  await page.evaluate(() => {
+    const a = JSON.parse(localStorage.getItem('puchiemulator-ajustes') ?? '{}')
+    localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ ...a, emulacionEnHilo: false }))
+  })
+  await page.reload()
+  await entrar(page, 'Nintendo DS')
+  await page.getByRole('button', { name: /prueba, Nintendo DS/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(abierto).toMatchObject({ hilo: false, motivo: 'Desactivado en Ajustes' })
+  await expect.poll(() => page.getByTestId('pantalla').evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([256, 384])
+})
+
+test('la tarjeta gráfica pinta las disposiciones de DS igual que el 2D, píxel a píxel (v0.31.0)', async ({ page }) => {
+  test.setTimeout(120_000)
+  await page.goto('/')
+  await anadir(page, 'prueba.nds')
+  const imagen = () =>
+    page.getByTestId('pantalla').evaluate((c: HTMLCanvasElement) => {
+      const t = document.createElement('canvas')
+      t.width = c.width
+      t.height = c.height
+      const g = t.getContext('2d')!
+      g.drawImage(c, 0, 0)
+      return `${c.width}x${c.height}:${t.toDataURL()}`
+    })
+  for (const pantallasDS of ['apiladas', 'lado', 'libro-derecha', 'libro-izquierda', 'grande']) {
+    const vistas: Record<string, string> = {}
+    for (const pintor of ['2d', 'webgl']) {
+      await page.evaluate(
+        ([d, p]) => {
+          const a = JSON.parse(localStorage.getItem('puchiemulator-ajustes') ?? '{}')
+          localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ ...a, pantallasDS: d }))
+          localStorage.setItem('puchiemulator-pintor', p)
+        },
+        [pantallasDS, pintor],
+      )
+      await page.reload()
+      await entrar(page, 'Nintendo DS')
+      await page.getByRole('button', { name: /Opciones de/ }).click()
+      await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+      await expect(page.getByText('Cargando…')).toBeHidden()
+      // El juego de prueba pinta las dos pantallas en los primeros fotogramas: se espera a que la
+      // imagen no cambie y se pausa en el menú, para comparar la misma imagen
+      let antes = ''
+      await expect.poll(async () => {
+        const ahora = await imagen()
+        const quieta = ahora === antes
+        antes = ahora
+        return quieta
+      }, { intervals: [400] }).toBe(true)
+      await page.getByRole('button', { name: 'Menú', exact: true }).click()
+      await page.waitForTimeout(300)
+      vistas[pintor] = await imagen()
+      await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+      await page.getByRole('button', { name: 'Consolas' }).click()
+    }
+    expect(vistas.webgl, pantallasDS).toBe(vistas['2d'])
+  }
 })
