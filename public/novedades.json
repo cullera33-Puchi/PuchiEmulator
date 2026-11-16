@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.25.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Ajustes más cortos, como en el iPhone: una lista de apartados con su icono.",
+      "Cada apartado (Sonido, Pantalla, Mando, Copias de seguridad…) se abre en su propia pantalla; se vuelve con «‹ Ajustes» o deslizando desde el borde.",
+      "En Acerca de están ahora todos los emuladores que usa la app."
+    ]
+  },
+  {
     "version": "0.24.1",
     "fecha": "16/11/2026",
     "cambios": [

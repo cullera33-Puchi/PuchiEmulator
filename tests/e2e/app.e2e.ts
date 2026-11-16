@@ -318,6 +318,11 @@ test('ajustes: registro con lo ocurrido, copias de seguridad y restaurar con Des
 
   await page.getByRole('button', { name: 'Consolas' }).click()
   await page.getByRole('button', { name: 'Ajustes' }).click()
+  // Ajustes por apartados (v0.25.0): una lista corta y una pantalla por apartado
+  await expect(page.getByRole('button', { name: /^Sonido/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Ver registro' })).toHaveCount(0)
+  await page.getByRole('button', { name: /^Registro/ }).click()
+  await expect(page.getByRole('heading', { name: 'Registro' })).toBeVisible()
   await page.getByRole('button', { name: /Ver registro/ }).click()
   const registro = page.getByRole('textbox', { name: 'Registro' })
   await expect(registro).toHaveValue(/Inicio v/)
@@ -330,6 +335,8 @@ test('ajustes: registro con lo ocurrido, copias de seguridad y restaurar con Des
   await page.mouse.click(200, 60)
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
+  await page.getByRole('button', { name: /^Copias de seguridad/ }).click()
   const copias = page.getByTestId('copias')
   await page.getByRole('button', { name: 'Crear copia ahora' }).click()
   await expect(page.getByText('Copia creada: 1 partida')).toBeVisible()
@@ -343,6 +350,9 @@ test('ajustes: registro con lo ocurrido, copias de seguridad y restaurar con Des
   // La restauración deja también una copia previa
   await expect(copias.getByRole('button', { name: /Antes de recuperar/ })).toBeVisible()
 
+  // De vuelta en la lista, el apartado enseña cuántas copias hay
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
+  await expect(page.getByRole('button', { name: /^Copias de seguridad\s*\d/ })).toBeVisible()
   await page.getByRole('button', { name: 'Consolas' }).click()
   await expect(page.getByTestId('consolas')).toBeVisible()
 })
@@ -467,7 +477,10 @@ test('carátulas automáticas: se ponen al añadir, no vuelven si se quitan y se
   // Con el interruptor apagado no se busca al añadir
   await page.getByRole('button', { name: 'Consolas' }).click()
   await page.getByRole('button', { name: 'Ajustes' }).click()
+  await page.getByRole('button', { name: /^Carátulas/ }).click()
   await page.getByRole('switch', { name: 'Poner la carátula al añadir un juego' }).click()
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
+  await expect(page.getByRole('button', { name: /^Carátulas.*A mano/ })).toBeVisible()
   await page.getByRole('button', { name: 'Consolas' }).click()
   const antes = descargas.length
   await page.getByTestId('selector').setInputFiles({ name: 'Tetris (World) (Rev 1).gb', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba.gb')) })
@@ -477,8 +490,10 @@ test('carátulas automáticas: se ponen al añadir, no vuelven si se quitan y se
 
   // «Buscar ahora las que faltan» pone las dos
   await page.getByRole('button', { name: 'Ajustes' }).click()
+  await page.getByRole('button', { name: /^Carátulas/ }).click()
   await page.getByRole('button', { name: 'Buscar ahora las que faltan' }).click()
   await expect(page.getByText('2 carátulas puestas')).toBeVisible()
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
   await page.getByRole('button', { name: 'Consolas' }).click()
   await entrar(page, 'Game Boy y Game Boy Color')
   await expect(page.getByTestId('biblioteca').locator('img')).toHaveCount(1)

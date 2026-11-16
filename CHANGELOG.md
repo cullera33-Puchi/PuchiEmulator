@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.25.0 (16/11/2026)
+
+Ajustes por apartados, pedido por el usuario porque la pantalla quedaba muy larga.
+
+- Ajustes pasa a una lista corta al estilo del iPhone: cada apartado con su icono en una baldosa de color, el valor actual a la derecha y chevrón. Cuatro grupos: juego (Sonido, Pantalla, Mando, Para jugar en la cama, Temas del juego y Carátulas), partidas (Guardar y recuperar partidas, Copias de seguridad y Almacenamiento), Aspecto, y Registro con Acerca de.
+- Cada apartado abre su propia pantalla con «‹ Ajustes» (`PaginaApartado`), que entra desde la derecha y se cierra también deslizando desde el borde izquierdo; al volver, la lista queda donde estaba. Con «Reducir movimiento», sin animación.
+- Acerca de: versión, novedades y los cinco núcleos con sus consolas y licencias (antes solo salían mGBA y Snes9x).
+- Pruebas: 139 unitarias y 55 de navegador.
+
 ## 0.24.1 (16/11/2026)
 
 A partir de una captura y del registro del usuario (Dragon Quest V en DS).

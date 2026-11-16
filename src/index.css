@@ -1214,6 +1214,14 @@ body.en-juego .aviso {
   animation: aparecer 400ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
+/* Apartados de Ajustes (v0.25.0): entrar desde la derecha y volver */
+.apartado-entra {
+  animation: entra-desde-derecha 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.apartado-vuelve {
+  animation: entra-desde-izquierda 500ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
 /* Hojas y avisos */
 @keyframes subir {
   from {
@@ -1240,7 +1248,9 @@ body.en-juego .aviso {
 
 /* Reducir movimiento: fundidos cortos en lugar de desplazamientos */
 @media (prefers-reduced-motion: reduce) {
-  .capa {
+  .capa,
+  .apartado-entra,
+  .apartado-vuelve {
     animation: none !important;
   }
   .hoja {

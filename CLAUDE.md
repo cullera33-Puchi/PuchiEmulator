@@ -75,6 +75,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 - **Filtros de imagen** (v0.15.0): capa `.imagen .filtro` sobre el lienzo, rejilla LCD o líneas de tele, por juego (`filtro` en `CLAVES_CONTROL`).
 - **Colores como en la consola** (v0.14.0): `mgba_color_correction` en «Auto» (GBA y Color), activado por defecto en Ajustes.
 - **Temas** (v0.2.0): `src/lib/temas.ts`, variables CSS en `.juego`. Diseños propios inspirados en las consolas, sin logotipos, marcas ni imágenes oficiales (regla). Por consola, con «Según la consola» por defecto (Game Boy, Clásica; Color, Uva; Advance, Advance). La paleta de Game Boy (`mgba_gb_colors`) sigue al tema o se elige a mano y se aplica en marcha.
+- **Ajustes** (v0.25.0, `src/pantallas/Ajustes.tsx`): lista corta al estilo del iPhone, en cuatro grupos (juego, partidas, aspecto, y registro con acerca de), con baldosa de color, valor actual y chevrón. Cada apartado abre su pantalla (`PaginaApartado`) con «‹ Ajustes» y vuelta deslizando desde el borde. Toda opción nueva va en su apartado, no en la lista.
 - **Registro y copias de seguridad** (v0.2.0): `src/lib/registro.ts` (400 entradas, sin nombres de juegos ni partidas) y `src/lib/seguridad.ts` (copia diaria de las partidas, las 7 más recientes, y previa antes de recuperar o restaurar). Toda operación nueva relevante se registra.
 
 ## Núcleos
@@ -120,6 +121,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; FCEUmm
 
 ## Estado
 
+- v0.25.0 (16/11/2026): Ajustes por apartados al estilo del iPhone, pedido por el usuario porque la pantalla quedaba muy larga. 139 pruebas unitarias y 55 de navegador.
 - v0.24.1 (16/11/2026): a partir del registro del usuario con Dragon Quest V en DS: la DS se quedaba a 15 imágenes por segundo con la pantalla a 30 Hz (probable modo de bajo consumo) por recuperar demasiados fotogramas de golpe; ahora lo limita. Volumen sin salto de línea. 139 pruebas unitarias y 55 de navegador.
 - v0.24.0 (16/11/2026): bloque C, Mega Drive, Master System y Game Gear con Genesis Plus GX. Terminadas las cuatro mejoras marcadas por el usuario (1, 2, 10 y 13, bloques A a C). 135 pruebas unitarias y 55 de navegador. Pendiente de probar con juegos reales en el iPhone.
 - v0.23.0 (16/11/2026): bloque B, la NES con FCEUmm (puente con `need_fullpath`, cuatro núcleos recompilados). 133 pruebas unitarias y 52 de navegador. Sigue el bloque C (Mega Drive; Master System y Game Gear juntas).
