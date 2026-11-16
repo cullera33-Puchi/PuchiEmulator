@@ -4,7 +4,7 @@
  * se queda donde estaba.
  */
 import { guardarJuego, leerJuego, type EstadoJuego, type Juego } from './almacen'
-import { leerRom, nombreDesdeFichero, tituloInterno } from './sistemas'
+import { CONSOLAS, CONSOLAS_APP, consolaDe, leerRom, nombreDesdeFichero, tituloInterno, type Consola, type Sistema } from './sistemas'
 
 export async function sha1(bytes: Uint8Array): Promise<string> {
   const resumen = await crypto.subtle.digest('SHA-1', bytes as Uint8Array<ArrayBuffer>)
@@ -116,4 +116,19 @@ export function prepararBiblioteca(
   })
   const ordenados = ordenarJuegos(coinciden, orden, tiempos)
   return { favoritos: ordenados.filter((j) => j.favorito), resto: ordenados.filter((j) => !j.favorito) }
+}
+
+/**
+ * Consolas del inicio (v0.26.0, decisión del usuario): las que tienen juegos, de la más jugada a la
+ * menos (tiempo de todas las sesiones, aunque el juego ya no esté), y a igual tiempo, la que tiene
+ * más juegos y después el orden de siempre. Las que no tienen juegos van aparte, al final.
+ */
+export function ordenarConsolas(juegos: Pick<Juego, 'sistema'>[], sesiones: { sistema: Sistema; ms: number }[]): { conJuegos: Consola[]; sinJuegos: Consola[] } {
+  const tiempo = new Map<Consola, number>()
+  for (const s of sesiones) tiempo.set(consolaDe(s.sistema), (tiempo.get(consolaDe(s.sistema)) ?? 0) + s.ms)
+  const cuantos = (c: Consola) => juegos.filter((j) => CONSOLAS_APP[c].sistemas.includes(j.sistema)).length
+  const conJuegos = CONSOLAS.filter((c) => cuantos(c) > 0).sort(
+    (a, b) => (tiempo.get(b) ?? 0) - (tiempo.get(a) ?? 0) || cuantos(b) - cuantos(a) || CONSOLAS.indexOf(a) - CONSOLAS.indexOf(b),
+  )
+  return { conJuegos, sinJuegos: CONSOLAS.filter((c) => cuantos(c) === 0) }
 }

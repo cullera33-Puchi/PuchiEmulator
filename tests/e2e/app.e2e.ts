@@ -377,7 +377,11 @@ test('inicio: cada juego va a su consola, recuentos, seguir jugando y foto de la
   await expect(consolas.getByRole('button', { name: 'Game Boy y Game Boy Color, sin juegos', exact: true })).toBeVisible()
 
   // Foto propia de una consola y vuelta al dibujo con Deshacer
-  await consolas.getByRole('button', { name: 'Opciones de Game Boy y Game Boy Color', exact: true }).click()
+  // Dos columnas (v0.26.0): la última jugada (GBA) va delante y las vacías, juntas al final
+  const orden = await consolas.getByRole('button', { name: /^(Game Boy Advance|Super Nintendo), 1 juego$/ }).evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')))
+  expect(orden).toEqual(['Game Boy Advance, 1 juego', 'Super Nintendo, 1 juego'])
+  await expect(page.getByTestId('sin-juegos')).toContainText('Mega Drive')
+  await consolas.getByRole('button', { name: 'Opciones de Game Boy Advance', exact: true }).click()
   await page.getByTestId('selector-foto-consola').setInputFiles(rom('../../public/icono-512.png'))
   await expect(page.getByText('Foto puesta')).toBeVisible()
   await expect(consolas.locator('img')).toHaveCount(1)
@@ -585,7 +589,8 @@ test('tiempo jugado: se cuenta al jugar y se ve en la biblioteca, el detalle y l
     await expect(page.getByTestId('total')).toContainText(/\d+ s/)
   }
   await page.getByRole('button', { name: 'Consolas' }).click()
-  await expect(page.getByRole('button', { name: 'Estadísticas' })).toContainText(/Esta semana, \d+ s jugadas/)
+  // Desde la v0.26.0, un icono en la cabecera del inicio
+  await expect(page.getByRole('button', { name: 'Estadísticas' })).toBeVisible()
 })
 
 test('Super Nintendo: cuatro botones, tema Super, botones que responden y partida guardada', async ({ page }) => {
@@ -631,7 +636,8 @@ test('Game Boy y Game Boy Color comparten consola y biblioteca, GBA va aparte, y
   ])
   await expect(page.getByText('2 juegos añadidos')).toBeVisible()
   const consolas = page.getByTestId('consolas')
-  await expect(consolas.getByRole('button')).toHaveCount(14) // siete tarjetas con su botón de opciones
+  await expect(consolas.getByRole('button')).toHaveCount(8) // su tarjeta con el botón de opciones y las seis vacías juntas (v0.26.0)
+  await expect(page.getByTestId('sin-juegos').getByRole('button')).toHaveCount(6)
   await expect(consolas.getByRole('button', { name: 'Game Boy y Game Boy Color, 2 juegos', exact: true })).toBeVisible()
 
   await entrar(page, 'Game Boy y Game Boy Color')
@@ -1012,7 +1018,7 @@ test('estado de cada juego: se cambia en sus opciones, filtra la biblioteca y sa
   await expect(porEstado).toContainText('Terminados: 1 este año')
 })
 
-test('seguir jugando: el último juego en grande y los demás recientes debajo', async ({ page }) => {
+test('seguir jugando: el último juego en grande y los demás recientes a su lado', async ({ page }) => {
   await page.goto('/')
   for (const [fichero, nombre] of [
     ['prueba.sfc', /prueba, Super Nintendo/],

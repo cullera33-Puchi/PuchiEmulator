@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.26.0 (16/11/2026)
+
+Inicio sin tanto desplazamiento: propuesta A, elegida por el usuario entre dos maquetas.
+
+- «Seguir jugando» pasa a una fila deslizable de carátulas: el último juego en grande (150 px) con el botón de jugar, su consola, cuándo y el tiempo jugado; los demás recientes a su lado.
+- Consolas en dos columnas, con su dibujo o foto, nombre corto y número de juegos. Las que tienen juegos van de la más jugada a la menos (decisión del usuario; `ordenarConsolas` en `src/lib/biblioteca.ts`: tiempo de todas las sesiones, después número de juegos y después el orden de siempre). Las que no tienen juegos, juntas en una tarjeta «Sin juegos» al final (decisión del usuario). Sin ningún juego, todas como tarjeta.
+- Estadísticas pasa a un icono en la cabecera, junto a «+» y Ajustes.
+- Con cinco consolas con juegos, todo entra en una pantalla del iPhone; antes ocupaba casi dos.
+- Pruebas: 142 unitarias y 55 de navegador.
+
 ## 0.25.0 (16/11/2026)
 
 Ajustes por apartados, pedido por el usuario porque la pantalla quedaba muy larga.

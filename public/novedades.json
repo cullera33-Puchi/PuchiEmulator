@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.26.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Inicio más compacto: casi todo cabe en una pantalla.",
+      "«Seguir jugando» con las carátulas en una fila que se desliza.",
+      "Las consolas en dos columnas, primero las que más juegas; las que no tienen juegos, juntas al final.",
+      "Las estadísticas están ahora en el icono de arriba, junto a «+»."
+    ]
+  },
+  {
     "version": "0.25.0",
     "fecha": "16/11/2026",
     "cambios": [

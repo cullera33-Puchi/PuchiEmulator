@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Juego } from './almacen'
-import { alAbrir, conEstado, estadoDe, prepararBiblioteca, resumenEstados, seguirJugando, terminados } from './biblioteca'
+import { alAbrir, conEstado, estadoDe, ordenarConsolas, prepararBiblioteca, resumenEstados, seguirJugando, terminados } from './biblioteca'
 
 const juego = (id: string, nombre: string, extra: Partial<Juego> = {}): Juego => ({ id, nombre, sistema: 'gba', titulo: '', nombreFichero: '', tam: 0, anadido: 0, ...extra })
 
@@ -68,5 +68,28 @@ describe('estado de cada juego y seguir jugando', () => {
     l[6].estado = 'abandonado'
     l.push(juego('x', 'Sin jugar'))
     expect(seguirJugando(l).map((j) => j.id)).toEqual(['5', '4', '3', '2', '1'])
+  })
+})
+
+describe('ordenarConsolas', () => {
+  const juegos = [{ sistema: 'gba' as const }, { sistema: 'gba' as const }, { sistema: 'nds' as const }, { sistema: 'gbc' as const }, { sistema: 'md' as const }]
+
+  it('primero la más jugada; Game Boy Color cuenta en su consola, y las vacías van aparte', () => {
+    const r = ordenarConsolas(juegos, [
+      { sistema: 'nds', ms: 5_000 },
+      { sistema: 'gbc', ms: 3_000 },
+      { sistema: 'gb', ms: 3_000 },
+      { sistema: 'gba', ms: 1_000 },
+    ])
+    expect(r.conJuegos).toEqual(['gb', 'nds', 'gba', 'md'])
+    expect(r.sinJuegos).toEqual(['nes', 'snes', 'sms'])
+  })
+
+  it('sin tiempo jugado, la que tiene más juegos y después el orden de siempre', () => {
+    expect(ordenarConsolas(juegos, []).conJuegos).toEqual(['gba', 'gb', 'nds', 'md'])
+  })
+
+  it('el tiempo de un juego quitado sigue contando, pero una consola sin juegos no sube', () => {
+    expect(ordenarConsolas(juegos, [{ sistema: 'snes', ms: 9_000 }, { sistema: 'md', ms: 10 }]).conJuegos[0]).toBe('md')
   })
 })

@@ -1263,3 +1263,11 @@ body.en-juego .aviso {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Filas deslizables sin barra de desplazamiento (v0.26.0) */
+.sin-barra {
+  scrollbar-width: none;
+}
+.sin-barra::-webkit-scrollbar {
+  display: none;
+}

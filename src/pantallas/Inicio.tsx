@@ -1,24 +1,25 @@
 /**
- * Pantalla de inicio: «Seguir jugando» con el último juego y una tarjeta por consola, con su dibujo
- * o una foto del usuario y cuántos juegos tiene. Tocar una consola abre su biblioteca.
+ * Pantalla de inicio: «Seguir jugando» en una fila deslizable y las consolas en dos columnas, de la
+ * más jugada a la menos, con su dibujo o una foto del usuario y cuántos juegos tienen; las que no
+ * tienen juegos, juntas al final (v0.26.0). Tocar una consola abre su biblioteca.
  */
 import { BarChart3, ChevronRight, Ellipsis, Play, Plus, Settings, ShieldCheck } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAnadirJuegos } from '../componentes/AnadirJuegos'
 import { DibujoConsola } from '../componentes/Consolas'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
 import { altavoz } from '../emulador/audio'
 import { leerAjustes, useAjustes } from '../lib/ajustes'
 import { borrarCaratula, contarPartidas, guardarCaratula, leerCaratula, leerEstado, listarCaratulas, listarJuegos, listarSesiones, type Juego } from '../lib/almacen'
-import { delPeriodo, duracion, total, type SesionJuego } from '../lib/estadisticas'
+import { duracion, type SesionJuego } from '../lib/estadisticas'
 import { reducirImagen } from '../lib/caratulas'
-import { seguirJugando } from '../lib/biblioteca'
+import { ordenarConsolas, seguirJugando } from '../lib/biblioteca'
 import { aplazarCopia, diasSinCopia, exportarCopia, necesitaCopia } from '../lib/copias'
 import { APP_VERSION } from '../lib/version'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { cuando, plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
-import { CONSOLAS, CONSOLAS_APP, SISTEMAS, type Consola } from '../lib/sistemas'
+import { CONSOLAS_APP, SISTEMAS, type Consola } from '../lib/sistemas'
 
 interface Props {
   alEstadisticas: () => void
@@ -71,6 +72,8 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
 
   const tiempoDe = (id: string) => sesiones.filter((x) => x.juegoId === id).reduce((a, x) => a + x.ms, 0)
 
+  const orden = useMemo(() => ordenarConsolas(juegos ?? [], sesiones), [juegos, sesiones])
+
   const cuantos = (c: Consola) => juegos?.filter((j) => CONSOLAS_APP[c].sistemas.includes(j.sistema)).length ?? 0
 
   const ponerFoto = async (f: File | undefined) => {
@@ -102,6 +105,11 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
       <div className="sticky top-0 z-10 -mx-4 mb-3 flex h-11 items-center justify-between bg-[#F2F2F7]/85 px-4 backdrop-blur-xl dark:bg-black/85">
         <h1 className="text-[22px] font-bold">Consolas</h1>
         <div className="-mr-2 flex items-center">
+          {sesiones.length > 0 && (
+            <button className="boton-icono" aria-label="Estadísticas" onClick={alEstadisticas}>
+              <BarChart3 size={22} />
+            </button>
+          )}
           <button className="boton-icono" aria-label="Añadir juegos" onClick={anadir.abrir}>
             <Plus size={24} />
           </button>
@@ -131,101 +139,101 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
       {ultimo && (
         <>
           <p className="cabecera-grupo">Seguir jugando</p>
-          <button
-            className="lista mb-6 flex w-full items-center gap-3 p-3 text-left active:opacity-70"
-            aria-label={`Seguir jugando a ${ultimo.juego.nombre}`}
-            onClick={() => {
-              void altavoz.activar(leerAjustes().sonarEnSilencio)
-              alJugar(ultimo.juego, ultimo.reanudar)
-            }}
-          >
-            <span className="size-16 shrink-0 overflow-hidden rounded-lg" style={{ background: SISTEMAS[ultimo.juego.sistema].color }}>
-              {ultimo.caratula && <img src={ultimo.caratula} alt="" className="h-full w-full object-cover" />}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[17px] font-semibold">{ultimo.juego.nombre}</span>
-              <span className="block truncate text-[13px] text-zinc-500">
-                {SISTEMAS[ultimo.juego.sistema].nombre}, {cuando(ultimo.juego.ultimaVez ?? 0)}
+          {/* Fila deslizable (v0.26.0): el último juego más grande, con su botón de jugar */}
+          <div className="sin-barra -mx-4 mb-5 flex items-start snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1" data-testid="seguir-jugando">
+            <button
+              className="w-[150px] shrink-0 snap-start text-left active:opacity-70"
+              aria-label={`Seguir jugando a ${ultimo.juego.nombre}`}
+              onClick={() => {
+                void altavoz.activar(leerAjustes().sonarEnSilencio)
+                alJugar(ultimo.juego, ultimo.reanudar)
+              }}
+            >
+              <span className="relative block size-[150px] overflow-hidden rounded-2xl shadow-sm" style={{ background: SISTEMAS[ultimo.juego.sistema].color }}>
+                {ultimo.caratula ? (
+                  <img src={ultimo.caratula} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex h-full items-end p-2.5 pr-12 text-[14px] leading-tight font-semibold text-white">{ultimo.juego.nombre}</span>
+                )}
+                <span className="absolute right-2 bottom-2 grid size-9 place-items-center rounded-full bg-acento text-white shadow-md dark:bg-acento-oscuro">
+                  <Play size={17} fill="currentColor" />
+                </span>
               </span>
-              {tiempoDe(ultimo.juego.id) > 0 && <span className="block truncate text-[13px] text-zinc-500">{duracion(tiempoDe(ultimo.juego.id))} jugadas</span>}
-            </span>
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-acento text-white dark:bg-acento-oscuro">
-              <Play size={20} fill="currentColor" />
-            </span>
-          </button>
-          {recientes.length > 1 && (
-            <div className="-mt-3 mb-6 grid grid-cols-4 gap-3" data-testid="otros-recientes">
-              {recientes.slice(1).map((r) => (
-                <button
-                  key={r.juego.id}
-                  className="min-w-0 text-left active:opacity-70"
-                  aria-label={`${r.juego.nombre}, ${SISTEMAS[r.juego.sistema].nombre}: seguir`}
-                  onClick={() => {
-                    void altavoz.activar(leerAjustes().sonarEnSilencio)
-                    alJugar(r.juego, r.reanudar)
-                  }}
-                >
-                  <span className="block aspect-square overflow-hidden rounded-xl shadow-sm" style={{ background: SISTEMAS[r.juego.sistema].color }}>
-                    {r.caratula ? (
-                      <img src={r.caratula} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="flex h-full items-end p-1.5 text-[11px] leading-tight font-semibold text-white">{r.juego.nombre}</span>
-                    )}
-                  </span>
-                  <span className="mt-1 block truncate text-[12px] text-zinc-600 dark:text-zinc-400">{r.juego.nombre}</span>
-                </button>
-              ))}
-            </div>
-          )}
+              <span className="mt-1.5 block truncate text-[14px] font-semibold">{ultimo.juego.nombre}</span>
+              <span className="block truncate text-[12px] text-zinc-500">{SISTEMAS[ultimo.juego.sistema].nombre}</span>
+              <span className="block truncate text-[12px] text-zinc-500">
+                {cuando(ultimo.juego.ultimaVez ?? 0)}
+                {tiempoDe(ultimo.juego.id) > 0 && `, ${duracion(tiempoDe(ultimo.juego.id))}`}
+              </span>
+            </button>
+            {recientes.length > 1 && (
+              <div className="flex shrink-0 gap-3" data-testid="otros-recientes">
+                {recientes.slice(1).map((r) => (
+                  <button
+                    key={r.juego.id}
+                    className="w-24 shrink-0 snap-start text-left active:opacity-70"
+                    aria-label={`${r.juego.nombre}, ${SISTEMAS[r.juego.sistema].nombre}: seguir`}
+                    onClick={() => {
+                      void altavoz.activar(leerAjustes().sonarEnSilencio)
+                      alJugar(r.juego, r.reanudar)
+                    }}
+                  >
+                    <span className="block size-24 overflow-hidden rounded-xl shadow-sm" style={{ background: SISTEMAS[r.juego.sistema].color }}>
+                      {r.caratula ? (
+                        <img src={r.caratula} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="flex h-full items-end p-1.5 text-[11px] leading-tight font-semibold text-white">{r.juego.nombre}</span>
+                      )}
+                    </span>
+                    <span className="mt-1.5 block truncate text-[12px] text-zinc-600 dark:text-zinc-400">{r.juego.nombre}</span>
+                    <span className="block truncate text-[12px] text-zinc-500">{cuando(r.juego.ultimaVez ?? 0)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
 
-      {sesiones.length > 0 && (
-        <button className="lista mb-6 flex w-full items-center gap-3 p-3 text-left active:opacity-70" onClick={alEstadisticas} aria-label="Estadísticas">
-          <span className="grid size-11 shrink-0 place-items-center rounded-[10px] bg-acento text-white dark:bg-acento-oscuro">
-            <BarChart3 size={24} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[17px] font-semibold">Estadísticas</span>
-            <span className="block truncate text-[13px] text-zinc-500">Esta semana, {duracion(total(delPeriodo(sesiones, 'semana', Date.now())))} jugadas</span>
-          </span>
-          <ChevronRight size={18} className="text-zinc-400" />
-        </button>
-      )}
-
-      <div className="flex flex-col gap-3" data-testid="consolas">
-        {CONSOLAS.map((s) => {
+      {/* Consolas en dos columnas (v0.26.0): las que tienen juegos, de la más jugada a la menos, y
+          las vacías juntas al final. Sin ningún juego, todas como tarjeta. */}
+      {juegos && <p className="cabecera-grupo">{orden.conJuegos.length ? 'Tus consolas' : 'Consolas'}</p>}
+      <div className="grid grid-cols-2 gap-3" data-testid="consolas">
+        {(orden.conJuegos.length ? orden.conJuegos : orden.sinJuegos).map((s) => {
           const info = CONSOLAS_APP[s]
           const n = cuantos(s)
           const foto = fotos.get(claveFotoConsola(s))
           return (
             <div key={s} className="relative">
               <button
-                className="relative flex h-40 w-full items-stretch overflow-hidden rounded-2xl bg-white text-left shadow-sm transition-transform active:scale-[0.98] dark:bg-zinc-900"
+                className="relative flex h-full min-h-[142px] w-full flex-col overflow-hidden rounded-2xl bg-white p-3 text-left shadow-sm transition-transform active:scale-[0.97] dark:bg-zinc-900"
                 aria-label={`${info.nombre}, ${n ? plural(n, 'juego', 'juegos') : 'sin juegos'}`}
                 onClick={() => alAbrirConsola(s)}
               >
-                <span className="absolute inset-0 opacity-20" style={{ background: `linear-gradient(120deg, transparent 30%, ${info.color})` }} />
-                <span className="relative z-[1] flex flex-1 flex-col justify-between p-4">
-                  <span>
-                    <span className="block text-[22px] leading-tight font-bold">{info.nombre}</span>
-                    {info.descripcion && <span className="block text-[13px] text-zinc-500">{info.descripcion}</span>}
-                    <span className="block text-[15px] text-zinc-500">{n ? plural(n, 'juego', 'juegos') : 'Sin juegos'}</span>
-                  </span>
-                  <span className="flex items-center text-[15px] text-acento dark:text-acento-oscuro">
-                    Ver juegos <ChevronRight size={18} />
-                  </span>
-                </span>
-                <span className="relative z-[1] flex w-[48%] items-center justify-center py-4 pr-4">
+                <span className="absolute inset-0 opacity-15" style={{ background: `linear-gradient(160deg, transparent 40%, ${info.color})` }} />
+                <span className="relative z-[1] flex h-[78px] items-center justify-center px-5 [&_svg]:max-w-full">
                   {foto ? <img src={foto} alt="" className="h-full w-full rounded-xl object-cover" /> : <DibujoConsola consola={s} />}
                 </span>
+                <span className="relative z-[1] mt-2 block text-[15px] leading-tight font-semibold">{info.titulo}</span>
+                <span className="relative z-[1] block text-[13px] text-zinc-500">{n ? plural(n, 'juego', 'juegos') : 'Sin juegos'}</span>
               </button>
-              <button className="absolute top-2 right-2 z-[2] grid size-9 place-items-center rounded-full bg-black/5 text-zinc-600 active:opacity-50 dark:bg-white/10 dark:text-zinc-300" aria-label={`Opciones de ${info.nombre}`} onClick={() => setOpciones(s)}>
+              <button className="absolute top-1.5 right-1.5 z-[2] grid size-8 place-items-center rounded-full text-zinc-500 active:opacity-50 dark:text-zinc-400" aria-label={`Opciones de ${info.nombre}`} onClick={() => setOpciones(s)}>
                 <Ellipsis size={18} />
               </button>
             </div>
           )
         })}
+        {orden.conJuegos.length > 0 && orden.sinJuegos.length > 0 && (
+          <div className={`lista flex flex-col justify-center py-1 ${orden.conJuegos.length % 2 === 0 ? 'col-span-2' : ''}`} data-testid="sin-juegos">
+            <p className="px-3 pt-2 pb-1 text-[13px] text-zinc-500">Sin juegos</p>
+            {orden.sinJuegos.map((s) => (
+              <button key={s} className="flex items-center gap-1 px-3 py-1.5 text-left text-[15px] leading-tight active:opacity-50" aria-label={`${CONSOLAS_APP[s].nombre}, sin juegos`} onClick={() => alAbrirConsola(s)}>
+                <span className="min-w-0 flex-1">{CONSOLAS_APP[s].titulo}</span>
+                <ChevronRight size={16} className="shrink-0 text-zinc-400" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {juegos && juegos.length === 0 && <p className="pie-grupo mt-3 text-center">Añade tus juegos con «+». Cada uno va solo a su consola.</p>}
 
