@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { bit, botonesDeMando, direccionCruceta, palancaDeMando } from './botones'
-import { aN64 } from './nucleo'
+import { aN64, funcionesDelFallo } from './nucleo'
 
 describe('direccionCruceta', () => {
   const grados = (g: number, r = 1): [number, number] => [Math.cos((g * Math.PI) / 180) * r, Math.sin((g * Math.PI) / 180) * r]
@@ -86,5 +86,15 @@ describe('aN64', () => {
     expect(aN64(bit('B'))).toBe(bit('Y'))
     expect(aN64(bit('A') | bit('B') | bit('START') | bit('Z'))).toBe(bit('B') | bit('Y') | bit('START') | bit('Z'))
     expect(aN64(bit('C_DERECHA') | bit('R'))).toBe(bit('R'))
+  })
+})
+
+describe('funcionesDelFallo', () => {
+  it('saca los nombres de las funciones del núcleo de la pila de Safari y de la de Chrome', () => {
+    const safari = ['gen_interrupt@http://x/nucleos/n64.wasm:wasm-function[812]:0x1a2b', 'cached_interp_BEQ@http://x/nucleos/n64.wasm:wasm-function[90]:0x10', 'doRewind@http://x/nucleos/n64.js:7:100'].join('\n')
+    expect(funcionesDelFallo(safari)).toEqual(['gen_interrupt', 'cached_interp_BEQ'])
+    const chrome = ['RuntimeError: unreachable', '    at n64.wasm.opengl::Foo() (http://x/n64.wasm:wasm-function[5]:0x1)', '    at n64.wasm.gen_interrupt (http://x/n64.wasm:wasm-function[6]:0x2)', '    at wrapper (http://x/n64.js:7:1)'].join('\n')
+    expect(funcionesDelFallo(chrome)).toEqual(['opengl::Foo', 'gen_interrupt'])
+    expect(funcionesDelFallo('Error: nada\n    at f (x.js:1:1)')).toEqual([])
   })
 })

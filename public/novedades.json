@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.32.1",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Nintendo 64: corregido un fallo con la tarjeta gráfica que copiaba datos erróneos al juego en cada imagen y podía colgarlo.",
+      "Nintendo 64 más ligera: menos trabajo por imagen para el iPhone.",
+      "Algunos efectos especiales de la N64 se dejan de ver a cambio de más velocidad.",
+      "Si se vuelve a colgar, el registro dice dónde: pásamelo."
+    ]
+  },
+  {
     "version": "0.32.0",
     "fecha": "16/11/2026",
     "cambios": [

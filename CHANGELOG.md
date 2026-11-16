@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.32.1 (16/11/2026)
+
+Nintendo 64, a partir del registro del usuario con un juego real: iba a unas 15 imágenes por segundo (la consola pide 50) con parones de hasta 0,7 s, y el núcleo falló a los dos minutos («Unreachable code»).
+
+- GLideN64 leía la imagen de la tarjeta gráfica con `glMapBufferRange` de lectura, que WebGL no tiene: Emscripten devolvía un puntero nulo y se copiaba a la memoria de la consola lo que hubiera al principio de la memoria del núcleo, en cada fotograma. Ahora:
+  - Parche para WebGL 2 (`nucleos/n64_webgl.patch`, aplicado por `compilar.sh`): lee con `glReadPixels` y `glGetBufferSubData`.
+  - La copia de la imagen y de la profundidad a la memoria de la consola van desactivadas (`EnableCopyColorToRDRAM` y `EnableCopyDepthToRDRAM`). La de profundidad dibujaba cada triángulo otra vez en el procesador. Se pierden algunos efectos (fotos hechas dentro del juego, destellos que deberían quedar detrás de las paredes).
+- Asyncify solo en la ruta que cambia de corrutina (`-sASYNCIFY_ONLY`, `nucleos/n64_asyncify.txt`): antes Emscripten instrumentaba todo, GLideN64 incluido, por las llamadas indirectas. El núcleo pasa de 3,3 a 2,7 MB (con los nombres de las funciones). Con la ROM de prueba no se nota (casi no usa GLideN64); en los juegos, se verá en el registro.
+- Si el núcleo falla, el registro dice en qué funciones (`funcionesDelFallo`; núcleo con `--profiling-funcs` y el error original guardado en el módulo).
+- Pruebas: 158 unitarias y 64 de navegador.
+
 ## 0.32.0 (16/11/2026)
 
 Nintendo 64 en pruebas, pedida por el usuario (fila 7 de la hoja de ruta y 17 del análisis).

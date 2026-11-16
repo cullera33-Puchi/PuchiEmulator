@@ -175,6 +175,11 @@ compilar_n64() {
 	export EMCC_CFLAGS
 	traer "$N64_REPO" "$N64_COMMIT" "$TRABAJO/n64"
 	traer "$ZLIB_REPO" "$ZLIB_COMMIT" "$TRABAJO/zlib"
+	# Parche para WebGL 2 (v0.32.1, nucleos/n64_webgl.patch): GLideN64 lee la imagen de la tarjeta gráfica
+	# con glMapBufferRange de lectura, que WebGL no tiene (devolvía un puntero nulo); se lee con
+	# glReadPixels y glGetBufferSubData. Se deja el código como en el commit y se aplica cada vez
+	git -C "$TRABAJO/n64" checkout -q -- .
+	git -C "$TRABAJO/n64" apply "$RAIZ/nucleos/n64_webgl.patch"
 	# Su Makefile pide el zlib de los «ports» de Emscripten, que se descarga aparte: se usa el nuestro.
 	# xxHash, con SIMD de WebAssembly, carga una capa de NEON que no compila en C++: va sin ella
 	(cd "$TRABAJO/n64" && emmake make platform=emscripten GLES3=1 clean >/dev/null &&
@@ -184,9 +189,26 @@ compilar_n64() {
 	# variables globales sin valor inicial (g_dev, las funciones de GL de glsym)
 	(cd "$TRABAJO/n64" && find "$TRABAJO/n64" -name '*.o' ! -path '*/libretro-common/libco/*' | sort > "$TRABAJO/n64.piezas")
 	emcc -O3 -c "$RAIZ/nucleos/libco_emscripten.c" -I"$TRABAJO/n64/libretro-common/include" -o "$TRABAJO/libco_emscripten.o"
+	# Asyncify solo en las funciones que pueden estar en la pila al cambiar de corrutina (v0.32.1): el
+	# camino de la consola hasta la interrupción de vídeo (new_vi), donde cede el control una vez por
+	# fotograma, y las funciones del puente que la reanudan. Con todo instrumentado (por defecto, por las
+	# llamadas indirectas), GLideN64 y el resto iban más lentos. Si falta una, el núcleo falla al cambiar.
+	# De las instrucciones del intérprete, solo las que pueden llegar a la interrupción: saltos (ejecutan
+	# la siguiente por puntero), escrituras en memoria (registros MI), ERET, MTC0 y fin y compilación de
+	# bloque. Para rehacer la lista: enlazar con -sASYNCIFY_ADVISE -sASYNCIFY_IGNORE_INDIRECT
+	local solo
+	solo="[$(grep -v '^$' "$RAIZ/nucleos/n64_asyncify.txt" | sed 's/.*/"&"/' | paste -sd,)]"
+	# --profiling-funcs: los nombres de las funciones, para saber dónde falla si falla (unos 250 KB)
+	# La lista lleva corchetes y asteriscos: sin expansión de nombres de fichero mientras se enlaza
+	set -f
 	PUENTE_EXTRA="-DPF_GL" \
-		ENLACE_EXTRA="-sINITIAL_MEMORY=134217728 -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES3 -sGL_ENABLE_GET_PROC_ADDRESS" \
+		ENLACE_EXTRA="-sINITIAL_MEMORY=134217728 -sASYNCIFY -sASYNCIFY_ONLY=$solo --profiling-funcs -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES3 -sGL_ENABLE_GET_PROC_ADDRESS" \
 		enlazar n64 em++ "@$TRABAJO/n64.piezas" "$TRABAJO/libco_emscripten.o"
+	set +f
+	# El error original de un fallo dentro del núcleo (con las funciones donde ocurre) se pierde al
+	# convertirlo en «Aborted(...)»: se guarda en el módulo para que la app lo anote en el registro
+	sed -i 's/catch(e){abort(e)}/catch(e){Module.errorOriginal=e;abort(e)}/' "$SALIDA/n64.js"
+	grep -q 'Module.errorOriginal=e' "$SALIDA/n64.js" || { echo "No se ha podido marcar el error original en n64.js" >&2; exit 1; }
 }
 
 for nucleo in ${@:-mgba snes9x melonds fceumm genesis}; do

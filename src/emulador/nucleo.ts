@@ -38,6 +38,8 @@ interface Modulo {
   _pf_imagen_gl?(): number
   _pf_resultado?(): number
   specialHTMLTargets?: Record<string, unknown>
+  /** Nintendo 64 (v0.32.1): el error original de un fallo dentro del núcleo, con su pila */
+  errorOriginal?: unknown
   FS?: {
     mkdirTree(ruta: string): void
     writeFile(ruta: string, datos: Uint8Array): void
@@ -166,6 +168,12 @@ export const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     'mupen64plus-aspect': '4:3',
     'mupen64plus-EnableShadersStorage': 'False',
     'mupen64plus-pak1': 'memory',
+    // v0.32.1: sin copiar la imagen ni la profundidad a la memoria de la consola. La copia de la imagen
+    // lee de la tarjeta gráfica con glMapBufferRange, que WebGL no tiene (copiaba memoria cualquiera), y
+    // la de profundidad dibuja cada triángulo otra vez en el procesador. Algunos efectos se pierden
+    // (fotos hechas dentro del juego, destellos que deberían taparse detrás de las paredes)
+    'mupen64plus-EnableCopyColorToRDRAM': 'Off',
+    'mupen64plus-EnableCopyDepthToRDRAM': 'Off',
   },
 }
 
@@ -191,6 +199,25 @@ export function aN64(mascara: number): number {
   return resto | (mascara & A ? B : 0) | (mascara & B ? Y : 0)
 }
 
+/**
+ * Funciones del núcleo donde ha fallado, de la más interna a la de fuera, a partir de la pila del error
+ * original (v0.32.1). Solo nombres de funciones del núcleo: nada del juego. Admite el formato de Safari
+ * («nombre@…wasm…» o «wasm-function[nombre]») y el de Chrome («at n64.wasm.nombre (…)»).
+ */
+export function funcionesDelFallo(pila: string, maximo = 10): string[] {
+  const nombres: string[] = []
+  for (const linea of pila.split('\n')) {
+    if (!/wasm/.test(linea)) continue
+    // Por orden: Chrome, nombre delante de la @ (Safari) y, si no hay nombre, el número de la función
+    const m = /\.wasm\.([^\s(]+)/.exec(linea) ?? /^\s*([^@\s]+)@/.exec(linea) ?? /wasm-function\[([^\]]+)\]/.exec(linea)
+    if (!m) continue
+    const nombre = m[1].replace(/\(.*$/, '').slice(0, 60)
+    if (nombres[nombres.length - 1] !== nombre) nombres.push(nombre)
+    if (nombres.length >= maximo) break
+  }
+  return nombres
+}
+
 export class Nucleo {
   private readonly m: Modulo
   readonly nombre: NombreNucleo
@@ -209,6 +236,18 @@ export class Nucleo {
    */
   private resultado(devuelto: number): number {
     return this.m._pf_resultado ? this.m._pf_resultado() : devuelto
+  }
+
+  /** Llama al núcleo; si falla, el error lleva las funciones donde ha ocurrido (v0.32.1). */
+  private llamar<T>(f: () => T): T {
+    try {
+      return f()
+    } catch (e) {
+      const original = this.m.errorOriginal as { stack?: string } | undefined
+      const funciones = original?.stack ? funcionesDelFallo(original.stack) : []
+      if (!funciones.length) throw e
+      throw new Error(`${(e as Error)?.message ?? String(e)} | en: ${funciones.join(' < ')}`)
+    }
   }
 
   static async cargar(nombre: NombreNucleo, extra: Record<string, string> = {}): Promise<Nucleo> {
@@ -265,7 +304,7 @@ export class Nucleo {
     this.m.HEAPU8.set(rom, p)
     const ext = this.texto(extension)
     // El puente libera la copia de la ROM cuando el núcleo ya tiene la suya
-    const ok = this.resultado(this.m._pf_cargar(p, rom.byteLength, ext)) === 1
+    const ok = this.llamar(() => this.resultado(this.m._pf_cargar(p, rom.byteLength, ext))) === 1
     this.m._free(ext)
     return ok
   }
@@ -275,7 +314,7 @@ export class Nucleo {
   }
 
   reiniciar(): void {
-    this.m._pf_reiniciar()
+    this.llamar(() => this.m._pf_reiniciar())
   }
 
   botones(mascara: number): void {
@@ -316,7 +355,7 @@ export class Nucleo {
 
   /** Ejecuta un fotograma; true si hay imagen nueva. */
   fotograma(): boolean {
-    return this.resultado(this.m._pf_fotograma()) === 1
+    return this.llamar(() => this.resultado(this.m._pf_fotograma())) === 1
   }
 
   get fps(): number {
@@ -391,7 +430,7 @@ export class Nucleo {
     if (!tam) return null
     const p = this.m._malloc(tam)
     try {
-      if (this.resultado(this.m._pf_guardar_estado(p, tam)) !== 1) return null
+      if (this.llamar(() => this.resultado(this.m._pf_guardar_estado(p, tam))) !== 1) return null
       return this.m.HEAPU8.slice(p, p + tam)
     } finally {
       this.m._free(p)
@@ -402,7 +441,7 @@ export class Nucleo {
     const p = this.m._malloc(datos.byteLength)
     try {
       this.m.HEAPU8.set(datos, p)
-      return this.resultado(this.m._pf_cargar_estado(p, datos.byteLength)) === 1
+      return this.llamar(() => this.resultado(this.m._pf_cargar_estado(p, datos.byteLength))) === 1
     } finally {
       this.m._free(p)
     }

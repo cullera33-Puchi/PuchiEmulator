@@ -1,0 +1,62 @@
+diff -ru a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp b/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp
+--- a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp
++++ b/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp
+@@ -4,6 +4,11 @@
+ #include "opengl_CachedFunctions.h"
+ #include "opengl_Utils.h"
+ #include "opengl_BufferManipulationObjectFactory.h"
++#ifdef __EMSCRIPTEN__
++#include <vector>
++// WebGL 2 (Emscripten): read back a buffer without mapping it (PuchiEmulator)
++extern "C" void glGetBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, void *data);
++#endif
+ 
+ #ifdef OS_ANDROID
+ #include <Graphics/OpenGLContext/GraphicBuffer/GraphicBufferWrapper.h>
+@@ -153,12 +158,21 @@
+ 	{
+ 		if (_range > m_size)
+ 			_range = static_cast<u32>(m_size);
++#ifdef __EMSCRIPTEN__
++		// WebGL 2 has no glMapBufferRange for reading: copy the range with glGetBufferSubData (PuchiEmulator)
++		m_data.resize(_range);
++		glGetBufferSubData(GL_PIXEL_PACK_BUFFER, _offset, _range, m_data.data());
++		return m_data.data();
++#else
+ 		return glMapBufferRange(GL_PIXEL_PACK_BUFFER, _offset, _range, GL_MAP_READ_BIT);
++#endif
+ 	}
+ 
+ 	void closeReadBuffer() override
+ 	{
++#ifndef __EMSCRIPTEN__
+ 		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
++#endif
+ 	}
+ 
+ 	void bind() override {
+@@ -173,6 +187,9 @@
+ 	CachedBindBuffer * m_bind;
+ 	size_t m_size;
+ 	GLuint m_PBO;
++#ifdef __EMSCRIPTEN__
++	std::vector<u8> m_data;
++#endif
+ };
+ 
+ template<typename T>
+diff -ru a/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp b/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp
+--- a/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp
++++ b/GLideN64/src/Graphics/OpenGLContext/opengl_ContextImpl.cpp
+@@ -384,6 +384,11 @@
+ 		return new ColorBufferReaderWithEGLImage(_pTexture, m_cachedFunctions->getCachedBindTexture());
+ #endif
+ 
++#ifdef __EMSCRIPTEN__
++	// WebGL 2 has no glMapBufferRange for reading: read the pixels directly (PuchiEmulator)
++	return new ColorBufferReaderWithReadPixels(_pTexture);
++#endif
++
+ 	if (m_glInfo.bufferStorage && m_glInfo.renderer != Renderer::Intel)
+ 		return new ColorBufferReaderWithBufferStorage(_pTexture, m_cachedFunctions->getCachedBindBuffer());
+ 
