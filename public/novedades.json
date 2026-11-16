@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.26.1",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Al volver deslizando desde el borde se ve debajo la pantalla anterior, como en el iPhone, sin pantallazo negro.",
+      "También en los apartados de Ajustes.",
+      "Los títulos de arriba bajan un poco y ya no se ven borrosos bajo la hora."
+    ]
+  },
+  {
     "version": "0.26.0",
     "fecha": "16/11/2026",
     "cambios": [

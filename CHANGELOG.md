@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.26.1 (16/11/2026)
+
+Dos cosas informadas por el usuario con captura y registro.
+
+- Volver deslizando: antes, detrás de la pantalla solo había fondo negro y, al soltar, quedaba un instante en negro antes de que entrara Consolas. Ahora el inicio se queda montado debajo de las pantallas apiladas (capa `fondo` en `App.tsx`, oculta en reposo) y el gesto mueve toda la capa: debajo se ve Consolas, desplazada y algo más oscura como en iOS, y al soltar pasa a ser la de arriba sin animación ni recarga (`Inicio` se pone al día con `activa`). Lo mismo en los apartados de Ajustes: la lista se queda debajo y el apartado va encima, con su propio desplazamiento (`useVolverDeslizando` con `mover` y `fondo`).
+- Cabecera: su fondo cubre ahora también la franja de la hora y el texto baja 8 puntos (`.cabecera-fija`), fuera de la zona que el iPhone difumina bajo la barra de estado. En el inicio, la biblioteca, las estadísticas y Ajustes.
+- Pruebas: 142 unitarias y 56 de navegador (nueva: volver deslizando con toques reales, a medias y del todo, en una biblioteca y en un apartado de Ajustes).
+
 ## 0.26.0 (16/11/2026)
 
 Inicio sin tanto desplazamiento: propuesta A, elegida por el usuario entre dos maquetas.

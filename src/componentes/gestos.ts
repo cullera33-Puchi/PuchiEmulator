@@ -15,7 +15,20 @@ export function seVolvioDeslizando(): boolean {
   return si
 }
 
-export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver: () => void): void {
+export interface OpcionesVolver {
+  /** Lo que sigue al dedo; por defecto, la capa de la pantalla (App) o el propio elemento */
+  mover?: () => HTMLElement | null
+  /** La pantalla de debajo, que se ve mientras se desliza (v0.26.1); por defecto, la capa de fondo de App */
+  fondo?: () => HTMLElement | null
+}
+
+/** Cuánto se desplaza la pantalla de debajo al empezar, como en iOS */
+const PARALAJE = 30
+const CURVA = 'cubic-bezier(.32,.72,0,1)'
+
+export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver: () => void, opciones?: OpcionesVolver): void {
+  const mover = opciones?.mover
+  const fondoDe = opciones?.fondo
   useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -26,6 +39,23 @@ export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver
     let velocidad = 0
     let activo = false
     let siguiendo = false
+    let movido: HTMLElement = el
+    let fondo: HTMLElement | null = null
+    let limpieza = 0
+
+    const colocar = (dx: number) => {
+      movido.style.transform = `translate3d(${Math.max(0, dx)}px, 0, 0)`
+      if (fondo) {
+        const f = Math.min(1, Math.max(0, dx) / window.innerWidth)
+        fondo.style.transform = `translate3d(${-PARALAJE * (1 - f)}%, 0, 0)`
+        fondo.style.filter = `brightness(${0.94 + 0.06 * f})`
+      }
+    }
+    const limpiar = (e: HTMLElement | null) => {
+      if (!e) return
+      for (const k of ['transform', 'transition', 'filter', 'visibility', 'boxShadow'] as const) e.style[k] = ''
+    }
+
     const alEmpezar = (e: TouchEvent) => {
       const t = e.touches[0]
       activo = e.touches.length === 1 && t.clientX <= BORDE
@@ -46,14 +76,23 @@ export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver
         }
         if (dx < 10) return
         siguiendo = true
-        el.style.transition = 'none'
+        window.clearTimeout(limpieza)
+        // En App se mueve toda la capa y debajo se ve la pantalla anterior
+        movido = mover?.() ?? (el.closest('.capa') as HTMLElement | null) ?? el
+        fondo = fondoDe ? fondoDe() : movido === el ? null : document.querySelector<HTMLElement>('.capa.fondo')
+        movido.style.transition = 'none'
+        movido.style.boxShadow = '-12px 0 32px rgb(0 0 0 / 0.15)'
+        if (fondo) {
+          fondo.style.transition = 'none'
+          fondo.style.visibility = 'visible'
+        }
       }
       e.preventDefault()
       const dt = e.timeStamp - ultimaT
       if (dt > 0) velocidad = 0.6 * ((t.clientX - ultimaX) / dt) + 0.4 * velocidad
       ultimaX = t.clientX
       ultimaT = e.timeStamp
-      el.style.transform = `translate3d(${Math.max(0, dx)}px, 0, 0)`
+      colocar(dx)
     }
     const alSoltar = (e: TouchEvent) => {
       if (!activo || !siguiendo) {
@@ -63,16 +102,29 @@ export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver
       activo = false
       const dx = ultimaX - inicioX
       const v = e.timeStamp - ultimaT > 80 ? 0 : velocidad
-      el.style.transition = 'transform 0.5s cubic-bezier(.32,.72,0,1)'
+      const transicion = `transform 0.5s ${CURVA}, filter 0.5s ${CURVA}`
+      movido.style.transition = transicion
+      if (fondo) fondo.style.transition = transicion
+      const f = fondo
+      const m = movido
       if (e.type === 'touchend' && (dx > window.innerWidth / 3 || (v > 0.4 && dx > 30))) {
-        el.style.transform = 'translate3d(100%, 0, 0)'
+        colocar(window.innerWidth)
         vibrar()
         window.setTimeout(() => {
           volvioDeslizando = Date.now()
           alVolver()
         }, 260)
+        // La pantalla de debajo pasa a ser la actual: se le quita lo puesto aquí al acabar
+        limpieza = window.setTimeout(() => {
+          limpiar(f)
+          limpiar(m)
+        }, 520)
       } else {
-        el.style.transform = ''
+        colocar(0)
+        limpieza = window.setTimeout(() => {
+          limpiar(f)
+          limpiar(m)
+        }, 520)
       }
     }
     el.addEventListener('touchstart', alEmpezar, { passive: true })
@@ -85,5 +137,5 @@ export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver
       el.removeEventListener('touchend', alSoltar)
       el.removeEventListener('touchcancel', alSoltar)
     }
-  }, [ref, alVolver])
+  }, [ref, alVolver, mover, fondoDe])
 }

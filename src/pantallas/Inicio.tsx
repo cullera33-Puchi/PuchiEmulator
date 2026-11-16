@@ -22,6 +22,8 @@ import { registrar } from '../lib/registro'
 import { CONSOLAS_APP, SISTEMAS, type Consola } from '../lib/sistemas'
 
 interface Props {
+  /** Falso mientras está debajo de otra pantalla (v0.26.1): al volver a ser la de arriba, se recarga */
+  activa?: boolean
   alEstadisticas: () => void
   alAbrirConsola: (c: Consola) => void
   alJugar: (juego: Juego, reanudar: boolean) => void
@@ -30,7 +32,7 @@ interface Props {
 
 export const claveFotoConsola = (c: Consola) => `consola-${c}`
 
-export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: Props) {
+export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar, alAjustes }: Props) {
   const { avisar } = useInterfaz()
   const [juegos, setJuegos] = useState<Juego[] | null>(null)
   // «Seguir jugando»: el último en grande y hasta cuatro más (v0.15.0)
@@ -68,6 +70,16 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
     }
   }, [recargar])
 
+  // Se queda montada debajo de las pantallas apiladas: al volver, los recuentos y recientes se ponen al día
+  const primeraVez = useRef(true)
+  useEffect(() => {
+    if (primeraVez.current) {
+      primeraVez.current = false
+      return
+    }
+    if (activa) void recargar()
+  }, [activa, recargar])
+
   const anadir = useAnadirJuegos(recargar)
 
   const tiempoDe = (id: string) => sesiones.filter((x) => x.juegoId === id).reduce((a, x) => a + x.ms, 0)
@@ -101,8 +113,8 @@ export function Inicio({ alEstadisticas, alAbrirConsola, alJugar, alAjustes }: P
   }
 
   return (
-    <div className="mx-auto min-h-dvh max-w-lg px-4" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
-      <div className="sticky top-0 z-10 -mx-4 mb-3 flex h-11 items-center justify-between bg-[#F2F2F7]/85 px-4 backdrop-blur-xl dark:bg-black/85">
+    <div className="mx-auto min-h-dvh max-w-lg px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
+      <div className="cabecera-fija sticky top-0 z-10 -mx-4 mb-3 flex items-center justify-between bg-[#F2F2F7]/85 px-4 backdrop-blur-xl dark:bg-black/85">
         <h1 className="text-[22px] font-bold">Consolas</h1>
         <div className="-mr-2 flex items-center">
           {sesiones.length > 0 && (

@@ -251,8 +251,8 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
 
   return (
     <div ref={pantalla} className="min-h-dvh bg-[#F2F2F7] dark:bg-black">
-    <div className="mx-auto min-h-dvh max-w-lg px-4" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
-      <div className="sticky top-0 z-10 -mx-4 mb-3 grid h-11 grid-cols-[1fr_auto_1fr] items-center bg-[#F2F2F7]/85 px-2 backdrop-blur-xl dark:bg-black/85">
+    <div className="mx-auto min-h-dvh max-w-lg px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
+      <div className="cabecera-fija sticky top-0 z-10 -mx-4 mb-3 grid grid-cols-[1fr_auto_1fr] items-center bg-[#F2F2F7]/85 px-2 backdrop-blur-xl dark:bg-black/85">
         <button className="boton-texto flex items-center justify-self-start" onClick={alVolver}>
           <ChevronLeft size={26} /> Consolas
         </button>

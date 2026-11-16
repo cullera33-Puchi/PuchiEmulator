@@ -41,13 +41,17 @@ const NUCLEOS: [string, string, string, string][] = [
   ['Mega Drive, Master System y Game Gear', 'Genesis Plus GX', 'No comercial', 'https://github.com/libretro/Genesis-Plus-GX'],
 ]
 
-/** Pantalla de un apartado: entra desde la derecha y vuelve con «‹ Ajustes» o deslizando desde el borde. */
-function PaginaApartado({ alVolver, children }: { alVolver: () => void; children: ReactNode }) {
+/**
+ * Pantalla de un apartado, encima de la lista (que se queda montada debajo y conserva su posición):
+ * entra desde la derecha y vuelve con «‹ Ajustes» o deslizando desde el borde, con la lista detrás.
+ */
+function PaginaApartado({ saliendo, alVolverDeslizando, fondo, children }: { saliendo: boolean; alVolverDeslizando: () => void; fondo: () => HTMLElement | null; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
-  useVolverDeslizando(ref, alVolver)
+  const mover = useCallback(() => ref.current, [])
+  useVolverDeslizando(ref, alVolverDeslizando, { mover, fondo })
   return (
-    <div ref={ref} className="apartado-entra min-h-dvh bg-[#F2F2F7] dark:bg-black">
-      <div className="mx-auto max-w-lg px-4" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
+    <div ref={ref} className={`${saliendo ? 'apartado-sale' : 'apartado-entra'} fixed inset-0 z-20 overflow-y-auto overscroll-contain bg-[#F2F2F7] dark:bg-black`}>
+      <div className="mx-auto max-w-lg px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
         {children}
       </div>
     </div>
@@ -70,24 +74,37 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   const entradas = useRegistro()
   const selector = useRef<HTMLInputElement>(null)
   const [apartado, setApartado] = useState<Apartado | null>(null)
-  const [volviendo, setVolviendo] = useState(false)
-  // Desplazamiento de la lista al entrar en un apartado, para dejarla igual al volver
-  const desplazamiento = useRef(0)
-
-  const capa = () => pantalla.current?.closest('.capa') ?? document.querySelector('.capa')
+  // Al cerrar con «‹ Ajustes», el apartado sale hacia la derecha y la lista vuelve (500 ms)
+  const [saliendo, setSaliendo] = useState(false)
+  const temporizadorSalida = useRef(0)
 
   const abrirApartado = (ap: Apartado) => {
-    desplazamiento.current = capa()?.scrollTop ?? 0
-    setVolviendo(false)
+    window.clearTimeout(temporizadorSalida.current)
+    setSaliendo(false)
     setApartado(ap)
-    requestAnimationFrame(() => capa()?.scrollTo(0, 0))
   }
 
   const cerrarApartado = useCallback(() => {
-    setVolviendo(true)
-    setApartado(null)
-    requestAnimationFrame(() => capa()?.scrollTo(0, desplazamiento.current))
+    let reducir = false
+    try {
+      reducir = matchMedia('(prefers-reduced-motion: reduce)').matches
+    } catch {
+      reducir = false
+    }
+    if (reducir) {
+      setApartado(null)
+      return
+    }
+    setSaliendo(true)
+    temporizadorSalida.current = window.setTimeout(() => {
+      setSaliendo(false)
+      setApartado(null)
+    }, 500)
   }, [])
+
+  // Deslizando, el gesto ya ha hecho la animación
+  const cerrarDeslizando = useCallback(() => setApartado(null), [])
+  const fondoApartado = useCallback(() => pantalla.current, [])
 
   useVolverDeslizando(pantalla, alVolver)
 
@@ -259,7 +276,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   }
 
   const cabecera = (titulo: string, atras: string, alAtras: () => void) => (
-    <div className="sticky top-0 z-10 -mx-4 mb-3 grid h-11 grid-cols-[1fr_auto_1fr] items-center bg-[#F2F2F7]/85 px-2 backdrop-blur-xl dark:bg-black/85">
+    <div className="cabecera-fija sticky top-0 z-10 -mx-4 mb-3 grid grid-cols-[1fr_auto_1fr] items-center bg-[#F2F2F7]/85 px-2 backdrop-blur-xl dark:bg-black/85">
       <button className="boton-texto flex items-center justify-self-start" onClick={alAtras}>
         <ChevronLeft size={26} /> {atras}
       </button>
@@ -568,14 +585,8 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
 
   return (
     <>
-      {apartado ? (
-        <PaginaApartado key={apartado} alVolver={cerrarApartado}>
-          {cabecera(APARTADOS[apartado].titulo, 'Ajustes', cerrarApartado)}
-          {contenido(apartado)}
-        </PaginaApartado>
-      ) : (
-        <div ref={pantalla} className={`min-h-dvh bg-[#F2F2F7] dark:bg-black ${volviendo ? 'apartado-vuelve' : ''}`}>
-          <div className="mx-auto max-w-lg px-4" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
+        <div ref={pantalla} className={`min-h-dvh bg-[#F2F2F7] dark:bg-black ${saliendo ? 'apartado-vuelve' : apartado ? 'oculto-detras' : ''}`}>
+          <div className="mx-auto max-w-lg px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
             {cabecera('Ajustes', 'Consolas', alVolver)}
             {GRUPOS.map((grupo, g) => (
               <div key={g} className={`lista ${g > 0 ? 'mt-8' : ''}`}>
@@ -599,6 +610,11 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
             ))}
           </div>
         </div>
+      {apartado && (
+        <PaginaApartado key={apartado} saliendo={saliendo} alVolverDeslizando={cerrarDeslizando} fondo={fondoApartado}>
+          {cabecera(APARTADOS[apartado].titulo, 'Ajustes', cerrarApartado)}
+          {contenido(apartado)}
+        </PaginaApartado>
       )}
       <input ref={selector} type="file" className="hidden" data-testid="selector-copia" onChange={(e) => void alElegirCopia(e.target.files?.[0])} />
 

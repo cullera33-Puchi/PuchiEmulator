@@ -30,13 +30,16 @@ async function colorCentral(page: Page): Promise<[number, number, number]> {
 const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo', 'prueba.nds': 'Nintendo DS', 'prueba.nes': 'NES', 'prueba.md': 'Mega Drive', 'prueba.sms': 'Master System y Game Gear', 'prueba.gg': 'Master System y Game Gear' }
 
 /** Abre la biblioteca de una consola desde el inicio. */
+/** Selector de ficheros de la pantalla de arriba: el inicio se queda montado debajo de las apiladas (v0.26.1) */
+const selector = (page: Page) => page.locator('.capa:not(.fondo)').getByTestId('selector')
+
 async function entrar(page: Page, consola: string) {
   await page.getByTestId('consolas').getByRole('button', { name: new RegExp(`^${consola},`) }).click()
 }
 
 /** Añade una ROM desde el inicio y entra en la biblioteca de su consola. */
 async function anadir(page: Page, fichero: string) {
-  await page.getByTestId('selector').setInputFiles(rom(fichero))
+  await selector(page).setInputFiles(rom(fichero))
   await expect(page.getByText(/añadido|ya estaba/i)).toBeVisible()
   await entrar(page, CONSOLA[fichero])
 }
@@ -136,7 +139,7 @@ test('Game Boy: sin L ni R, tema Clásica con el verde original y la pantalla re
 
 test('un fichero que no es un juego se rechaza', async ({ page }) => {
   await page.goto('/')
-  await page.getByTestId('selector').setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
+  await selector(page).setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
   await expect(page.getByText(/no es un juego/)).toBeVisible()
   await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(7)
 })
@@ -361,7 +364,7 @@ test('inicio: cada juego va a su consola, recuentos, seguir jugando y foto de la
   await page.goto('/')
   await anadir(page, 'prueba.gba')
   // Desde la biblioteca de GBA se añade uno de Super Nintendo: va a su consola y se avisa
-  await page.getByTestId('selector').setInputFiles(rom('prueba.sfc'))
+  await selector(page).setInputFiles(rom('prueba.sfc'))
   await expect(page.getByText('Juego añadido a Super Nintendo')).toBeVisible()
   await expect(page.getByTestId('biblioteca').getByRole('button', { name: /Super Nintendo$/ })).toHaveCount(0)
 
@@ -460,7 +463,7 @@ test('carátulas automáticas: se ponen al añadir, no vuelven si se quitan y se
   })
   await page.goto('/')
   // Un fichero con el nombre habitual: la carátula se pone sola
-  await page.getByTestId('selector').setInputFiles({ name: 'Advance Wars (Europe) (En,Fr,De,Es).gba', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba.gba')) })
+  await selector(page).setInputFiles({ name: 'Advance Wars (Europe) (En,Fr,De,Es).gba', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba.gba')) })
   await expect(page.getByText('Carátula puesta')).toBeVisible()
   expect(descargas.at(-1)).toContain('Nintendo_-_Game_Boy_Advance/master/Named_Boxarts/Advance Wars (Europe) (En,Fr,De,Es).png')
   await entrar(page, 'Game Boy Advance')
@@ -487,7 +490,7 @@ test('carátulas automáticas: se ponen al añadir, no vuelven si se quitan y se
   await expect(page.getByRole('button', { name: /^Carátulas.*A mano/ })).toBeVisible()
   await page.getByRole('button', { name: 'Consolas' }).click()
   const antes = descargas.length
-  await page.getByTestId('selector').setInputFiles({ name: 'Tetris (World) (Rev 1).gb', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba.gb')) })
+  await selector(page).setInputFiles({ name: 'Tetris (World) (Rev 1).gb', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba.gb')) })
   await expect(page.getByText(/Juego añadido/)).toBeVisible()
   await page.waitForTimeout(1000)
   expect(descargas.length).toBe(antes)
@@ -630,7 +633,7 @@ test('Game Boy y Game Boy Color comparten consola y biblioteca, GBA va aparte, y
   gbc[0x143] = 0x80 // indicador de Game Boy Color
   gbc[0x134] = 0x51 // otra ROM distinta
   await page.goto('/')
-  await page.getByTestId('selector').setInputFiles([
+  await selector(page).setInputFiles([
     { name: 'Clasico.gb', mimeType: 'application/octet-stream', buffer: gb },
     { name: 'En color.gbc', mimeType: 'application/octet-stream', buffer: gbc },
   ])
@@ -654,7 +657,7 @@ test('Game Boy y Game Boy Color comparten consola y biblioteca, GBA va aparte, y
   await expect(page.getByRole('heading', { name: 'Game Boy y Color', exact: true })).toBeVisible()
 
   // Uno de GBA va a su propia consola, con aviso
-  await page.getByTestId('selector').setInputFiles(rom('prueba.gba'))
+  await selector(page).setInputFiles(rom('prueba.gba'))
   await expect(page.getByText('Juego añadido a Game Boy Advance')).toBeVisible()
   await expect(page.getByRole('button', { name: 'prueba, Game Boy Advance', exact: true })).toHaveCount(0)
 })
@@ -933,7 +936,7 @@ test('biblioteca: buscar, ordenar, favoritos y notas', async ({ page }) => {
   const otra = Buffer.from(readFileSync(rom('prueba.gba')))
   otra[otra.length - 1] ^= 0xff
   const tipo = 'application/octet-stream'
-  await page.getByTestId('selector').setInputFiles([
+  await selector(page).setInputFiles([
     { name: 'prueba.gba', mimeType: tipo, buffer: readFileSync(rom('prueba.gba')) },
     { name: 'Árbol Épico.gba', mimeType: tipo, buffer: otra },
   ])
@@ -979,7 +982,7 @@ test('estado de cada juego: se cambia en sus opciones, filtra la biblioteca y sa
   const otra = Buffer.from(readFileSync(rom('prueba.gba')))
   otra[otra.length - 1] ^= 0xff
   const tipo = 'application/octet-stream'
-  await page.getByTestId('selector').setInputFiles([
+  await selector(page).setInputFiles([
     { name: 'prueba.gba', mimeType: tipo, buffer: readFileSync(rom('prueba.gba')) },
     { name: 'Otro.gba', mimeType: tipo, buffer: otra },
   ])
@@ -1549,3 +1552,49 @@ for (const [fichero, nombre, pausa] of [
     await expect.poll(() => colorCentral(page)).toEqual([255, 0, 0])
   })
 }
+
+/** Desliza desde el borde izquierdo con toques de verdad; `soltar` en false deja el dedo a mitad. */
+async function deslizarDesdeBorde(page: Page, hasta: number, soltar = true) {
+  const cdp = await page.context().newCDPSession(page)
+  const toque = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y: 420 }] })
+  await toque('touchStart', 5)
+  for (let x = 20; x <= hasta; x += 20) await toque('touchMove', x)
+  if (soltar) await toque('touchEnd', hasta)
+  // Soltar parado (más de 80 ms después del último movimiento): no cuenta como lanzamiento
+  return async () => {
+    await page.waitForTimeout(150)
+    await toque('touchEnd', hasta)
+  }
+}
+
+test('volver deslizando: debajo se ve la pantalla anterior y al volver está al día (v0.26.1)', async ({ page }) => {
+  await page.goto('/')
+  await entrar(page, 'NES')
+  await selector(page).setInputFiles(rom('prueba.nes'))
+  await expect(page.getByText(/Juego añadido/)).toBeVisible()
+
+  // A mitad del gesto, el inicio se ve debajo
+  const fondo = page.locator('.capa.fondo')
+  const soltar = await deslizarDesdeBorde(page, 100, false)
+  await expect.poll(() => fondo.evaluate((e) => getComputedStyle(e).visibility)).toBe('visible')
+  await soltar()
+  // Sin soltar del todo, vuelve a la biblioteca y el inicio se oculta otra vez
+  await expect(page.getByRole('heading', { name: 'NES', exact: true })).toBeVisible()
+  await expect.poll(() => fondo.evaluate((e) => getComputedStyle(e).visibility)).toBe('hidden')
+
+  // Pasado un tercio, vuelve al inicio sin pantallazo y con el recuento al día
+  await deslizarDesdeBorde(page, 300)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: 'NES, 1 juego', exact: true })).toBeVisible()
+  await expect(page.locator('.capa')).toHaveCount(1)
+  await expect.poll(() => page.locator('.capa').evaluate((e) => e.style.transform + e.style.visibility)).toBe('')
+
+  // En Ajustes, deslizar en un apartado deja ver la lista y vuelve a ella
+  await page.getByRole('button', { name: 'Ajustes' }).click()
+  await page.getByRole('button', { name: /^Sonido/ }).click()
+  await expect(page.getByRole('heading', { name: 'Sonido' })).toBeVisible()
+  await deslizarDesdeBorde(page, 300)
+  await expect(page.getByRole('heading', { name: 'Ajustes' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Mando/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sonido' })).toHaveCount(0)
+})

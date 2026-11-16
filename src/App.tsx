@@ -131,10 +131,13 @@ const DURACION_MS = 520
 const clave = (p: Pantalla) => (p.tipo === 'biblioteca' ? `biblioteca-${p.consola}` : p.tipo === 'juego' ? `juego-${p.id}` : p.tipo)
 
 /** Clases de cada capa según la transición (animaciones en index.css). */
-function clases(t: Transicion, rol: 'actual' | 'saliente'): string {
+type Rol = 'actual' | 'saliente' | 'fondo'
+
+function clases(t: Transicion, rol: Rol): string {
   if (t === 'entrar') return rol === 'actual' ? 'entra-desde-derecha arriba' : 'sale-a-izquierda'
   if (t === 'volver') return rol === 'actual' ? 'entra-desde-izquierda' : 'sale-a-derecha arriba'
-  if (t === 'volver-deslizando') return 'entra-desde-izquierda'
+  // Al volver deslizando, la pantalla de debajo ya está en su sitio (v0.26.1)
+  if (t === 'volver-deslizando') return ''
   if (t === 'abrir-juego') return rol === 'actual' ? 'aparece arriba' : ''
   if (t === 'cerrar-juego') return 'aparece-suave'
   return ''
@@ -188,11 +191,12 @@ function Pantallas() {
 
   const jugar = (j: TipoJuego, reanudar: boolean) => ir({ tipo: 'juego', id: j.id, reanudar, consola: consolaDe(j.sistema) }, 'abrir-juego')
 
-  const dibujar = (p: Pantalla) => {
+  const dibujar = (p: Pantalla, rol: Rol) => {
     switch (p.tipo) {
       case 'inicio':
         return (
           <Inicio
+            activa={rol === 'actual'}
             alEstadisticas={() => ir({ tipo: 'estadisticas' }, 'entrar')}
             alAbrirConsola={(consola) => ir({ tipo: 'biblioteca', consola }, 'entrar')}
             alJugar={jugar}
@@ -212,7 +216,14 @@ function Pantallas() {
 
   const { actual, saliente, transicion } = vista
   // La que está encima en la animación se dibuja la última
-  const capas: { p: Pantalla; rol: 'actual' | 'saliente' }[] = saliente
+  // Debajo de una pantalla apilada queda el inicio, oculto, para verlo al volver deslizando (v0.26.1)
+  const conFondo = !saliente && (actual.tipo === 'biblioteca' || actual.tipo === 'estadisticas' || actual.tipo === 'ajustes')
+  const capas: { p: Pantalla; rol: Rol }[] = conFondo
+    ? [
+        { p: { tipo: 'inicio' }, rol: 'fondo' },
+        { p: actual, rol: 'actual' },
+      ]
+    : saliente
     ? transicion === 'volver'
       ? [
           { p: actual, rol: 'actual' },
@@ -229,12 +240,12 @@ function Pantallas() {
       {capas.map(({ p, rol }) => (
         <div
           key={clave(p)}
-          className={`capa ${clases(transicion, rol)}`}
+          className={`capa ${rol === 'fondo' ? 'fondo' : clases(transicion, rol)}`}
           data-saliendo={rol === 'saliente' ? '' : undefined}
-          aria-hidden={rol === 'saliente' ? true : undefined}
-          inert={rol === 'saliente' ? true : undefined}
+          aria-hidden={rol !== 'actual' ? true : undefined}
+          inert={rol !== 'actual' ? true : undefined}
         >
-          {dibujar(p)}
+          {dibujar(p, rol)}
         </div>
       ))}
       <AvisoVersion visible={actual.tipo !== 'juego'} />
