@@ -498,6 +498,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         jrpg={mando.jrpg ? { menu: mando.menu, extras: extrasJrpg(sistema, mando.menu) } : undefined}
         cuatroDirecciones={mando.jrpg && mando.direcciones === 4}
         turbo={turbo}
+        tres={SISTEMAS[sistema].tresBotones}
+        etiquetas={SISTEMAS[sistema].etiquetas}
+        sinSelect={SISTEMAS[sistema].sinSelect}
         colocaciones={colocaciones}
         editando={!!borrador}
         correr={mando.jrpg ? { activo: corriendo, boton: mando.correr, alCambiar: cambiarCorrer } : undefined}

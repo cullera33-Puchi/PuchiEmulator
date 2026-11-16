@@ -40,6 +40,18 @@ describe('detectarSistema', () => {
     expect(tituloInterno(fixture('prueba.nes'), 'nes')).toBe('')
   })
 
+  it('reconoce la Mega Drive por «SEGA» en la cabecera y lee su título', () => {
+    expect(detectarSistema(fixture('prueba.md'), 'juego.bin')).toBe('md')
+    expect(tituloInterno(fixture('prueba.md'), 'md')).toBe('PUCHIPRUEBA')
+    expect(detectarSistema(new Uint8Array(16), 'algo.gen')).toBe('md')
+  })
+
+  it('distingue Master System y Game Gear por la región de «TMR SEGA», salvo que la extensión diga otra cosa', () => {
+    expect(detectarSistema(fixture('prueba.sms'), 'juego.bin')).toBe('sms')
+    expect(detectarSistema(fixture('prueba.gg'), 'juego.bin')).toBe('gg')
+    expect(detectarSistema(fixture('prueba.sms'), 'juego.gg')).toBe('gg')
+  })
+
   it('no reconoce otros ficheros', () => {
     expect(detectarSistema(new Uint8Array(512), 'foto.jpg')).toBeNull()
   })

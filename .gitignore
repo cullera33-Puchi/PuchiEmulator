@@ -11,6 +11,13 @@ playwright-report
 *.gbc
 *.sfc
 *.nes
+# Las ROMs de Mega Drive en .md no se pueden ignorar por extensión (es la de la documentación):
+# los juegos van solo en Archivos o en juegos_locales/, nunca en el repositorio
+*.smd
+*.gen
+*.sms
+*.gg
+*.32x
 *.fds
 *.unf
 *.smc
@@ -23,5 +30,7 @@ playwright-report
 !tests/fixtures/prueba.sfc
 !tests/fixtures/prueba.nds
 !tests/fixtures/prueba.nes
+!tests/fixtures/prueba.sms
+!tests/fixtures/prueba.gg
 !tests/fixtures/prueba.zip
 juegos_locales/

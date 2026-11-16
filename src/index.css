@@ -504,6 +504,27 @@
   box-shadow: inset 0 0 0 2px currentColor;
 }
 
+/* Mega Drive (v0.24.0): A, B y C en diagonal, subiendo hacia la derecha */
+.botones-accion.tres .control {
+  width: 34%;
+  height: 34%;
+  font-size: calc(19px * var(--escala));
+}
+.botones-accion.tres .y {
+  left: 0;
+  top: 54%;
+}
+.botones-accion.tres .b {
+  left: 33%;
+  bottom: auto;
+  top: 34%;
+}
+.botones-accion.tres .a {
+  left: 66%;
+  right: auto;
+  top: 14%;
+}
+
 /* Disposición clásica: B abajo a la izquierda y A arriba a la derecha */
 .botones-accion .b {
   left: 0;
@@ -596,6 +617,13 @@ body.en-juego .aviso {
 /* Una mano, en vertical: todo agrupado abajo, al alcance del pulgar (derecha o izquierda).
    Abajo, la cruceta hacia el centro y A y B junto al borde, un poco más altos; encima de la
    cruceta, L y R; encima de A y B, Select y Start. */
+/* Sin Select (consolas de Sega, v0.24.0): Start, solo y centrado */
+@container juego (orientation: portrait) {
+  .juego:not(.una-mano) .mando:not(:has(.pequeno.select)) .pequeno.start {
+    left: calc(50% - var(--ancho-pequeno) / 2);
+  }
+}
+
 @container juego (orientation: portrait) {
   .juego.una-mano {
     --tam-una: min(calc(132px * var(--escala)), 40cqw);

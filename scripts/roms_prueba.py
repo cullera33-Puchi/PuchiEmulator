@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds, prueba.nes y prueba.zip).
+"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds, prueba.nes, prueba.md, prueba.sms, prueba.gg y prueba.zip).
 
 Son programas propios y mínimos, sin código ni gráficos de Nintendo: pintan la pantalla de un
 color y cambian de color mientras se pulsa A. Sirven para comprobar imagen, botones y partida guardada
@@ -294,6 +294,121 @@ def nes() -> bytes:
     return cabecera + bytes(prg)
 
 
+# Mega Drive (68000; ensamblado con llvm-mc -triple=m68k y la primera instrucción, «move.w
+# #$2700,sr», escrita a mano porque LLVM no la admite). Con la pantalla apagada, el VDP enseña el color
+# de fondo (CRAM 0): azul al arrancar, verde mientras se pulsa A del mando de Mega Drive (y deja una
+# marca en la memoria de partida, $200001) y rojo al arrancar si ya estaba la marca.
+MD_CODIGO = bytes.fromhex(
+    '46fc2700'                                  # move.w #$2700,sr
+    '207c00c00004' '227c00c00000'               # a0 = control del VDP; a1 = datos del VDP
+    '247c00a10003' '267c00200001' '287c00a10009'  # a2 = mando 1; a3 = memoria de partida; a4 = control del mando
+    '30bc8004' '30bc8104' '30bc8700'            # registro 0: paleta completa; 1: pantalla apagada; 7: fondo, color 0
+    '18bc0040'                                  # TH del mando como salida
+    '343c0e00'                                  # color de arranque: azul
+    '0c13005a' '6604' '343c000e'                # con la marca, rojo
+    '14bc0000' '4e71' '4e71' '1012'             # bucle: TH = 0 y lee A y Start
+    '08000004' '660a'                           # bit 4 = A (0 si está pulsado)
+    '16bc005a' '323c00e0' '6002'                # marca y verde
+    '3202'                                      # sin A: el color de arranque
+    '20bcc0000000' '3281' '60da'                # CRAM 0 = color; vuelta al bucle (los saltos son relativos)
+)
+
+
+def md() -> bytes:
+    rom = bytearray(0x10000)  # 64 KB
+    rom[0:4] = (0x00FFFE00).to_bytes(4, 'big')  # pila
+    for v in range(1, 64):
+        rom[v * 4:v * 4 + 4] = (0x200).to_bytes(4, 'big')  # arranque y el resto de vectores
+    rom[0x100:0x110] = b'SEGA MEGA DRIVE '
+    rom[0x120:0x150] = b'PUCHIPRUEBA'.ljust(48)
+    rom[0x150:0x180] = b'PUCHIPRUEBA'.ljust(48)
+    rom[0x1A0:0x1A8] = (0).to_bytes(4, 'big') + (len(rom) - 1).to_bytes(4, 'big')
+    rom[0x1A8:0x1B0] = (0xFF0000).to_bytes(4, 'big') + (0xFFFFFF).to_bytes(4, 'big')
+    rom[0x1B0:0x1BC] = b'RA' + bytes([0xF8, 0x20]) + (0x200001).to_bytes(4, 'big') + (0x20FFFF).to_bytes(4, 'big')
+    rom[0x1F0:0x1F3] = b'JUE'
+    rom[0x200:0x200 + len(MD_CODIGO)] = MD_CODIGO
+    return bytes(rom)
+
+
+def _z80(p: list) -> bytes:
+    """Ensambla una lista de bytes y etiquetas; ('rel', etiqueta) es un salto relativo y ('abs', etiqueta), una dirección."""
+    etiquetas = {}
+    pos = 0
+    for x in p:
+        if isinstance(x, str):
+            etiquetas[x] = pos
+        elif isinstance(x, tuple):
+            pos += 1 if x[0] == 'rel' else 2
+        else:
+            pos += 1
+    out = bytearray()
+    for x in p:
+        if isinstance(x, str):
+            continue
+        if isinstance(x, tuple):
+            if x[0] == 'rel':
+                destino = etiquetas[x[1]] - (len(out) + 1)
+                assert -128 <= destino <= 127
+                out.append(destino & 0xFF)
+            else:
+                out += (0x100 + etiquetas[x[1]]).to_bytes(2, 'little')
+        else:
+            out.append(x)
+    return bytes(out)
+
+
+# Master System y Game Gear (Z80 a mano). Con la pantalla apagada, el VDP enseña el color del borde
+# (entrada 16 de la paleta): azul al arrancar, verde mientras se pulsa el botón 1 (y deja una marca en
+# la RAM del cartucho, $8000) y rojo al arrancar si ya estaba la marca. La Game Gear usa colores de
+# dos bytes; la Master System, de uno.
+def _sega8(gg: bool) -> bytes:
+    def color(sms: int, gg_color: int) -> list:
+        if gg:
+            return [0x3E, 0x20, 0xD3, 0xBF, 0x3E, 0xC0, 0xD3, 0xBF,          # paleta, entrada 16 (byte 32)
+                    0x3E, gg_color & 0xFF, 0xD3, 0xBE, 0x3E, gg_color >> 8, 0xD3, 0xBE]
+        return [0x3E, 0x10, 0xD3, 0xBF, 0x3E, 0xC0, 0xD3, 0xBF, 0x3E, sms, 0xD3, 0xBE]
+
+    p = [
+        0x3E, 0x08, 0x32, 0xFC, 0xFF,          # ld a,$08; ld ($fffc),a: RAM del cartucho en $8000
+        0x3E, 0x80, 0xD3, 0xBF, 0x3E, 0x81, 0xD3, 0xBF,  # registro 1: pantalla apagada
+        0x3E, 0x00, 0xD3, 0xBF, 0x3E, 0x87, 0xD3, 0xBF,  # registro 7: borde con la entrada 16
+        0x3A, 0x00, 0x80, 0xFE, 0x5A,          # ld a,($8000); cp $5a
+        0x20, ('rel', 'sin_marca'),
+        0x3E, 0x02, 0x32, 0x00, 0xC0,          # color de arranque 2: rojo
+        0x18, ('rel', 'bucle'),
+        'sin_marca', 0x3E, 0x00, 0x32, 0x00, 0xC0,  # color de arranque 0: azul
+        'bucle', 0xDB, 0xDC,                   # in a,($dc)
+        0xCB, 0x67,                            # bit 4,a: botón 1 (0 si está pulsado)
+        0x20, ('rel', 'sin_boton'),
+        0x3E, 0x5A, 0x32, 0x00, 0x80,          # marca
+        *color(0x0C, 0x00F0),                  # verde
+        0x18, ('rel', 'bucle'),
+        'sin_boton', 0x3A, 0x00, 0xC0, 0xB7,   # ld a,($c000); or a
+        0x20, ('rel', 'rojo'),
+        *color(0x30, 0x0F00),                  # azul
+        0x18, ('rel', 'bucle'),
+        'rojo', *color(0x03, 0x000F),
+        0x18, ('rel', 'bucle'),
+    ]
+    codigo = _z80(p)
+    # 128 KB: con menos de 48 KB, Genesis Plus GX no pone el chip de cartucho que da la RAM de partida
+    rom = bytearray(0x20000)
+    rom[0:7] = bytes([0xF3, 0x31, 0xF0, 0xDF, 0xC3, 0x00, 0x01])  # di; ld sp,$dff0; jp $0100
+    rom[0x66:0x68] = bytes([0xED, 0x45])       # retn (botón de pausa)
+    rom[0x100:0x100 + len(codigo)] = codigo
+    rom[0x7FF0:0x7FF8] = b'TMR SEGA'
+    rom[0x7FFF] = 0x6F if gg else 0x4F        # Game Gear o Master System de exportación, 128 KB
+    return bytes(rom)
+
+
+def sms() -> bytes:
+    return _sega8(False)
+
+
+def gg() -> bytes:
+    return _sega8(True)
+
+
 def main() -> None:
     SALIDA.mkdir(parents=True, exist_ok=True)
     (SALIDA / 'prueba.gba').write_bytes(gba())
@@ -301,6 +416,9 @@ def main() -> None:
     (SALIDA / 'prueba.sfc').write_bytes(snes())
     (SALIDA / 'prueba.nds').write_bytes(nds())
     (SALIDA / 'prueba.nes').write_bytes(nes())
+    (SALIDA / 'prueba.md').write_bytes(md())
+    (SALIDA / 'prueba.sms').write_bytes(sms())
+    (SALIDA / 'prueba.gg').write_bytes(gg())
     with zipfile.ZipFile(SALIDA / 'prueba.zip', 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('LEEME.txt', 'ROM de prueba comprimida')
         z.writestr('Prueba comprimida.gba', gba())

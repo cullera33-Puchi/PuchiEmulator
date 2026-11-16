@@ -6,7 +6,7 @@
 #   ./emsdk/emsdk install 4.0.10 && ./emsdk/emsdk activate 4.0.10
 #   source ./emsdk/emsdk_env.sh
 #
-# Uso: nucleos/compilar.sh [mgba] [snes9x] [melonds] [fceumm]
+# Uso: nucleos/compilar.sh [mgba] [snes9x] [melonds] [fceumm] [genesis]
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,6 +25,8 @@ MELONDS_REPO="https://github.com/libretro/melonDS.git"
 MELONDS_COMMIT="4081e8358e66f1ea11879560be6b813dfeaab75a"
 FCEUMM_REPO="https://github.com/libretro/libretro-fceumm.git"
 FCEUMM_COMMIT="8997c2bf9503f6d50585b11a1fd7207af53a2426"
+GENESIS_REPO="https://github.com/libretro/Genesis-Plus-GX.git"
+GENESIS_COMMIT="b9c2316441978d4015ba30e9a95d9b0e6f8ee981"
 ZLIB_REPO="https://github.com/madler/zlib.git"
 ZLIB_COMMIT="51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"
 
@@ -127,6 +129,27 @@ compilar_fceumm() {
 	enlazar fceumm emcc "$TRABAJO/fceumm_libretro.a" "$TRABAJO/fceumm_extra.a"
 }
 
-for nucleo in ${@:-mgba snes9x melonds fceumm}; do
+compilar_genesis() {
+	traer "$GENESIS_REPO" "$GENESIS_COMMIT" "$TRABAJO/genesis"
+	(cd "$TRABAJO/genesis" && emmake make -f Makefile.libretro platform=emscripten -j"$(nproc)" >/dev/null)
+	local salida
+	salida="$(ls "$TRABAJO/genesis"/genesis_plus_gx_libretro_emscripten.* | head -1)"
+	cp "$salida" "$TRABAJO/genesis_libretro.a"
+	# Las funciones de ficheros de libretro-common (rfopen y compañía), de su propia copia
+	local obj="$TRABAJO/genesis-extra"
+	rm -rf "$obj" && mkdir -p "$obj"
+	local comun="$TRABAJO/genesis/libretro/libretro-common"
+	for f in compat/compat_strl.c compat/compat_posix_string.c compat/compat_strcasestr.c compat/fopen_utf8.c \
+		encodings/encoding_utf.c file/file_path.c file/file_path_io.c streams/file_stream.c \
+		streams/file_stream_transforms.c string/stdstring.c time/rtime.c vfs/vfs_implementation.c; do
+		[ -f "$comun/$f" ] || continue
+		emcc -O2 -c "$comun/$f" -I"$comun/include" -o "$obj/$(echo "$f" | tr / _ | sed 's/\.c$/.o/')"
+	done
+	rm -f "$TRABAJO/genesis_extra.a"
+	emar rcs "$TRABAJO/genesis_extra.a" "$obj"/*.o
+	enlazar genesis emcc "$TRABAJO/genesis_libretro.a" "$TRABAJO/genesis_extra.a"
+}
+
+for nucleo in ${@:-mgba snes9x melonds fceumm genesis}; do
 	"compilar_$nucleo"
 done

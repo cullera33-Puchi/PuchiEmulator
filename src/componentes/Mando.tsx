@@ -25,6 +25,12 @@ interface Props {
   jrpg?: { menu: BotonMenu; extras: ('X' | 'Y')[] }
   /** Cruceta sin diagonales */
   cuatroDirecciones?: boolean
+  /** Mega Drive: A, B y C en diagonal (son la Y, la B y la A de libretro) */
+  tres?: boolean
+  /** Nombre de cada botón en la consola (Mega Drive, Master System) */
+  etiquetas?: Partial<Record<'A' | 'B' | 'X' | 'Y' | 'START', string>>
+  /** Sin Select (Sega) */
+  sinSelect?: boolean
   /** Piezas movidas por el usuario (v0.20.0): dónde va cada una y su tamaño */
   colocaciones?: DisposicionPiezas
   /** Editando la colocación: el mando no manda nada al juego */
@@ -60,7 +66,9 @@ const BRAZOS: [NombreBoton, string][] = [
   ['DERECHA', 'derecha'],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando, tres, etiquetas, sinSelect }: Props) {
+  // Lo que pone en cada botón: el nombre de la consola o, si no, el de libretro
+  const nombre = (b: 'A' | 'B' | 'X' | 'Y' | 'START') => etiquetas?.[b] ?? (b === 'START' ? 'Start' : b)
   // Atributos de cada pieza: su nombre (para el editor) y, si se ha movido, su sitio y su tamaño
   const pieza = (p: Pieza) => ({ 'data-pieza': p, style: colocaciones?.[p] ? (estiloPieza(colocaciones[p]!) as React.CSSProperties) : undefined })
   const raiz = useRef<HTMLDivElement>(null)
@@ -219,19 +227,19 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       {jrpg ? (
         <div className="botones-accion jrpg" {...pieza('botones')}>
           {jrpg.extras.map((b) => (
-            <span key={b} data-boton={b} className={`control ${b.toLowerCase()}`} role="button" aria-label={b}>
-              {b}
+            <span key={b} data-boton={b} className={`control ${b.toLowerCase()}`} role="button" aria-label={nombre(b)}>
+              {nombre(b)}
             </span>
           ))}
-          <span data-boton={jrpg.menu} className="control menu" role="button" aria-label={`Menú del juego (${NOMBRE_BOTON[jrpg.menu]})`}>
+          <span data-boton={jrpg.menu} className="control menu" role="button" aria-label={`Menú del juego (${jrpg.menu === 'SELECT' ? 'Select' : nombre(jrpg.menu)})`}>
             <span className="leyenda">Menú</span>
-            <span className="letra">{NOMBRE_BOTON[jrpg.menu]}</span>
+            <span className="letra">{jrpg.menu === 'SELECT' ? NOMBRE_BOTON.SELECT : nombre(jrpg.menu)}</span>
           </span>
-          <span data-boton="B" className="control b" role="button" aria-label="B">
-            B
+          <span data-boton="B" className="control b" role="button" aria-label={nombre('B')}>
+            {nombre('B')}
           </span>
-          <span data-boton="A" className="control a" role="button" aria-label="A">
-            A
+          <span data-boton="A" className="control a" role="button" aria-label={nombre('A')}>
+            {nombre('A')}
           </span>
           {correr && (
             <span
@@ -247,7 +255,12 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
           )}
         </div>
       ) : (
-      <div className={`botones-accion ${cuatro ? 'cuatro' : ''}`} {...pieza('botones')}>
+      <div className={`botones-accion ${cuatro ? 'cuatro' : ''} ${tres ? 'tres' : ''}`} {...pieza('botones')}>
+        {tres && (
+          <span data-boton="Y" className="control y" role="button" aria-label={nombre('Y')}>
+            {nombre('Y')}
+          </span>
+        )}
         {cuatro && (
           <>
             <span data-boton="X" className="control x" role="button" aria-label="X">
@@ -258,11 +271,11 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
             </span>
           </>
         )}
-        <span data-boton="B" className="control b" role="button" aria-label="B">
-          B
+        <span data-boton="B" className="control b" role="button" aria-label={nombre('B')}>
+          {nombre('B')}
         </span>
-        <span data-boton="A" className="control a" role="button" aria-label="A">
-          A
+        <span data-boton="A" className="control a" role="button" aria-label={nombre('A')}>
+          {nombre('A')}
         </span>
       </div>
       )}
@@ -278,11 +291,13 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
         </>
       )}
 
-      <span data-boton="SELECT" className="control pequeno select" role="button" aria-label="Select" {...pieza('select')}>
-        SELECT
-      </span>
-      <span data-boton="START" className="control pequeno start" role="button" aria-label="Start" {...pieza('start')}>
-        START
+      {!sinSelect && (
+        <span data-boton="SELECT" className="control pequeno select" role="button" aria-label="Select" {...pieza('select')}>
+          SELECT
+        </span>
+      )}
+      <span data-boton="START" className="control pequeno start" role="button" aria-label={nombre('START')} {...pieza('start')}>
+        {nombre('START').toUpperCase()}
       </span>
     </div>
   )

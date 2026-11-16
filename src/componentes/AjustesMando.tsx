@@ -14,7 +14,7 @@ import {
   type ControlesMando,
   type MandoJuego,
 } from '../lib/mandoJuego'
-import type { Sistema } from '../lib/sistemas'
+import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import type { NombreBoton } from '../emulador/botones'
 import { Interruptor, Segmentado } from './Interfaz'
 
@@ -44,7 +44,12 @@ function MandoDelJuego({ id, sistema }: { id: string; sistema: Sistema }) {
             <div className="separador" />
             <div className="fila flex-col items-stretch gap-2 py-3">
               <span>Botón de menú</span>
-              <Segmentado etiqueta="Botón de menú" valor={m.menu} opciones={menusDe(sistema).map((b) => [b, NOMBRE_BOTON[b]])} alCambiar={(v) => cambiar({ menu: v })} />
+              <Segmentado
+                etiqueta="Botón de menú"
+                valor={m.menu}
+                opciones={menusDe(sistema).map((b) => [b, b === 'SELECT' ? NOMBRE_BOTON[b] : (SISTEMAS[sistema].etiquetas?.[b] ?? NOMBRE_BOTON[b])])}
+                alCambiar={(v) => cambiar({ menu: v })}
+              />
             </div>
             <div className="separador" />
             <div className="fila flex-col items-stretch gap-2 py-3">
@@ -165,6 +170,7 @@ export function AjustesMando({ juego, alEditar }: { juego?: { id: string; sistem
 /** Turbo por botón, solo de este juego (v0.19.0). */
 function Turbo({ id, sistema }: { id: string; sistema: Sistema }) {
   const a = useAjustes()
+  const etiqueta = (b: NombreBoton) => SISTEMAS[sistema].etiquetas?.[b as 'A'] ?? b
   const activos = a.mandos[id]?.turbo ?? []
   const cambiar = (b: NombreBoton) =>
     cambiarMandoJuego(id, { turbo: activos.includes(b) ? activos.filter((x) => x !== b) : [...activos, b] })
@@ -179,11 +185,11 @@ function Turbo({ id, sistema }: { id: string; sistema: Sistema }) {
               key={b}
               role="switch"
               aria-checked={activo}
-              aria-label={`Turbo en ${b}`}
+              aria-label={`Turbo en ${etiqueta(b)}`}
               onClick={() => cambiar(b)}
               className={`h-10 min-w-12 rounded-full px-4 text-[15px] font-semibold ${activo ? 'bg-acento text-white dark:bg-acento-oscuro' : 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'}`}
             >
-              {b}
+              {etiqueta(b)}
             </button>
           )
         })}

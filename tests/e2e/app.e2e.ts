@@ -27,7 +27,7 @@ async function colorCentral(page: Page): Promise<[number, number, number]> {
   })
 }
 
-const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo', 'prueba.nds': 'Nintendo DS', 'prueba.nes': 'NES' }
+const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo', 'prueba.nds': 'Nintendo DS', 'prueba.nes': 'NES', 'prueba.md': 'Mega Drive', 'prueba.sms': 'Master System y Game Gear', 'prueba.gg': 'Master System y Game Gear' }
 
 /** Abre la biblioteca de una consola desde el inicio. */
 async function entrar(page: Page, consola: string) {
@@ -51,7 +51,7 @@ async function pulsar(page: Page, etiqueta: string, ms = 300) {
 test('inicio sin juegos, añadir un juego de GBA y jugar con los botones', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText(/Añade tus juegos con/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(5)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(7)
 
   await anadir(page, 'prueba.gba')
   await expect(page.getByRole('button', { name: /prueba.*Game Boy Advance/i })).toBeVisible()
@@ -138,7 +138,7 @@ test('un fichero que no es un juego se rechaza', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('selector').setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
   await expect(page.getByText(/no es un juego/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(5)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(7)
 })
 
 test.describe('en horizontal', () => {
@@ -616,7 +616,7 @@ test('Game Boy y Game Boy Color comparten consola y biblioteca, GBA va aparte, y
   ])
   await expect(page.getByText('2 juegos añadidos')).toBeVisible()
   const consolas = page.getByTestId('consolas')
-  await expect(consolas.getByRole('button')).toHaveCount(10) // cinco tarjetas con su botón de opciones
+  await expect(consolas.getByRole('button')).toHaveCount(14) // siete tarjetas con su botón de opciones
   await expect(consolas.getByRole('button', { name: 'Game Boy y Game Boy Color, 2 juegos', exact: true })).toBeVisible()
 
   await entrar(page, 'Game Boy y Game Boy Color')
@@ -1472,3 +1472,59 @@ test('NES: tema Ocho bits, A y B, la pantalla responde y la partida se guarda', 
   await expect(page.getByText('Cargando…')).toBeHidden()
   await expect.poll(() => colorCentral(page)).toEqual([219, 40, 0])
 })
+
+test('Mega Drive: A, B y C en fila, sin Select, la pantalla responde y la partida se guarda', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.md')
+  await expect(page.getByRole('heading', { name: 'Mega Drive' })).toBeVisible()
+  await page.getByRole('button', { name: /prueba, Mega Drive/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByTestId('juego')).toHaveAttribute('data-tema', 'negra')
+  const mando = page.getByTestId('mando')
+  const caja = async (n: string) => (await mando.getByRole('button', { name: n, exact: true }).boundingBox())!
+  const [a, b, c] = [await caja('A'), await caja('B'), await caja('C')]
+  expect(a.x).toBeLessThan(b.x)
+  expect(b.x).toBeLessThan(c.x)
+  expect(c.y).toBeLessThan(a.y)
+  await expect(mando.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
+  await expect(mando.getByRole('button', { name: 'Start', exact: true })).toBeVisible()
+  // Azul al arrancar; con A (la de Mega Drive), verde y la marca en la memoria de partida
+  await expect.poll(() => colorCentral(page)).toEqual([0, 0, 239])
+  await pulsar(page, 'A')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 239, 0])
+  await page.mouse.up()
+  await page.waitForTimeout(1500)
+  await page.reload()
+  await entrar(page, 'Mega Drive')
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(() => colorCentral(page)).toEqual([239, 0, 0])
+})
+
+for (const [fichero, nombre, pausa] of [
+  ['prueba.sms', 'Master System', 'Pausa'],
+  ['prueba.gg', 'Game Gear', 'Start'],
+] as const) {
+  test(`${nombre}: botones 1 y 2, la pantalla responde y la partida se guarda`, async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, fichero)
+    await expect(page.getByRole('heading', { name: 'Master System y Game Gear' })).toBeVisible()
+    await page.getByRole('button', { name: new RegExp(`prueba, ${nombre}`) }).click()
+    await expect(page.getByText('Cargando…')).toBeHidden()
+    const mando = page.getByTestId('mando')
+    for (const n of ['1', '2', pausa]) await expect(mando.getByRole('button', { name: n, exact: true })).toBeVisible()
+    await expect(mando.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
+    await expect.poll(() => colorCentral(page)).toEqual([0, 0, 255])
+    await pulsar(page, '1')
+    await expect.poll(() => colorCentral(page)).toEqual([0, 255, 0])
+    await page.mouse.up()
+    await page.waitForTimeout(1500)
+    await page.reload()
+    await entrar(page, 'Master System y Game Gear')
+    await page.getByRole('button', { name: /Opciones de/ }).click()
+    await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+    await expect(page.getByText('Cargando…')).toBeHidden()
+    await expect.poll(() => colorCentral(page)).toEqual([255, 0, 0])
+  })
+}

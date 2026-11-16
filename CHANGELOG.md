@@ -1,5 +1,17 @@
 # Cambios
 
+## 0.24.0 (16/11/2026)
+
+Bloque C de las mejoras marcadas por el usuario: Mega Drive, Master System y Game Gear (2).
+
+- Genesis Plus GX (libretro, commit `b9c23164`, licencia no comercial), compilado a WebAssembly (2,9 MB). Un solo núcleo para las tres consolas.
+- Dos tarjetas nuevas en el inicio (decisión del usuario): Mega Drive aparte (también Genesis) y Master System y Game Gear juntas. Dibujos propios y tema «Negra» (negro, botones gris oscuro y Start rojo; diseño propio, sin marcas).
+- Reconocimiento: Mega Drive por «SEGA» en la cabecera (`.md`, `.gen`, `.bin`, `.smd`); Master System y Game Gear por «TMR SEGA» y su región, salvo que la extensión (`.sms` o `.gg`) diga otra cosa. Título interno en Mega Drive.
+- Mando: en Mega Drive, A, B y C en fila diagonal (`tresBotones`, `.botones-accion.tres`); en Master System y Game Gear, 1 y 2. Sin Select en las tres; Start, centrado (Pausa en Master System). El mando para juegos de rol y el turbo usan los nombres de cada consola.
+- Carátulas: índices de libretro de Mega Drive (2.352), Master System (559) y Game Gear (1.056).
+- ROMs de prueba propias de las tres (68000 y Z80, con memoria de partida): azul al arrancar, verde con A o 1 y rojo al volver a abrir si se guardó la partida.
+- Pruebas: 135 unitarias y 55 de navegador.
+
 ## 0.23.0 (16/11/2026)
 
 Bloque B de las mejoras marcadas por el usuario: la NES (1).

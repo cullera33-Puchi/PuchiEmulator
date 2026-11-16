@@ -17,6 +17,9 @@ REPOS = {
     'nes': 'Nintendo_-_Nintendo_Entertainment_System',
     'snes': 'Nintendo_-_Super_Nintendo_Entertainment_System',
     'nds': 'Nintendo_-_Nintendo_DS',
+    'sms': 'Sega_-_Master_System_-_Mark_III',
+    'gg': 'Sega_-_Game_Gear',
+    'md': 'Sega_-_Mega_Drive_-_Genesis',
 }
 SALIDA = pathlib.Path(__file__).resolve().parent.parent / 'public' / 'caratulas'
 

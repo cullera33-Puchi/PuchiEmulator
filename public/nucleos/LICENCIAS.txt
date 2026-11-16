@@ -33,3 +33,13 @@ fceumm.js y fceumm.wasm
   Commit: 8997c2bf9503f6d50585b11a1fd7207af53a2426
   Incluye partes de libretro-common (licencia MIT). Compilado sin cambios con Emscripten 4.0.10
   junto con el puente de nucleos/puente.c.
+
+genesis.js y genesis.wasm
+  Genesis Plus GX, Copyright (c) 1998-2003 Charles Mac Donald, (c) 2007-2026 Eke-Eke y
+  colaboradores.
+  Licencia propia de Genesis Plus GX: uso y distribución gratuitos solo con fines no comerciales
+  (https://github.com/libretro/Genesis-Plus-GX/blob/master/LICENSE.txt).
+  Código fuente: https://github.com/libretro/Genesis-Plus-GX
+  Commit: b9c2316441978d4015ba30e9a95d9b0e6f8ee981
+  Incluye partes de libretro-common (licencia MIT). Compilado sin cambios con Emscripten 4.0.10
+  junto con el puente de nucleos/puente.c.

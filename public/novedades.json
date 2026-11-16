@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.24.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Nuevas consolas: Mega Drive, en su tarjeta, y Master System y Game Gear, juntas en otra.",
+      "Añade tus juegos .md, .gen, .sms o .gg como siempre: la app reconoce cada consola y busca su carátula.",
+      "Mando con A, B y C en Mega Drive y con 1 y 2 en Master System y Game Gear.",
+      "Estados, rebobinar, turbo y el mando para juegos de rol funcionan igual que en el resto."
+    ]
+  },
+  {
     "version": "0.23.0",
     "fecha": "16/11/2026",
     "cambios": [

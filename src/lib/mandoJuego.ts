@@ -79,7 +79,9 @@ export const NOMBRE_BOTON: Record<BotonMenu | BotonCorrer, string> = { X: 'X', Y
 
 /** Botones que pueden hacer de menú en cada consola. */
 export function menusDe(sistema: Sistema): BotonMenu[] {
-  return SISTEMAS[sistema].cuatroBotones ? ['X', 'Y', 'START', 'SELECT'] : ['START', 'SELECT']
+  const info = SISTEMAS[sistema]
+  const todos: BotonMenu[] = info.cuatroBotones ? ['X', 'Y', 'START', 'SELECT'] : info.tresBotones ? ['Y', 'START'] : ['START', 'SELECT']
+  return info.sinSelect ? todos.filter((b) => b !== 'SELECT') : todos
 }
 
 /** Botones con los que se puede correr: Y solo si la consola lo tiene. */
@@ -105,6 +107,8 @@ export function mandoDe(mandos: Ajustes['mandos'], juegoId: string, sistema: Sis
 
 /** X e Y que siguen a la vista en el modo JRPG (los que no hacen de menú), más pequeños. */
 export function extrasJrpg(sistema: Sistema, menu: BotonMenu): ('X' | 'Y')[] {
+  // Mega Drive: su A (la Y de libretro) se queda a la vista si no hace de menú
+  if (SISTEMAS[sistema].tresBotones) return menu === 'Y' ? [] : ['Y']
   if (!SISTEMAS[sistema].cuatroBotones) return []
   return (['X', 'Y'] as const).filter((b) => b !== menu)
 }
@@ -124,7 +128,12 @@ export const bitCorrer = (b: BotonCorrer) => bit(b)
 /** Botones a los que se puede poner turbo en cada consola. */
 export function botonesTurbo(sistema: Sistema): NombreBoton[] {
   const info = SISTEMAS[sistema]
-  return [...(['A', 'B'] as NombreBoton[]), ...(info.cuatroBotones ? (['X', 'Y'] as NombreBoton[]) : []), ...(info.hombros ? (['L', 'R'] as NombreBoton[]) : [])]
+  return [
+    ...(info.tresBotones ? (['Y'] as NombreBoton[]) : []),
+    ...(['A', 'B'] as NombreBoton[]),
+    ...(info.cuatroBotones ? (['X', 'Y'] as NombreBoton[]) : []),
+    ...(info.hombros ? (['L', 'R'] as NombreBoton[]) : []),
+  ]
 }
 
 /** Máscara de los botones con turbo de un juego (solo los que tiene su consola). */

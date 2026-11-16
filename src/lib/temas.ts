@@ -5,7 +5,7 @@
  */
 import type { Sistema } from './sistemas'
 
-export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'ochobits' | 'super' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
+export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'ochobits' | 'super' | 'negra' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
 
 export interface Tema {
   id: IdTema
@@ -147,6 +147,31 @@ export const TEMAS: Tema[] = [
       '--borde': 'transparent',
     },
   },
+  {
+    // Sega (v0.24.0): negro brillante, botones gris oscuro y un toque rojo en Start
+    id: 'negra',
+    nombre: 'Negra',
+    arriba: '#26262a',
+    abajo: '#0e0e10',
+    vars: {
+      '--fondo': 'linear-gradient(180deg, #26262a, #0e0e10)',
+      '--marco': '#000000',
+      '--marco-relleno': '10px',
+      '--marco-radio': '8px',
+      '--ab': '#3d3d44',
+      '--ab-texto': 'rgb(255 255 255 / 0.9)',
+      '--ab-pulsado': '#66666f',
+      '--cruceta': '#3d3d44',
+      '--cruceta-pulsado': '#66666f',
+      '--pequeno': '#b8282f',
+      '--pequeno-texto': 'rgb(255 255 255 / 0.92)',
+      '--hombro': '#3d3d44',
+      '--hombro-texto': 'rgb(255 255 255 / 0.85)',
+      '--herramienta': 'rgb(255 255 255 / 0.08)',
+      '--herramienta-texto': 'rgb(255 255 255 / 0.85)',
+      '--borde': 'rgb(255 255 255 / 0.12)',
+    },
+  },
   color('baya', 'Baya', '#c8265e', '#a51a4b'),
   color('kiwi', 'Kiwi', '#9fc93f', '#84ab2d'),
   color('turquesa', 'Turquesa', '#25aaa3', '#1a8b86'),
@@ -155,7 +180,7 @@ export const TEMAS: Tema[] = [
 ]
 
 /** Tema que se usa con «Según la consola». */
-export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', nes: 'ochobits', snes: 'super', nds: 'oscuro' }
+export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', nes: 'ochobits', snes: 'super', nds: 'oscuro', sms: 'negra', gg: 'negra', md: 'negra' }
 
 export function temaPorId(id: IdTema): Tema {
   return TEMAS.find((t) => t.id === id) ?? TEMAS[0]

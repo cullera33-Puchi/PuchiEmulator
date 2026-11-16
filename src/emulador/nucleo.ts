@@ -86,6 +86,11 @@ const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
   fceumm: {
     fceumm_sndquality: 'High',
   },
+  // Mega Drive, Master System y Game Gear (v0.24.0): la consola y la región, según el juego
+  genesis: {
+    genesis_plus_gx_system_hw: 'auto',
+    genesis_plus_gx_region_detect: 'auto',
+  },
 }
 
 export class Nucleo {

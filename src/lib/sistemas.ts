@@ -4,8 +4,8 @@
  */
 import { unzipSync } from 'fflate'
 
-export type Sistema = 'gb' | 'gbc' | 'gba' | 'nes' | 'snes' | 'nds'
-export type NombreNucleo = 'mgba' | 'snes9x' | 'melonds' | 'fceumm'
+export type Sistema = 'gb' | 'gbc' | 'gba' | 'nes' | 'snes' | 'nds' | 'sms' | 'gg' | 'md'
+export type NombreNucleo = 'mgba' | 'snes9x' | 'melonds' | 'fceumm' | 'genesis'
 
 export interface InfoSistema {
   nombre: string
@@ -21,6 +21,12 @@ export interface InfoSistema {
   /** Pantalla táctil: tocar la imagen hace de lápiz */
   tactil: boolean
   color: string
+  /** Mega Drive (v0.24.0): A, B y C en fila, que son la Y, la B y la A de libretro */
+  tresBotones?: boolean
+  /** Nombre de cada botón en la consola, si no es el de libretro (Mega Drive: A, B y C; Master System: 1 y 2) */
+  etiquetas?: Partial<Record<'A' | 'B' | 'X' | 'Y' | 'START', string>>
+  /** La consola no tiene Select (Sega) */
+  sinSelect?: boolean
 }
 
 export const SISTEMAS: Record<Sistema, InfoSistema> = {
@@ -30,6 +36,10 @@ export const SISTEMAS: Record<Sistema, InfoSistema> = {
   nes: { nombre: 'NES', corto: 'NES', nucleo: 'fceumm', extension: 'nes', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#C8102E' },
   snes: { nombre: 'Super Nintendo', corto: 'SNES', nucleo: 'snes9x', extension: 'sfc', hombros: true, cuatroBotones: true, rebobinado: true, tactil: false, color: '#6E6E80' },
   nds: { nombre: 'Nintendo DS', corto: 'DS', nucleo: 'melonds', extension: 'nds', hombros: true, cuatroBotones: true, rebobinado: false, tactil: true, color: '#34343C' },
+  // Sega (v0.24.0), con Genesis Plus GX
+  sms: { nombre: 'Master System', corto: 'SMS', nucleo: 'genesis', extension: 'sms', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#1C1C1E', etiquetas: { B: '1', A: '2', START: 'Pausa' }, sinSelect: true },
+  gg: { nombre: 'Game Gear', corto: 'GG', nucleo: 'genesis', extension: 'gg', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#2C2C30', etiquetas: { B: '1', A: '2' }, sinSelect: true },
+  md: { nombre: 'Mega Drive', corto: 'MD', nucleo: 'genesis', extension: 'md', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#111113', tresBotones: true, etiquetas: { Y: 'A', B: 'B', A: 'C' }, sinSelect: true },
 }
 
 /**
@@ -37,7 +47,7 @@ export const SISTEMAS: Record<Sistema, InfoSistema> = {
  * Color van juntas; por dentro siguen siendo dos sistemas, cada uno con su tema y sus opciones.
  * Game Boy Advance va aparte (decisión del usuario).
  */
-export type Consola = 'gb' | 'gba' | 'nes' | 'snes' | 'nds'
+export type Consola = 'gb' | 'gba' | 'nes' | 'snes' | 'nds' | 'sms' | 'md'
 
 export interface InfoConsola {
   nombre: string
@@ -56,14 +66,17 @@ export const CONSOLAS_APP: Record<Consola, InfoConsola> = {
   nes: { nombre: 'NES', titulo: 'NES', descripcion: 'También Famicom', sistemas: ['nes'], color: '#C8102E', extensiones: '.nes' },
   snes: { nombre: 'Super Nintendo', titulo: 'Super Nintendo', sistemas: ['snes'], color: '#6E6E80', extensiones: '.sfc, .smc' },
   nds: { nombre: 'Nintendo DS', titulo: 'Nintendo DS', descripcion: 'En pruebas', sistemas: ['nds'], color: '#34343C', extensiones: '.nds' },
+  // Master System y Game Gear juntas; Mega Drive aparte (decisión del usuario, 16/11/2026)
+  sms: { nombre: 'Master System y Game Gear', titulo: 'Master System y Game Gear', sistemas: ['sms', 'gg'], color: '#1C1C1E', extensiones: '.sms, .gg' },
+  md: { nombre: 'Mega Drive', titulo: 'Mega Drive', descripcion: 'También Genesis', sistemas: ['md'], color: '#111113', extensiones: '.md, .gen, .bin, .smd' },
 }
 
 /** Orden en el que se enseñan las consolas */
-export const CONSOLAS: Consola[] = ['gb', 'gba', 'nes', 'snes', 'nds']
+export const CONSOLAS: Consola[] = ['gb', 'gba', 'nes', 'snes', 'nds', 'sms', 'md']
 
-export const consolaDe = (s: Sistema): Consola => (s === 'gbc' ? 'gb' : s)
+export const consolaDe = (s: Sistema): Consola => (s === 'gbc' ? 'gb' : s === 'gg' ? 'sms' : s)
 
-const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba', sfc: 'snes', smc: 'snes', swc: 'snes', fig: 'snes', nds: 'nds', nes: 'nes' }
+const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba', sfc: 'snes', smc: 'snes', swc: 'snes', fig: 'snes', nds: 'nds', nes: 'nes', md: 'md', gen: 'md', smd: 'md', sms: 'sms', gg: 'gg' }
 
 export function extensionDe(nombre: string): string {
   const i = nombre.lastIndexOf('.')
@@ -83,11 +96,35 @@ function esNes(b: Uint8Array): boolean {
   return b.length >= 16 && b[0] === 0x4e && b[1] === 0x45 && b[2] === 0x53 && b[3] === 0x1a
 }
 
+/** Mega Drive: «SEGA» al principio de la cabecera (0x100), a veces con un espacio delante. */
+function esMegaDrive(b: Uint8Array): boolean {
+  const en = (o: number) => b.length > o + 4 && b[o] === 0x53 && b[o + 1] === 0x45 && b[o + 2] === 0x47 && b[o + 3] === 0x41
+  return en(0x100) || en(0x101)
+}
+
+/**
+ * Master System y Game Gear: «TMR SEGA» en 0x7FF0 (o 0x3FF0 y 0x1FF0 en los cartuchos pequeños); la
+ * región, en el último byte de la cabecera, dice cuál es (5, 6 o 7: Game Gear).
+ */
+function sega8(b: Uint8Array): 'sms' | 'gg' | null {
+  for (const o of [0x7ff0, 0x3ff0, 0x1ff0]) {
+    if (o + 16 > b.length) continue
+    if (String.fromCharCode(...b.subarray(o, o + 8)) !== 'TMR SEGA') continue
+    const region = b[o + 15] >> 4
+    return region >= 5 && region <= 7 ? 'gg' : 'sms'
+  }
+  return null
+}
+
 /** Consola de una ROM, o null si no se reconoce. */
 export function detectarSistema(bytes: Uint8Array, nombreFichero: string): Sistema | null {
   if (esNes(bytes)) return 'nes'
   if (esGba(bytes)) return 'gba'
   if (esGb(bytes)) return bytes[0x143] & 0x80 ? 'gbc' : 'gb'
+  if (esMegaDrive(bytes)) return 'md'
+  const ocho = sega8(bytes)
+  // La extensión manda entre Master System y Game Gear: hay juegos de una con la cabecera de la otra
+  if (ocho) return EXTENSIONES[extensionDe(nombreFichero)] === 'gg' ? 'gg' : EXTENSIONES[extensionDe(nombreFichero)] === 'sms' ? 'sms' : ocho
   const porExtension = EXTENSIONES[extensionDe(nombreFichero)]
   return porExtension ?? null
 }
@@ -126,8 +163,9 @@ export function tituloInterno(bytes: Uint8Array, sistema: Sistema): string {
     return o === null ? '' : texto(bytes, o, o + 21)
   }
   if (sistema === 'nds') return texto(bytes, 0, 12)
-  // Los cartuchos de NES no llevan título
-  if (sistema === 'nes') return ''
+  // Los cartuchos de NES y de Master System y Game Gear no llevan título
+  if (sistema === 'nes' || sistema === 'sms' || sistema === 'gg') return ''
+  if (sistema === 'md') return texto(bytes, 0x150, 0x180).replace(/\s+/g, ' ')
   if (sistema === 'gba') return texto(bytes, 0xa0, 0xac)
   // En Game Boy Color el título ocupa menos: los últimos bytes son el código y el indicador de color
   return texto(bytes, 0x134, sistema === 'gbc' ? 0x143 : 0x144)

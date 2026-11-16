@@ -136,6 +136,48 @@ function NES() {
   )
 }
 
+/** Mega Drive (v0.24.0): consola negra con la tapa redonda del cartucho y su mando de tres botones */
+function MegaDrive() {
+  return (
+    <svg viewBox="0 0 230 150" className="h-full w-auto drop-shadow-md" aria-hidden>
+      <path d="M18 18h194c8 0 12 4 12 12v50c0 8-4 12-12 12H18c-8 0-12-4-12-12V30c0-8 4-12 12-12z" fill="#1b1b1e" />
+      <circle cx="96" cy="50" r="30" fill="#29292e" />
+      <circle cx="96" cy="50" r="21" fill="#141416" />
+      <rect x="80" y="44" width="32" height="10" rx="2" fill="#38383e" />
+      <rect x="150" y="34" width="56" height="5" rx="2.5" fill="#38383e" />
+      <rect x="150" y="44" width="56" height="5" rx="2.5" fill="#38383e" />
+      <rect x="150" y="54" width="56" height="5" rx="2.5" fill="#38383e" />
+      <circle cx="30" cy="80" r="3" fill="#c4232b" />
+      {/* Mando redondeado con cruceta, Start y tres botones en diagonal */}
+      <path d="M60 104h110c14 0 22 9 22 20s-8 20-22 20h-26c-6 0-10-4-30-4s-24 4-30 4H60c-14 0-22-9-22-20s8-20 22-20z" fill="#1f1f23" />
+      <Cruz x={66} y={124} t={7} color="#3a3a40" />
+      <rect x="106" y="122" width="12" height="5" rx="2.5" fill="#b8282f" />
+      <circle cx="146" cy="130" r="6" fill="#4a4a52" />
+      <circle cx="160" cy="123" r="6" fill="#4a4a52" />
+      <circle cx="174" cy="116" r="6" fill="#4a4a52" />
+    </svg>
+  )
+}
+
+/** Master System y Game Gear juntas: la consola de sobremesa detrás y la portátil delante */
+function MasterSystemYGameGear() {
+  return (
+    <svg viewBox="0 0 230 150" className="h-full w-auto drop-shadow-md" aria-hidden>
+      {/* Consola de sobremesa negra con la franja roja */}
+      <path d="M14 22h150l14 14v40c0 6-4 10-10 10H14c-6 0-10-4-10-10V32c0-6 4-10 10-10z" fill="#1b1b1e" />
+      <rect x="4" y="44" width="174" height="6" fill="#b8282f" />
+      <rect x="30" y="28" width="90" height="10" rx="2" fill="#2e2e33" />
+      {/* Portátil apaisada delante: pantalla en el centro, cruceta a la izquierda y dos botones */}
+      <rect x="80" y="74" width="144" height="70" rx="22" fill="#2c2c30" />
+      <rect x="122" y="84" width="60" height="48" rx="4" fill="#111114" />
+      <rect x="128" y="90" width="48" height="36" rx="2" fill="#4b6f9e" />
+      <Cruz x={102} y={109} t={6} color="#141416" />
+      <circle cx="198" cy="114" r="6" fill="#4a4a52" />
+      <circle cx="210" cy="102" r="6" fill="#4a4a52" />
+    </svg>
+  )
+}
+
 /** Game Boy y Game Boy Color juntas: la Color, más pequeña, delante a la derecha */
 function GameBoys() {
   return (
@@ -185,6 +227,8 @@ export function DibujoConsola({ consola }: { consola: Consola }) {
   if (consola === 'nds') return <NintendoDS />
   if (consola === 'snes') return <SuperNintendo />
   if (consola === 'nes') return <NES />
+  if (consola === 'md') return <MegaDrive />
+  if (consola === 'sms') return <MasterSystemYGameGear />
   if (consola === 'gba') return <GameBoyAdvance />
   return <GameBoys />
 }
