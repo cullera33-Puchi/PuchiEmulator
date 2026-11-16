@@ -1292,20 +1292,19 @@ body.en-juego .aviso {
     box-shadow: -12px 0 32px rgb(0 0 0 / 0.12);
   }
 }
+/* Sin oscurecer con filter (v0.37.2): en iOS, un filtro sobre una pantalla entera obliga a repintarla
+   al empezar y al acabar la animación */
 @keyframes sale-a-izquierda {
   to {
-    transform: translate3d(-33%, 0, 0);
-    filter: brightness(0.94);
+    transform: translate3d(-30%, 0, 0);
   }
 }
 @keyframes entra-desde-izquierda {
   from {
-    transform: translate3d(-33%, 0, 0);
-    filter: brightness(0.94);
+    transform: translate3d(-30%, 0, 0);
   }
   to {
     transform: translate3d(0, 0, 0);
-    filter: none;
   }
 }
 @keyframes sale-a-derecha {

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.37.2",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Otro intento con el parpadeo al volver atrás: al soltar el dedo, la pantalla cambia en el mismo instante, sin un fotograma intermedio."
+    ]
+  },
+  {
     "version": "0.37.1",
     "fecha": "16/11/2026",
     "cambios": [

@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.37.2 (17/11/2026)
+
+El usuario sigue viendo parpadear la pantalla al volver atrás con la v0.37.1. Revisado fotograma a fotograma lo que pasa al volver:
+
+- Al volver deslizando, al soltar se pedía a React el cambio de pantalla y, en el mismo fotograma, se quitaban los estilos del gesto. React aplica el cambio un momento después (en Safari, después del fotograma): durante ese fotograma, la pantalla de la que se sale volvía a verse entera y el inicio, desplazado. Ahora el cambio se aplica antes (`flushSync` en `useVolverDeslizando`) y los estilos se quitan en el mismo fotograma.
+- Al volver con el botón, el inicio esperaba debajo desplazado un 30 % y la animación empezaba en el 33 %: un salto pequeño al arrancar. Las dos coinciden ahora (30 %).
+- Sin oscurecer con `filter: brightness` al entrar y volver (animaciones y gesto): en iOS, un filtro sobre una pantalla entera obliga a repintarla al empezar y al acabar.
+- Prueba de navegador fotograma a fotograma: una vez que el inicio llega a su sitio al volver deslizando, no se mueve ni asoma la pantalla de antes. En Chromium el fallo no llegaba a verse (aplica el cambio antes del fotograma), así que la prueba no lo reproduce: pendiente de que el usuario lo confirme en el iPhone.
+- Medido, por el calor del iPhone que comenta el usuario con EarthBound: con la Super Nintendo, el hilo principal trabaja un 3 % del tiempo y el del juego, un 6 % (1 ms por fotograma, según su registro); con la PlayStation, parecido. Sin cambios por ahora: opciones propuestas al usuario.
+- Pruebas: 173 unitarias y 68 de navegador.
+
 ## 0.37.1 (16/11/2026)
 
 Parpadeo al volver atrás, informado otra vez por el usuario con la v0.36.0 (el arreglo de la v0.35.1, que conservaba las direcciones de las imágenes, no bastó).

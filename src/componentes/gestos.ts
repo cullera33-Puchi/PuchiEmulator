@@ -2,6 +2,7 @@
  * Volver deslizando desde el borde izquierdo en una pantalla apilada (guía de usabilidad, 4.2):
  * la pantalla sigue al dedo y vuelve si pasa de un tercio del ancho o con un lanzamiento rápido.
  */
+import { flushSync } from 'react-dom'
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import { vibrar } from '../lib/vibracion'
 
@@ -54,7 +55,6 @@ export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver
       if (fondo) {
         const f = Math.min(1, Math.max(0, dx) / window.innerWidth)
         fondo.style.transform = `translate3d(${-PARALAJE * (1 - f)}%, 0, 0)`
-        fondo.style.filter = `brightness(${0.94 + 0.06 * f})`
       }
     }
     const limpiar = (e: HTMLElement | null) => {
@@ -63,7 +63,7 @@ export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver
     }
     /** Devuelve todo a su sitio, con animación, y deja los estilos como estaban al acabar */
     const devolver = () => {
-      const transicion = `transform 0.5s ${CURVA}, filter 0.5s ${CURVA}`
+      const transicion = `transform 0.5s ${CURVA}`
       movido.style.transition = transicion
       if (fondo) fondo.style.transition = transicion
       colocar(0)
@@ -130,7 +130,7 @@ export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver
       const dx = ultimaX - inicioX
       const v = e.timeStamp - ultimaT > 80 ? 0 : velocidad
       if (e.type === 'touchend' && (dx > window.innerWidth / 3 || (v > 0.4 && dx > 30))) {
-        const transicion = `transform 0.35s ${CURVA}, filter 0.35s ${CURVA}`
+        const transicion = `transform 0.35s ${CURVA}`
         movido.style.transition = transicion
         if (fondo) fondo.style.transition = transicion
         colocar(window.innerWidth)
@@ -143,12 +143,13 @@ export function useVolverDeslizando(ref: RefObject<HTMLElement | null>, alVolver
           hecho = true
           m.removeEventListener('transitionend', alTerminar)
           volvioDeslizando = Date.now()
-          alVolverRef.current()
-          // La pantalla de debajo pasa a ser la actual: se le quita lo puesto aquí
-          requestAnimationFrame(() => {
-            limpiar(f)
-            limpiar(m)
-          })
+          // El cambio de pantalla se aplica ya (v0.37.2): antes, React lo aplicaba un momento después y,
+          // si los estilos del gesto se quitaban primero, durante un fotograma la pantalla de la que se
+          // sale volvía a verse entera y la de debajo, desplazada (el parpadeo al volver)
+          flushSync(() => alVolverRef.current())
+          // La pantalla de debajo pasa a ser la actual: se le quita lo puesto aquí, en el mismo fotograma
+          limpiar(f)
+          limpiar(m)
         }
         const alTerminar = (ev: TransitionEvent) => ev.target === m && ev.propertyName === 'transform' && terminar()
         m.addEventListener('transitionend', alTerminar)

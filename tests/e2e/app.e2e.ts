@@ -1604,8 +1604,28 @@ test('volver deslizando: debajo se ve la pantalla anterior y al volver está al 
   await expect(page.getByRole('heading', { name: 'NES', exact: true })).toBeVisible()
   await expect.poll(() => fondo.evaluate((e) => e.style.transform + e.style.filter)).toBe('')
 
-  // Pasado un tercio, vuelve al inicio sin pantallazo y con el recuento al día
+  // Pasado un tercio, vuelve al inicio sin pantallazo y con el recuento al día. Fotograma a fotograma
+  // (v0.37.2): una vez que el inicio llega a su sitio, no vuelve atrás ni asoma la biblioteca encima
+  // (antes, al soltar se quitaban los estilos del gesto un fotograma antes de que React cambiara de
+  // pantalla, y la biblioteca reaparecía entera durante un fotograma)
+  await page.evaluate(() => {
+    const w = window as unknown as { fotogramas: { x: number; encima: string }[] }
+    w.fotogramas = []
+    const fin = performance.now() + 1500
+    const medir = () => {
+      const inicio = document.querySelector('[data-testid="consolas"]')?.closest('.capa') as HTMLElement | null
+      const encima = document.elementFromPoint(200, 400)?.closest('.capa')
+      w.fotogramas.push({ x: inicio ? Math.round(inicio.getBoundingClientRect().left) : -1, encima: encima === inicio ? 'inicio' : 'otra' })
+      if (performance.now() < fin) requestAnimationFrame(medir)
+    }
+    requestAnimationFrame(medir)
+  })
   await deslizarDesdeBorde(page, 300)
+  await page.waitForTimeout(1600)
+  const fotogramas = await page.evaluate(() => (window as unknown as { fotogramas: { x: number; encima: string }[] }).fotogramas)
+  const llega = fotogramas.findIndex((f) => f.x === 0 && f.encima === 'inicio')
+  expect(llega).toBeGreaterThanOrEqual(0)
+  expect(fotogramas.slice(llega).filter((f) => f.x !== 0 || f.encima !== 'inicio')).toEqual([])
   await expect(page.getByTestId('consolas').getByRole('button', { name: 'NES, 1 juego', exact: true })).toBeVisible()
   await expect(page.locator('.capa')).toHaveCount(1)
   await expect.poll(() => page.locator('.capa').evaluate((e) => e.style.transform + e.style.visibility)).toBe('')
