@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimarRefresco, planRitmo, Refresco, refrescosPasados } from './ritmo'
+import { estimarRefresco, limitarRecuperacion, planRitmo, Refresco, refrescosPasados } from './ritmo'
 
 describe('planRitmo', () => {
   it('GBA (59,73 Hz) y Super Nintendo (60,10 Hz) en una pantalla de 60 Hz: un fotograma por refresco', () => {
@@ -56,5 +56,26 @@ describe('refrescosPasados', () => {
     expect(refrescosPasados(16.7, 1000 / 120)).toBe(2)
     expect(refrescosPasados(5, 1000 / 120)).toBe(1)
     expect(refrescosPasados(100, 1000 / 120)).toBe(4)
+  })
+})
+
+describe('limitarRecuperacion', () => {
+  it('sale del ciclo de 15 imágenes por segundo de la DS a 30 Hz', () => {
+    // 2 fotogramas por refresco de 33 ms, 9,5 ms cada uno: tras un refresco perdido tocarían 4 (38 ms)
+    expect(limitarRecuperacion(4, 2, 9.5, 33.3)).toBe(2)
+  })
+
+  it('recupera lo que quepa en el refresco', () => {
+    expect(limitarRecuperacion(4, 1, 5, 16.7)).toBe(2)
+    expect(limitarRecuperacion(4, 1, 1, 16.7)).toBe(4)
+  })
+
+  it('no limita si ni los fotogramas normales caben: mejor la velocidad que la fluidez', () => {
+    expect(limitarRecuperacion(4, 2, 20, 33.3)).toBe(4)
+  })
+
+  it('no toca nada sin retraso o sin medidas', () => {
+    expect(limitarRecuperacion(2, 2, 9.5, 33.3)).toBe(2)
+    expect(limitarRecuperacion(4, 2, 0, 33.3)).toBe(4)
   })
 })

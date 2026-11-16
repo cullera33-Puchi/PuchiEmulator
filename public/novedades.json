@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.24.1",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "El volumen del menú ya no salta de línea al 100 %.",
+      "Nintendo DS más fluida cuando el iPhone va justo (por ejemplo, con el modo de bajo consumo): ya no se queda a tirones tras un momento de carga.",
+      "El registro anota mejor el rendimiento, para seguir ajustándolo."
+    ]
+  },
+  {
     "version": "0.24.0",
     "fecha": "16/11/2026",
     "cambios": [

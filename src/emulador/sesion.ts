@@ -14,7 +14,7 @@ import { altavoz } from './audio'
 import { bit, botonesDeMando } from './botones'
 import { Nucleo } from './nucleo'
 import { Historial } from './historial'
-import { planRitmo, Refresco, refrescosPasados } from './ritmo'
+import { limitarRecuperacion, planRitmo, Refresco, refrescosPasados } from './ritmo'
 import { mascaraConCorrer, mascaraConTurbo } from '../lib/mandoJuego'
 import { tocaPausar } from '../lib/sueno'
 import { leerAjustes } from '../lib/ajustes'
@@ -88,6 +88,8 @@ export class Sesion {
   private peticion = 0
   private ultimo = 0
   private acumulado = 0
+  /** Lo que tarda un fotograma, media reciente en ms (v0.24.1) */
+  private costeFotograma = 0
   private paso = 1000 / 60
   private frecuencia = 32768
   private botonesTactil = 0
@@ -130,7 +132,7 @@ export class Sesion {
   private refrescos = 0
   /** Medidas de rendimiento, para el registro */
   // Medidas de rendimiento: se acumulan aunque se abra el menú (antes se perdían en cada pausa)
-  private medida = { tiempo: 0, refrescos: 0, trabajo: 0, maximo: 0, largos: 0, modo: '' }
+  private medida = { tiempo: 0, refrescos: 0, fotogramas: 0, trabajo: 0, maximo: 0, largos: 0, modo: '' }
   /** Estado de justo antes de la última carga, para «Deshacer» */
   private antesDeCargar: Uint8Array | null = null
   /** Tiempo jugado en esta sesión (sin pausas ni inactividad) */
@@ -303,11 +305,18 @@ export class Sesion {
       this.refrescos += refrescosPasados(dt, this.refresco.ms)
       const ciclos = Math.floor(this.refrescos / plan.cadaRefrescos) - antes
       toca = Math.min(ciclos * plan.porRefresco, MAX_FOTOGRAMAS_SEGUIDOS) * this.velocidad
+      if (this.velocidad === 1) toca = limitarRecuperacion(toca, ciclos > 0 ? plan.porRefresco : 0, this.costeFotograma, this.refresco.ms * plan.cadaRefrescos)
       ritmoReal = ((1000 / this.refresco.ms) * plan.porRefresco) / plan.cadaRefrescos / (1000 / this.paso)
     } else {
       this.acumulado += dt * this.velocidad
       toca = Math.min(Math.floor(this.acumulado / this.paso), MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad)
       this.acumulado = toca === MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad ? 0 : this.acumulado - toca * this.paso
+      if (this.velocidad === 1 && this.refresco.ms > 0) {
+        const limitado = limitarRecuperacion(toca, Math.ceil(this.refresco.ms / this.paso), this.costeFotograma, this.refresco.ms)
+        // Lo que no se recupera se pierde: si no, la deuda crecería sin parar
+        if (limitado < toca) this.acumulado = Math.min(this.acumulado + (toca - limitado) * this.paso, this.paso)
+        toca = limitado
+      }
     }
 
     if (this.correr && mascara & this.correr && !(this.basePrevia & this.correr)) this.huecoCorrer = 3
@@ -340,13 +349,19 @@ export class Sesion {
       )
     }
     if (hayImagen) this.dibujar()
-    this.medir(performance.now() - t0, plan.modo, dt)
+    const trabajo = performance.now() - t0
+    if (toca > 0 && this.velocidad === 1) {
+      const coste = trabajo / toca
+      this.costeFotograma = this.costeFotograma ? this.costeFotograma * 0.9 + coste * 0.1 : coste
+    }
+    this.medir(trabajo, plan.modo, dt, toca)
   }
 
   /** Cada 30 s de juego, al registro: lo que tarda cada refresco y cuántos se pasan del tiempo. */
-  private medir(trabajo: number, modo: string, dt: number): void {
+  private medir(trabajo: number, modo: string, dt: number, fotogramas: number): void {
     const m = this.medida
     m.refrescos++
+    m.fotogramas += fotogramas
     m.tiempo += dt
     m.trabajo += trabajo
     m.modo = modo
@@ -370,8 +385,11 @@ export class Sesion {
       maxMs: Math.round(m.maximo * 10) / 10,
       largos: m.largos,
       refrescos: m.refrescos,
+      // Imágenes que se ven y fotogramas que avanza el juego, por segundo (v0.24.1)
+      imagenesSeg: Math.round((m.refrescos / m.tiempo) * 10_000) / 10,
+      juegoSeg: Math.round((m.fotogramas / m.tiempo) * 10_000) / 10,
     })
-    this.medida = { tiempo: 0, refrescos: 0, trabajo: 0, maximo: 0, largos: 0, modo: '' }
+    this.medida = { tiempo: 0, refrescos: 0, fotogramas: 0, trabajo: 0, maximo: 0, largos: 0, modo: '' }
   }
 
   private irAtras(dt: number): void {

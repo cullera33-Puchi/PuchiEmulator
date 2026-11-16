@@ -86,3 +86,26 @@ export function refrescosPasados(dt: number, refrescoMs: number): number {
   if (!(refrescoMs > 0)) return 1
   return Math.max(1, Math.min(4, Math.round(dt / refrescoMs)))
 }
+
+/**
+ * Fotogramas que se pueden ejecutar en este refresco sin pasarse de su tiempo (v0.24.1).
+ *
+ * Tras un refresco perdido, el bucle recupera los fotogramas que faltan. Si recuperarlos todos de
+ * golpe tarda más que un refresco, se pierde el siguiente y se vuelve a recuperar: el juego se queda
+ * en un ciclo de 15 imágenes por segundo aunque al ritmo normal cabría a 30 (se vio con DS en el
+ * iPhone a 30 Hz: 4 fotogramas de 9,5 ms por refresco de 33 ms). Por eso, si los fotogramas normales
+ * de un refresco caben en él, la recuperación se limita a lo que quepa; lo que no, se pierde (el
+ * juego va un instante más lento, sin que se note). Si ni los normales caben, no se limita: el
+ * iPhone no da para más y es mejor mantener la velocidad del juego con menos imágenes.
+ *
+ * @param toca fotogramas que tocarían
+ * @param normal fotogramas de un refresco sin retraso
+ * @param costeMs lo que tarda un fotograma (media reciente), 0 si aún no se sabe
+ * @param refrescoMs duración de un refresco
+ */
+export function limitarRecuperacion(toca: number, normal: number, costeMs: number, refrescoMs: number): number {
+  if (toca <= normal || !(costeMs > 0) || !(refrescoMs > 0)) return toca
+  const disponible = refrescoMs * 0.85
+  if (normal * costeMs > disponible) return toca
+  return Math.max(normal, Math.min(toca, Math.floor(disponible / costeMs)))
+}

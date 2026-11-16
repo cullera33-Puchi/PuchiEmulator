@@ -738,7 +738,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
               aria-label="Volumen del juego"
               className="deslizador flex-1"
             />
-            <span className="w-11 text-right text-zinc-500 tabular-nums">{Math.round(ajustes.volumen * 100)} %</span>
+            <span className="w-14 shrink-0 whitespace-nowrap text-right text-zinc-500 tabular-nums">{Math.round(ajustes.volumen * 100)} %</span>
           </div>
           <div className="separador" />
           <div className="fila flex-col items-stretch gap-2 py-3">

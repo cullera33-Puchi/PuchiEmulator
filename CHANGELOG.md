@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.24.1 (16/11/2026)
+
+A partir de una captura y del registro del usuario (Dragon Quest V en DS).
+
+- Menú del juego: el porcentaje del volumen ya no salta de línea al 100 %.
+- Ritmo: tras un refresco perdido, la recuperación de fotogramas se limita a lo que cabe en un refresco si los fotogramas normales caben (`limitarRecuperacion` en `src/emulador/ritmo.ts`, con el coste medio de un fotograma). El registro mostró la DS con la pantalla a 30 Hz: 2 fotogramas de unos 9,5 ms por refresco cabían, pero tras un tropiezo el bucle recuperaba 4 de golpe (38 ms), perdía el siguiente refresco y se quedaba en 15 imágenes por segundo. Ahora vuelve a 30. Si ni los fotogramas normales caben, se mantiene la recuperación completa, para no frenar el juego.
+- Registro: la línea «Rendimiento» añade las imágenes por segundo que se ven (`imagenesSeg`) y los fotogramas por segundo que avanza el juego (`juegoSeg`).
+- Pruebas: 139 unitarias y 55 de navegador.
+
 ## 0.24.0 (16/11/2026)
 
 Bloque C de las mejoras marcadas por el usuario: Mega Drive, Master System y Game Gear (2).
