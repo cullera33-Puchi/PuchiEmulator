@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.29.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Nueva lupa en el inicio: busca un juego en todas las consolas a la vez.",
+      "Toca el resultado y el juego se abre donde lo dejaste."
+    ]
+  },
+  {
     "version": "0.28.0",
     "fecha": "16/11/2026",
     "cambios": [

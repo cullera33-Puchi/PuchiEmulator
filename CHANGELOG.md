@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.29.0 (16/11/2026)
+
+Bloque 3 de las mejoras marcadas por el usuario tras el análisis (7). Terminadas las cinco marcadas (1, 2, 3, 4 y 7).
+
+- Buscador de juegos en el inicio (7): lupa en la cabecera (solo con juegos), campo «Buscar en todas las consolas» con «Cancelar» y resultados de todas las consolas (sin acentos ni mayúsculas, favoritos primero y después el último jugado), con carátula, consola y cuándo se jugó. Un toque abre el juego, donde se dejó si hay estado `auto`. El campo está siempre en la página, plegado, para enfocarlo en el mismo toque y que el iPhone saque el teclado. Mientras se busca, el resto del inicio se oculta.
+- Hoja de ruta: el análisis de rendimiento y usabilidad, numerado, en `CLAUDE.md` (hechas 1, 2, 3, 4 y 7; descartada la 8).
+- Pruebas: 142 unitarias y 59 de navegador.
+
 ## 0.28.0 (16/11/2026)
 
 Bloque 2 de las mejoras marcadas por el usuario tras el análisis (3 y 4).

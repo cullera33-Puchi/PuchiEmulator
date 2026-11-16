@@ -3,8 +3,8 @@
  * más jugada a la menos, con su dibujo o una foto del usuario y cuántos juegos tienen; las que no
  * tienen juegos, juntas al final (v0.26.0). Tocar una consola abre su biblioteca.
  */
-import { BarChart3, ChevronRight, Ellipsis, Play, Plus, Settings, ShieldCheck } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BarChart3, ChevronRight, Ellipsis, Play, Plus, Search, Settings, ShieldCheck, X } from 'lucide-react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useAnadirJuegos } from '../componentes/AnadirJuegos'
 import { DibujoConsola } from '../componentes/Consolas'
 import { Hoja, useInterfaz } from '../componentes/Interfaz'
@@ -13,7 +13,7 @@ import { leerAjustes, useAjustes } from '../lib/ajustes'
 import { borrarCaratula, contarPartidas, guardarCaratula, leerCaratula, leerEstado, listarCaratulas, listarJuegos, listarSesiones, type Juego } from '../lib/almacen'
 import { duracion, type SesionJuego } from '../lib/estadisticas'
 import { reducirImagen } from '../lib/caratulas'
-import { ordenarConsolas, seguirJugando } from '../lib/biblioteca'
+import { ordenarConsolas, prepararBiblioteca, seguirJugando } from '../lib/biblioteca'
 import { aplazarCopia, diasSinCopia, exportarCopia, necesitaCopia } from '../lib/copias'
 import { APP_VERSION } from '../lib/version'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
@@ -84,6 +84,29 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
     if (activa) void recargar()
   }, [activa, recargar])
 
+  // Buscador de juegos de todas las consolas (v0.29.0)
+  const [buscando, setBuscando] = useState(false)
+  const [texto, setTexto] = useState('')
+  const campoBusqueda = useRef<HTMLInputElement>(null)
+  const textoDiferido = useDeferredValue(texto)
+  const resultados = useMemo(() => {
+    if (!buscando || !juegos || !textoDiferido.trim()) return []
+    const { favoritos, resto } = prepararBiblioteca(juegos, { texto: textoDiferido, orden: 'reciente' })
+    return [...favoritos, ...resto]
+  }, [buscando, juegos, textoDiferido])
+
+  const empezarBusqueda = () => {
+    setBuscando(true)
+    // En el mismo toque: así el iPhone saca el teclado
+    campoBusqueda.current?.focus({ preventScroll: true })
+  }
+
+  const terminarBusqueda = () => {
+    campoBusqueda.current?.blur()
+    setBuscando(false)
+    setTexto('')
+  }
+
   const anadir = useAnadirJuegos(recargar)
 
   const tiempoDe = (id: string) => sesiones.filter((x) => x.juegoId === id).reduce((a, x) => a + x.ms, 0)
@@ -147,6 +170,11 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
               <BarChart3 size={22} />
             </button>
           )}
+          {!!juegos?.length && (
+            <button className="boton-icono" aria-label="Buscar juegos" onClick={empezarBusqueda}>
+              <Search size={22} />
+            </button>
+          )}
           <button className="boton-icono" aria-label="Añadir juegos" onClick={anadir.abrir}>
             <Plus size={24} />
           </button>
@@ -156,6 +184,80 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
         </div>
       </div>
       {anadir.elementos}
+
+      {/* Buscador (v0.29.0): el campo está siempre en la página, plegado, para poder enfocarlo en
+          el mismo toque del icono (si no, el iPhone no saca el teclado) */}
+      {!!juegos?.length && (
+        <div className={`flex items-center gap-2 overflow-hidden transition-[height,margin] duration-200 ${buscando ? 'mb-4 h-9' : 'h-0'}`} aria-hidden={!buscando}>
+          <label className="flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-[10px] bg-zinc-200/80 px-2 text-zinc-500 dark:bg-zinc-800">
+            <Search size={17} className="shrink-0" />
+            <input
+              ref={campoBusqueda}
+              type="search"
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+              placeholder="Buscar en todas las consolas"
+              aria-label="Buscar en todas las consolas"
+              enterKeyHint="search"
+              tabIndex={buscando ? 0 : -1}
+              className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-black outline-none placeholder:text-zinc-500 dark:text-white [&::-webkit-search-cancel-button]:hidden"
+            />
+            {texto && (
+              <button className="grid size-6 shrink-0 place-items-center rounded-full bg-zinc-400 text-white dark:bg-zinc-600" aria-label="Borrar la búsqueda" onClick={() => setTexto('')}>
+                <X size={14} strokeWidth={3} />
+              </button>
+            )}
+          </label>
+          <button className="boton-texto shrink-0" tabIndex={buscando ? 0 : -1} onClick={terminarBusqueda}>
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {buscando && (
+        <div data-testid="resultados">
+          {!texto.trim() ? (
+            <p className="pie-grupo mt-2 text-center">Escribe el nombre de un juego de cualquier consola.</p>
+          ) : resultados.length === 0 ? (
+            <p className="pie-grupo mt-2 text-center">No hay ningún juego que se llame así.</p>
+          ) : (
+            <>
+              <p className="cabecera-grupo">{plural(resultados.length, 'juego', 'juegos')}</p>
+              <div className="lista">
+                {resultados.map((j, i) => (
+                  <div key={j.id}>
+                    {i > 0 && <div className="separador ml-[68px]" />}
+                    <button
+                      className="fila gap-3 py-2 active:opacity-70"
+                      aria-label={`${j.nombre}, ${SISTEMAS[j.sistema].nombre}: jugar`}
+                      onClick={() => {
+                        void altavoz.activar(leerAjustes().sonarEnSilencio)
+                        void leerEstado(j.id, 'auto').then((e) => alJugar(j, !!e))
+                      }}
+                    >
+                      <span className="size-11 shrink-0 overflow-hidden rounded-lg" style={{ background: SISTEMAS[j.sistema].color }}>
+                        {fotos.get(j.id) && <img src={fotos.get(j.id)} alt="" className="h-full w-full object-cover" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{j.nombre}</span>
+                        <span className="block truncate text-[13px] text-zinc-500">
+                          {SISTEMAS[j.sistema].nombre}
+                          {j.ultimaVez ? `, ${cuando(j.ultimaVez)}` : ''}
+                        </span>
+                      </span>
+                      <Play size={18} className="shrink-0 text-acento dark:text-acento-oscuro" fill="currentColor" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {!buscando && (
+        <>
 
       {necesitaCopia(partidas > 0, ajustes.ultimaCopia, ajustes.copiaAplazada) && (
         <AvisoCopia
@@ -273,6 +375,8 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
         )}
       </div>
       {juegos && juegos.length === 0 && <p className="pie-grupo mt-3 text-center">Añade tus juegos con «+». Cada uno va solo a su consola.</p>}
+        </>
+      )}
 
       <Hoja abierta={!!opciones} alCerrar={() => setOpciones(null)} titulo={opciones ? CONSOLAS_APP[opciones].nombre : undefined}>
         {opciones && (

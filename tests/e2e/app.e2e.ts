@@ -1645,3 +1645,37 @@ test('ahorrar batería: 30 imágenes por segundo con el juego a su velocidad, po
   // Es solo de este juego: el ajuste general sigue apagado
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('puchiemulator-ajustes') ?? '{}').limite30 ?? false)).toBe(false)
 })
+
+test('buscador del inicio: juegos de todas las consolas y jugar desde el resultado (v0.29.0)', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Buscar juegos' })).toHaveCount(0)
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: 'Consolas' }).click()
+  await selector(page).setInputFiles(rom('prueba.sfc'))
+  await expect(page.getByText(/Juego añadido/)).toBeVisible()
+
+  // El icono abre el campo con el teclado (enfocado en el mismo toque) y oculta el resto
+  await page.getByRole('button', { name: 'Buscar juegos' }).click()
+  const campo = page.getByRole('searchbox', { name: 'Buscar en todas las consolas' })
+  await expect(campo).toBeFocused()
+  await expect(page.getByTestId('consolas')).toHaveCount(0)
+  const resultados = page.getByTestId('resultados')
+  await campo.fill('PRUÉBA')
+  await expect(resultados.getByRole('button')).toHaveCount(2)
+  await expect(resultados.getByRole('button', { name: 'prueba, Game Boy Advance: jugar' })).toBeVisible()
+  await campo.fill('nada parecido')
+  await expect(resultados).toContainText('No hay ningún juego')
+
+  // Cancelar vuelve al inicio de siempre
+  await page.getByRole('button', { name: 'Cancelar' }).click()
+  await expect(page.getByTestId('consolas')).toBeVisible()
+  await expect(campo).toHaveCount(0)
+
+  // Al volver, empieza vacío; desde un resultado se juega directamente
+  await page.getByRole('button', { name: 'Buscar juegos' }).click()
+  await expect(campo).toHaveValue('')
+  await campo.fill('prueba')
+  await resultados.getByRole('button', { name: 'prueba, Super Nintendo: jugar' }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByTestId('juego')).toHaveAttribute('data-sistema', 'snes')
+})

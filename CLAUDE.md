@@ -77,6 +77,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 - **Filtros de imagen** (v0.15.0): capa `.imagen .filtro` sobre el lienzo, rejilla LCD o líneas de tele, por juego (`filtro` en `CLAVES_CONTROL`).
 - **Colores como en la consola** (v0.14.0): `mgba_color_correction` en «Auto» (GBA y Color), activado por defecto en Ajustes.
 - **Temas** (v0.2.0): `src/lib/temas.ts`, variables CSS en `.juego`. Diseños propios inspirados en las consolas, sin logotipos, marcas ni imágenes oficiales (regla). Por consola, con «Según la consola» por defecto (Game Boy, Clásica; Color, Uva; Advance, Advance). La paleta de Game Boy (`mgba_gb_colors`) sigue al tema o se elige a mano y se aplica en marcha.
+- **Buscador del inicio** (v0.29.0, `Inicio.tsx`): icono de lupa en la cabecera; el campo está siempre en la página, plegado, para enfocarlo en el mismo toque (si no, iOS no saca el teclado). Busca en todas las consolas con `prepararBiblioteca` (sin acentos ni mayúsculas, favoritos primero) y un toque en el resultado abre el juego (donde se dejó, si hay estado `auto`).
 - **Ajustes** (v0.25.0, `src/pantallas/Ajustes.tsx`): lista corta al estilo del iPhone, en cuatro grupos (juego, partidas, aspecto, y registro con acerca de), con baldosa de color, valor actual y chevrón. Cada apartado abre su pantalla (`PaginaApartado`) con «‹ Ajustes» y vuelta deslizando desde el borde. Toda opción nueva va en su apartado, no en la lista.
 - **Registro y copias de seguridad** (v0.2.0): `src/lib/registro.ts` (400 entradas, sin nombres de juegos ni partidas) y `src/lib/seguridad.ts` (copia diaria de las partidas, las 7 más recientes, y previa antes de recuperar o restaurar). Toda operación nueva relevante se registra.
 
@@ -113,10 +114,36 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 | 5 | PC Engine (TurboGrafx-16) con Beetle PCE Fast (GPL), añadida por el usuario el 15/11/2026. Esfuerzo bajo para los cartuchos; los CD, medio, reutilizando la lectura de discos de la PlayStation 1 | Pendiente, no empezar sin indicación del usuario |
 | 6 | PlayStation 1 con PCSX ReARMed (GPL), confirmada por el usuario el 15/11/2026. Esfuerzo alto: imágenes de CD de 300 a 700 MB (.bin y .cue, .chd o .pbp) que hay que guardar y leer sin cargarlas enteras en memoria; BIOS opcional (lleva una propia); en WebAssembly va sin recompilador, con el intérprete; varios discos por juego; mando con los cuatro botones de PlayStation, L1, L2, R1 y R2 | Pendiente, no empezar sin indicación del usuario |
 | 7 | Nintendo 64 con Mupen64Plus-Next (GPL), añadida por el usuario el 15/11/2026. Esfuerzo alto: es la primera consola en 3D y necesita dibujar con la tarjeta gráfica del iPhone (WebGL en el puente) en lugar de la imagen por software actual; rendimiento por comprobar en el iPhone 17 (unos juegos irán bien y otros no); mando con palanca analógica táctil, botones C y Z; partidas en el Controller Pak y la EEPROM del cartucho | Pendiente, no empezar sin indicación del usuario |
-| DS | Nintendo DS con melonDS. Plan aprobado (15/11/2026): 1) viabilidad; 2) base (dos pantallas, táctil, guardado, carátulas, estadísticas); 3) disposiciones móviles (una encima de otra, lado a lado, grande y pequeña arrastrable y redimensionable, solo una con intercambio, por juego) y una mano; 4) micrófono y ajustes finos. Sin rebobinado en DS. Sin BIOS (el usuario no tiene) | Pasos 1 y 2 hechos (v0.11.0 a v0.13.1). Paso 3 en parte (v0.17.0): libro, para Hotel Dusk, y grande y pequeña, elegidos por el usuario. Bloque 2 (v0.20.0): lado a lado, tamaño de la miniatura, una mano, «Soplar» (el núcleo solo admite soplido, decisión del usuario) y tapa. Queda sin marcar: solo una pantalla con intercambio |
-| Mejoras: mando | Hecho: turbo por botón (v0.19.0) y mover y cambiar de tamaño cada botón (v0.21.0). Sin marcar: ocultar los botones táctiles al conectar un mando Bluetooth; atajos y botones configurables en el mando Bluetooth | Sin indicación del usuario |
-| Mejoras: partida | Hecho: ranuras con nombre y nueve ranuras (v0.19.0) y volumen del juego (v0.22.0). Sin marcar: cámara lenta; abrir directamente el último juego al entrar; trucos | Sin indicación del usuario |
+| DS | Nintendo DS con melonDS. Plan aprobado (15/11/2026): 1) viabilidad; 2) base (dos pantallas, táctil, guardado, carátulas, estadísticas); 3) disposiciones móviles (una encima de otra, lado a lado, grande y pequeña arrastrable y redimensionable, solo una con intercambio, por juego) y una mano; 4) micrófono y ajustes finos. Sin rebobinado en DS. Sin BIOS (el usuario no tiene) | Pasos 1 y 2 hechos (v0.11.0 a v0.13.1). Paso 3 en parte (v0.17.0): libro, para Hotel Dusk, y grande y pequeña, elegidos por el usuario. Bloque 2 (v0.20.0): lado a lado, tamaño de la miniatura, una mano, «Soplar» (el núcleo solo admite soplido, decisión del usuario) y tapa. Queda sin marcar: solo una pantalla con intercambio (número 10 del análisis del 16/11/2026) |
+| Mejoras: mando | Hecho: turbo por botón (v0.19.0) y mover y cambiar de tamaño cada botón (v0.21.0). Pendiente: el mando Bluetooth (18 y 19 del análisis del 16/11/2026) | Al final, por decisión del usuario |
+| Mejoras: partida | Hecho: ranuras con nombre y nueve ranuras (v0.19.0) y volumen del juego (v0.22.0). Pendiente: cámara lenta (11) y trucos (12). Abrir directamente el último juego al entrar (8), descartado por el usuario el 16/11/2026 | Sin indicación del usuario |
 | Mejoras: en la cama | Hecho: modo noche (v0.16.0), temporizador de sueño y pausa si se deja de tocar (v0.19.0) y girar la pantalla para jugar tumbado de lado (v0.22.0) | Hecho |
+
+### Análisis de rendimiento y usabilidad (16/11/2026)
+
+Pedido por el usuario, con prioridad para el rendimiento y la usabilidad y el mando Bluetooth al final. Marcó 1, 2, 3, 4 y 7; descartó el 8.
+
+| Nº | Mejora | Esfuerzo | Estado |
+| --- | --- | --- | --- |
+| 1 | Prueba de rendimiento de los núcleos en cada publicación, frente a la versión anterior | Bajo | Hecha (v0.27.0) |
+| 2 | Núcleos con SIMD y LTO, midiendo antes y después | Bajo a medio | Hecha (v0.27.0): NES un 43 % más rápido, Mega Drive un 14 %, GBA y Super Nintendo entre un 4 y un 10 %, DS igual |
+| 3 | Lo que tarda en abrirse un juego en el registro y núcleo preparado al abrir la app | Bajo | Hecha (v0.28.0) |
+| 4 | Ahorrar batería: 30 imágenes por segundo por juego, con el juego a su velocidad | Bajo | Hecha (v0.28.0) |
+| 5 | Emulación en un hilo aparte (Worker con OffscreenCanvas): el juego deja de competir con la app; base para PlayStation 1 y Nintendo 64 | Alto | Pendiente; antes, el 14 |
+| 6 | Dibujar con la tarjeta gráfica (WebGL), con los filtros como sombreadores; requisito previo de Nintendo 64 | Medio | Pendiente |
+| 7 | Buscador de juegos de todas las consolas en el inicio | Bajo | Hecha (v0.29.0) |
+| 8 | Abrir directamente el último juego al entrar | Bajo | Descartada por el usuario |
+| 9 | Menú al mantener pulsada una carátula (seguir, empezar de cero, estados, notas, favorito y quitar) | Medio | Pendiente |
+| 10 | DS: solo una pantalla, con intercambio | Medio | Pendiente |
+| 11 | Cámara lenta | Bajo | Pendiente |
+| 12 | Trucos (Action Replay y Game Genie) por juego | Medio | Pendiente |
+| 13 | Texto que respeta el tamaño de letra del iPhone | Medio | Pendiente |
+| 14 | Revisión de código independiente de las versiones 0.19 a 0.29 | Medio | Pendiente; recomendada antes del 5 |
+| 15 | PC Engine (cartuchos) | Bajo | Pendiente (fila 5 de arriba) |
+| 16 | PlayStation 1 (mejor después del 5) | Alto | Pendiente (fila 6 de arriba) |
+| 17 | Nintendo 64 (necesita el 5 y el 6) | Alto | Pendiente (fila 7 de arriba) |
+| 18 | Ocultar los botones táctiles al conectar un mando Bluetooth | Bajo | Al final, por decisión del usuario |
+| 19 | Atajos y botones configurables en el mando Bluetooth | Medio | Al final, por decisión del usuario |
 
 Orden de las consolas nuevas acordado con el usuario el 15/11/2026: NES; Mega Drive, Master System y Game Gear; PC Engine; PlayStation 1; Nintendo 64. Descartadas por rendimiento (necesitan varios hilos): Saturn, Dreamcast, PSP y 3DS.
 
@@ -124,6 +151,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; FCEUmm
 
 ## Estado
 
+- v0.29.0 (16/11/2026): mejora 7 del análisis, buscador de juegos de todas las consolas en el inicio. Terminadas las marcadas por el usuario (1, 2, 3, 4 y 7; la 8, descartada); hoja de ruta del análisis en «Análisis de rendimiento y usabilidad». 142 pruebas unitarias y 59 de navegador. Pendiente de probar en el iPhone: la velocidad de los núcleos con juegos reales, lo que tarda en abrirse un juego (registro, «Juego abierto»), «Ahorrar batería» y el buscador.
 - v0.28.0 (16/11/2026): mejoras 3 y 4 del análisis: lo que tarda en abrirse cada juego en el registro, núcleos compilados reutilizados y preparados al abrir la app, y «Ahorrar batería» (30 imágenes por segundo) por juego. 142 pruebas unitarias y 58 de navegador. Sigue la 7 (buscador en el inicio).
 - v0.27.0 (16/11/2026): mejoras 1 y 2 del análisis de rendimiento y usabilidad (marcadas por el usuario: 1, 2, 3, 4 y 7; la 8, descartada): prueba de rendimiento de los núcleos en cada publicación y núcleos con SIMD y LTO (NES un 43 % más rápido, Mega Drive un 14 %, GBA y Super Nintendo entre un 4 y un 10 %, DS igual). 142 pruebas unitarias y 56 de navegador. Siguen la 3 y la 4 (bloque 2) y la 7 (bloque 3).
 - v0.26.2 (16/11/2026): cabeceras 20 puntos bajo la hora (8 no bastaron, según el usuario). Pendiente de que confirme que se ven nítidas.
