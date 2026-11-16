@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.26.2",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Los títulos de arriba bajan un poco más para que el iPhone no los difumine bajo la hora."
+    ]
+  },
+  {
     "version": "0.26.1",
     "fecha": "16/11/2026",
     "cambios": [

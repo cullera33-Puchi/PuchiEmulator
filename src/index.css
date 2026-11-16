@@ -1284,10 +1284,13 @@ body.en-juego .aviso {
 }
 
 /*
- * Cabecera fija de las pantallas (v0.26.1): su fondo cubre también la franja de la hora y el texto
- * baja 8 puntos, fuera de la zona que el iPhone difumina bajo la barra de estado.
+ * Cabecera fija de las pantallas: su fondo cubre también la franja de la hora y el texto baja
+ * --aire-arriba, fuera de la zona que iOS difumina bajo la barra de estado en las apps de la
+ * pantalla de inicio (efecto del sistema que una web no puede quitar). 8 puntos en la v0.26.1
+ * no bastaron; 20 desde la v0.26.2.
  */
 .cabecera-fija {
-  padding-top: calc(env(safe-area-inset-top) + 8px);
-  height: calc(env(safe-area-inset-top) + 52px);
+  --aire-arriba: 20px;
+  padding-top: calc(env(safe-area-inset-top) + var(--aire-arriba));
+  height: calc(env(safe-area-inset-top) + var(--aire-arriba) + 44px);
 }

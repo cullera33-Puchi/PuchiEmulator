@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.26.2 (16/11/2026)
+
+- Cabeceras: el texto baja 20 puntos bajo la franja de la hora (antes 8), porque el usuario aún lo veía algo difuminado. Es el efecto de borde de iOS 26 en las apps de la pantalla de inicio, que difumina una franja bajo la barra de estado y no se puede quitar desde la web; la medida va en `--aire-arriba` (`.cabecera-fija`).
+- Pruebas: 142 unitarias y 56 de navegador.
+
 ## 0.26.1 (16/11/2026)
 
 Dos cosas informadas por el usuario con captura y registro.
