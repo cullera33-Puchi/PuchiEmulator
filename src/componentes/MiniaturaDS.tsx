@@ -5,6 +5,7 @@
  */
 import { useRef, useState, type PointerEvent as EventoPuntero, type Ref } from 'react'
 import { registrar } from '../lib/registro'
+import { giroDe, vectorJuego } from '../lib/giro'
 
 interface Props {
   ref: Ref<HTMLCanvasElement>
@@ -24,29 +25,35 @@ export function MiniaturaDS({ ref, posicion, alMover, alTocar, tamano = 'mediana
   const inicio = useRef<{ x: number; y: number; izquierda: number; arriba: number; moviendo: boolean } | null>(null)
   const [arrastre, setArrastre] = useState<{ izquierda: number; arriba: number } | null>(null)
 
+  /** Medida del recuadro del juego (girado o no) */
+  const recuadro = () => {
+    const padre = caja.current?.offsetParent as HTMLElement | null
+    return { ancho: padre?.clientWidth || window.innerWidth, alto: padre?.clientHeight || window.innerHeight }
+  }
+
   const bajar = (e: EventoPuntero<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
-    const r = caja.current!.getBoundingClientRect()
+    const el = caja.current!
     try {
       e.currentTarget.setPointerCapture(e.pointerId)
     } catch {
       // sin captura: el arrastre funciona mientras el dedo siga encima
     }
-    inicio.current = { x: e.clientX, y: e.clientY, izquierda: r.left, arriba: r.top, moviendo: false }
+    inicio.current = { x: e.clientX, y: e.clientY, izquierda: el.offsetLeft, arriba: el.offsetTop, moviendo: false }
   }
 
   const mover = (e: EventoPuntero<HTMLDivElement>) => {
     const i = inicio.current
     if (!i) return
-    const dx = e.clientX - i.x
-    const dy = e.clientY - i.y
+    const [dx, dy] = vectorJuego(e.clientX - i.x, e.clientY - i.y, giroDe(caja.current))
     if (!i.moviendo && Math.hypot(dx, dy) < UMBRAL) return
     i.moviendo = true
-    const r = caja.current!.getBoundingClientRect()
+    const el = caja.current!
+    const { ancho, alto } = recuadro()
     setArrastre({
-      izquierda: Math.min(Math.max(0, i.izquierda + dx), window.innerWidth - r.width),
-      arriba: Math.min(Math.max(0, i.arriba + dy), window.innerHeight - r.height),
+      izquierda: Math.min(Math.max(0, i.izquierda + dx), ancho - el.offsetWidth),
+      arriba: Math.min(Math.max(0, i.arriba + dy), alto - el.offsetHeight),
     })
   }
 
@@ -59,7 +66,10 @@ export function MiniaturaDS({ ref, posicion, alMover, alTocar, tamano = 'mediana
       alTocar()
       return
     }
-    if (arrastre) alMover({ x: arrastre.izquierda / window.innerWidth, y: arrastre.arriba / window.innerHeight })
+    if (arrastre) {
+      const { ancho, alto } = recuadro()
+      alMover({ x: arrastre.izquierda / ancho, y: arrastre.arriba / alto })
+    }
     setArrastre(null)
   }
 

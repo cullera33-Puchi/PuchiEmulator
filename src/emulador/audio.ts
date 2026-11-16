@@ -16,6 +16,8 @@ export class Altavoz {
   private ritmo: ControlRitmo | null = null
   private listo: Promise<void> | null = null
   silenciado = false
+  /** Volumen de 0 a 1 (v0.22.0) */
+  volumen = 1
 
   /** Llamar dentro de un toque. */
   activar(sonarEnSilencio: boolean): Promise<void> {
@@ -41,7 +43,7 @@ export class Altavoz {
           }
           this.nodo.port.postMessage({ tipo: 'maximo', pares: this.objetivo * 4 })
           this.ganancia = ctx.createGain()
-          this.ganancia.gain.value = this.silenciado ? 0 : 1
+          this.ganancia.gain.value = this.silenciado ? 0 : this.volumen
           this.nodo.connect(this.ganancia).connect(ctx.destination)
         })
         .catch((e) => {
@@ -58,7 +60,13 @@ export class Altavoz {
 
   silenciar(silencio: boolean): void {
     this.silenciado = silencio
-    if (this.ganancia) this.ganancia.gain.value = silencio ? 0 : 1
+    if (this.ganancia) this.ganancia.gain.value = silencio ? 0 : this.volumen
+  }
+
+  /** Volumen del juego, de 0 a 1, sin tocar el del iPhone. */
+  ponerVolumen(v: number): void {
+    this.volumen = Math.min(1, Math.max(0, v))
+    if (this.ganancia && !this.silenciado) this.ganancia.gain.value = this.volumen
   }
 
   /**

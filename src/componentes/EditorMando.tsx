@@ -4,7 +4,8 @@
  */
 import { Minus, Plus } from 'lucide-react'
 import { useRef, useState, type PointerEvent as EventoPuntero } from 'react'
-import { desdeRect, escalar, mover, type Colocacion, type DisposicionPiezas, type Pieza } from '../lib/disposicionMando'
+import { escalar, mover, type Colocacion, type DisposicionPiezas, type Pieza } from '../lib/disposicionMando'
+import { giroDe, vectorJuego } from '../lib/giro'
 
 interface Props {
   colocaciones: DisposicionPiezas
@@ -23,8 +24,15 @@ export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }:
   const colocacionDe = (p: Pieza): Colocacion | null => {
     if (colocaciones[p]) return colocaciones[p]!
     const el = document.querySelector<HTMLElement>(`.mando [data-pieza="${p}"]`)
-    if (!el) return null
-    return desdeRect(el.getBoundingClientRect(), window.innerWidth, window.innerHeight)
+    const mando = el?.closest<HTMLElement>('.mando')
+    if (!el || !mando) return null
+    // Centro de la pieza en el recuadro del juego (vale también con la pantalla girada)
+    return { x: (el.offsetLeft + el.offsetWidth / 2) / mando.clientWidth, y: (el.offsetTop + el.offsetHeight / 2) / mando.clientHeight, escala: 1 }
+  }
+
+  const medida = () => {
+    const m = document.querySelector<HTMLElement>('.mando')
+    return { ancho: m?.clientWidth || window.innerWidth, alto: m?.clientHeight || window.innerHeight, giro: giroDe(m) }
   }
 
   const bajar = (e: EventoPuntero<HTMLDivElement>) => {
@@ -41,7 +49,9 @@ export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }:
   const moverDedo = (e: EventoPuntero<HTMLDivElement>) => {
     const a = arrastre.current
     if (!a) return
-    const c = mover(a.inicio, (e.clientX - a.x) / window.innerWidth, (e.clientY - a.y) / window.innerHeight)
+    const { ancho, alto, giro } = medida()
+    const [dx, dy] = vectorJuego(e.clientX - a.x, e.clientY - a.y, giro)
+    const c = mover(a.inicio, dx / ancho, dy / alto)
     alCambiar({ ...colocaciones, [a.pieza]: c })
   }
 

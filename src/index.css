@@ -69,6 +69,60 @@
 
 /* ---------- Pantalla de juego ---------- */
 
+/* Deslizador al estilo iOS (volumen, v0.22.0) */
+.deslizador {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(120 120 128 / 0.4);
+  touch-action: pan-x;
+}
+.deslizador::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+
+/* Recuadro del juego (v0.22.0): es el contenedor que decide la colocación (vertical u horizontal)
+   y la medida de todo. Con «Girar la pantalla» y el iPhone en vertical, se gira un cuarto de vuelta
+   y se coloca como en horizontal. */
+.giro {
+  position: fixed;
+  inset: 0;
+  container: juego / size;
+}
+.giro.girada {
+  inset: auto;
+  top: 0;
+  left: 0;
+  width: 100dvh;
+  height: 100vw;
+  transform-origin: top left;
+}
+.giro.girada.derecha {
+  transform: translateX(100vw) rotate(90deg);
+}
+.giro.girada.izquierda {
+  transform: translateY(100dvh) rotate(-90deg);
+}
+/* Zonas seguras giradas: lo que era arriba en el iPhone pasa a un lado del juego */
+.giro.girada.derecha .juego {
+  --seguro-arriba: max(env(safe-area-inset-right), var(--zona-derecha, 0px));
+  --seguro-izq: max(env(safe-area-inset-top), var(--zona-arriba, 0px));
+  --seguro-der: max(env(safe-area-inset-bottom), var(--zona-abajo, 0px));
+  --seguro-abajo: max(env(safe-area-inset-left), var(--zona-izquierda, 0px));
+}
+.giro.girada.izquierda .juego {
+  --seguro-arriba: max(env(safe-area-inset-left), var(--zona-izquierda, 0px));
+  --seguro-izq: max(env(safe-area-inset-bottom), var(--zona-abajo, 0px));
+  --seguro-der: max(env(safe-area-inset-top), var(--zona-arriba, 0px));
+  --seguro-abajo: max(env(safe-area-inset-right), var(--zona-derecha, 0px));
+}
+
 .juego {
   position: fixed;
   inset: 0;
@@ -84,7 +138,7 @@
   --opacidad-mando: 1;
   /* Tamaño de los botones: 0,8, 1, 1,15 o 1,3 (Ajustes) */
   --escala: 1;
-  --tam-mando: min(calc(168px * var(--escala)), 46vw);
+  --tam-mando: min(calc(168px * var(--escala)), 46cqw);
   --base-mando: calc(var(--seguro-abajo) + 96px);
   --ancho-pequeno: calc(78px * var(--escala));
 }
@@ -118,7 +172,7 @@
   left: 50%;
   translate: -50% 0;
   top: calc(var(--seguro-arriba) + 8px);
-  width: min(360px, calc(100vw - 24px));
+  width: min(360px, calc(100cqw - 24px));
   padding: 10px 12px;
   border-radius: 14px;
   background: rgb(28 28 30 / 0.94);
@@ -158,7 +212,7 @@
 /* Grande y pequeña: la miniatura flota encima de los controles. Sin sitio guardado, arriba a la
    derecha; con él, en su fracción de la pantalla y siempre dentro. */
 .miniatura-ds {
-  --ancho-mini: calc(min(38vw, calc(34dvh * 4 / 3)) * var(--escala-mini, 1));
+  --ancho-mini: calc(min(38cqw, calc(34cqh * 4 / 3)) * var(--escala-mini, 1));
   position: absolute;
   z-index: 7;
   width: var(--ancho-mini);
@@ -173,8 +227,8 @@
 }
 .miniatura-ds.colocada {
   right: auto;
-  left: min(calc(var(--mini-x, 0) * 100vw), calc(100vw - var(--ancho-mini)));
-  top: min(calc(var(--mini-y, 0) * 100dvh), calc(100dvh - var(--ancho-mini) * 0.75));
+  left: min(calc(var(--mini-x, 0) * 100cqw), calc(100cqw - var(--ancho-mini)));
+  top: min(calc(var(--mini-y, 0) * 100cqh), calc(100cqh - var(--ancho-mini) * 0.75));
 }
 .miniatura-ds canvas {
   width: 100%;
@@ -249,7 +303,7 @@
   top: calc(var(--seguro-arriba) + 8px);
   left: 0;
   right: 0;
-  height: min(calc(100vw * var(--proporcion, 0.6667)), 50dvh);
+  height: min(calc(100cqw * var(--proporcion, 0.6667)), 50cqh);
 }
 
 .mando {
@@ -463,7 +517,7 @@
 .hombro {
   background: var(--hombro, rgb(255 255 255 / 0.1));
   color: var(--hombro-texto, rgb(255 255 255 / 0.75));
-  width: min(calc(104px * var(--escala)), 30vw);
+  width: min(calc(104px * var(--escala)), 30cqw);
   height: calc(40px * var(--escala));
   border-radius: 12px;
   font-size: 15px;
@@ -519,7 +573,7 @@
   z-index: 5;
   display: flex;
   gap: 10px;
-  top: calc(var(--seguro-arriba) + 18px + min(calc(100vw * var(--proporcion, 0.6667)), 50dvh));
+  top: calc(var(--seguro-arriba) + 18px + min(calc(100cqw * var(--proporcion, 0.6667)), 50cqh));
 }
 .herramientas.izquierda {
   right: calc(50% + 32px);
@@ -531,7 +585,7 @@
   position: absolute;
   z-index: 5;
   left: calc(50% - 22px);
-  top: calc(var(--seguro-arriba) + 18px + min(calc(100vw * var(--proporcion, 0.6667)), 50dvh));
+  top: calc(var(--seguro-arriba) + 18px + min(calc(100cqw * var(--proporcion, 0.6667)), 50cqh));
 }
 
 body.en-juego .aviso {
@@ -542,13 +596,13 @@ body.en-juego .aviso {
 /* Una mano, en vertical: todo agrupado abajo, al alcance del pulgar (derecha o izquierda).
    Abajo, la cruceta hacia el centro y A y B junto al borde, un poco más altos; encima de la
    cruceta, L y R; encima de A y B, Select y Start. */
-@media (orientation: portrait) {
+@container juego (orientation: portrait) {
   .juego.una-mano {
-    --tam-una: min(calc(132px * var(--escala)), 40vw);
+    --tam-una: min(calc(132px * var(--escala)), 40cqw);
     --base-una: calc(var(--seguro-abajo) + 24px);
     --lado: 16px;
     /* Que L y R quepan a lo ancho aunque los botones sean enormes en un iPhone pequeño */
-    --ancho-hombro: min(calc(80px * var(--escala)), calc((100vw - var(--tam-una) - 52px) / 2));
+    --ancho-hombro: min(calc(80px * var(--escala)), calc((100cqw - var(--tam-una) - 52px) / 2));
     /* Fila de guardar, cargar, menú, rebobinar y avance rápido, encima de Select y Start */
     --base-herramientas: calc(var(--base-una) + var(--tam-una) * 1.45 + 30px * var(--escala) + 30px);
   }
@@ -658,15 +712,15 @@ body.en-juego .aviso {
    La de abajo es táctil y casi nunca se mira entera: la cruceta, los botones y L y R quedan encima de
    ella, translúcidos (donde no hay un botón, el toque es del lápiz). Abajo del todo, una fila con
    guardar y cargar, Select y Start, el menú y el avance rápido. */
-@media (orientation: portrait) {
+@container juego (orientation: portrait) {
   .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) {
     --fila-abajo: calc(var(--seguro-abajo) + 52px);
     --base-mando: calc(var(--fila-abajo) + 4px);
-    --tam-mando: min(calc(150px * var(--escala)), 40vw);
+    --tam-mando: min(calc(150px * var(--escala)), 40cqw);
   }
   .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .zona-pantalla {
     top: var(--seguro-arriba);
-    height: min(calc(100vw * var(--proporcion, 1.5)), calc(100dvh - var(--seguro-arriba) - var(--fila-abajo)));
+    height: min(calc(100cqw * var(--proporcion, 1.5)), calc(100cqh - var(--seguro-arriba) - var(--fila-abajo)));
   }
   /* Encima de la imagen: relleno oscuro translúcido y borde claro, que se ven sobre cualquier fondo */
   .juego[data-sistema='nds'][data-disposicion='apiladas'] .cruceta,
@@ -706,10 +760,10 @@ body.en-juego .aviso {
   }
   .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .zona-pantalla {
     top: var(--seguro-arriba);
-    height: min(calc(100vw * var(--proporcion, 1.5)), calc(100dvh - var(--seguro-arriba) - var(--seguro-abajo) - 40px));
+    height: min(calc(100cqw * var(--proporcion, 1.5)), calc(100cqh - var(--seguro-arriba) - var(--seguro-abajo) - 40px));
   }
   .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .hombro {
-    width: min(calc(84px * var(--escala)), 24vw);
+    width: min(calc(84px * var(--escala)), 24cqw);
     height: calc(34px * var(--escala));
     bottom: calc(var(--base-mando) + var(--tam-mando) + 10px);
   }
@@ -767,10 +821,10 @@ body.en-juego .aviso {
 }
 
 /* Horizontal: la pantalla en el centro a toda la altura y los controles a los lados */
-@media (orientation: landscape) {
+@container juego (orientation: landscape) {
   .juego {
-    --tam-mando: min(calc(160px * var(--escala)), 44dvh);
-    --base-mando: max(calc(var(--seguro-abajo) + 44px), 18dvh);
+    --tam-mando: min(calc(160px * var(--escala)), 44cqh);
+    --base-mando: max(calc(var(--seguro-abajo) + 44px), 18cqh);
   }
   .zona-pantalla {
     top: 0;
@@ -835,7 +889,7 @@ body.en-juego .aviso {
      la cruceta a la izquierda, los botones a la derecha, L y R junto a ellos y en el centro las
      herramientas y Select y Start */
   .juego[data-disposicion='lado']:not(.una-mano) {
-    --tam-mando: min(calc(112px * var(--escala)), 30dvh);
+    --tam-mando: min(calc(112px * var(--escala)), 30cqh);
     --base-mando: calc(var(--seguro-abajo) + 2px);
   }
   .juego[data-disposicion='lado']:not(.una-mano) .zona-pantalla {
@@ -896,7 +950,7 @@ body.en-juego .aviso {
   /* Una mano en horizontal: la pantalla pegada a un lado y una columna de controles al otro.
      De arriba abajo: L y R, A y B, la cruceta y Select y Start. Herramientas en columna junto a ella. */
   .juego.una-mano {
-    --col: min(calc(150px * var(--escala)), 34vw, calc((100dvh - 136px) / 1.8));
+    --col: min(calc(150px * var(--escala)), 34cqw, calc((100cqh - 136px) / 1.8));
     --lado-col: 8px;
   }
   .juego.una-mano .zona-pantalla {

@@ -27,6 +27,10 @@ export interface Ajustes {
   intensidadNoche: IntensidadNoche
   /** Pausar y guardar tras estos minutos sin tocar nada (0: nunca), v0.19.0 */
   pausaSinTocar: 0 | 3 | 5 | 10
+  /** Girar el juego un cuarto de vuelta con el iPhone en vertical, para jugar tumbado de lado con el bloqueo de orientación puesto (v0.22.0) */
+  girarPantalla: 'no' | 'izquierda' | 'derecha'
+  /** Volumen de los juegos, de 0 a 1 (v0.22.0) */
+  volumen: number
   /** Hoja de bienvenida ya vista */
   bienvenidaVista: boolean
   /** Tema de la pantalla de juego por consola («auto»: el de esa consola) */
@@ -89,6 +93,8 @@ export const POR_DEFECTO: Ajustes = {
   modoNoche: false,
   intensidadNoche: 'media',
   pausaSinTocar: 10,
+  girarPantalla: 'no',
+  volumen: 1,
   bienvenidaVista: false,
   temas: {},
   paletaGb: 'auto',

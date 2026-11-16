@@ -10,6 +10,7 @@ import { bit, direccionCruceta, type NombreBoton } from '../emulador/botones'
 import { vibracionActiva } from '../lib/ajustes'
 import { NOMBRE_BOTON, type BotonMenu } from '../lib/mandoJuego'
 import { estiloPieza, type DisposicionPiezas, type Pieza } from '../lib/disposicionMando'
+import { fraccionEn, giroDe, vectorJuego } from '../lib/giro'
 import { vibrar } from '../lib/vibracion'
 
 interface Props {
@@ -93,10 +94,13 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   }
 
   const desdeCruceta = (x: number, y: number, anterior = 0) => {
-    const r = cruceta.current?.getBoundingClientRect()
-    if (!r) return 0
+    const el = cruceta.current
+    if (!el) return 0
+    const r = el.getBoundingClientRect()
     const radio = r.width / 2
-    return direccionCruceta((x - (r.left + radio)) / radio, (y - (r.top + r.height / 2)) / radio, anterior, !!cuatroRef.current)
+    // Con la pantalla girada, la dirección se mide en el juego, no en el iPhone
+    const [dx, dy] = vectorJuego(x - (r.left + r.width / 2), y - (r.top + r.height / 2), giroDe(el))
+    return direccionCruceta(dx / radio, dy / radio, anterior, !!cuatroRef.current)
   }
 
   /** El punto cae cerca de la cruceta, aunque sea fuera de su dibujo */
@@ -108,9 +112,10 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   }
 
   const enLaImagen = (x: number, y: number): [number, number] | null => {
-    const r = tactil?.lienzo.current?.getBoundingClientRect()
-    if (!r || x < r.left || x > r.right || y < r.top || y > r.bottom) return null
-    return [(x - r.left) / r.width, (y - r.top) / r.height]
+    const el = tactil?.lienzo.current
+    if (!el) return null
+    const [fx, fy] = fraccionEn(el, x, y)
+    return fx < 0 || fx > 1 || fy < 0 || fy > 1 ? null : [fx, fy]
   }
 
   const bajoElDedo = (x: number, y: number): Dedo => {
@@ -127,9 +132,10 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
 
   /** Posición del lápiz, limitada a la imagen aunque el dedo se salga */
   const tocar = (x: number, y: number) => {
-    const r = tactil?.lienzo.current?.getBoundingClientRect()
-    if (!r) return
-    tactil?.alTocar(Math.min(1, Math.max(0, (x - r.left) / r.width)), Math.min(1, Math.max(0, (y - r.top) / r.height)))
+    const el = tactil?.lienzo.current
+    if (!el) return
+    const [fx, fy] = fraccionEn(el, x, y)
+    tactil?.alTocar(Math.min(1, Math.max(0, fx)), Math.min(1, Math.max(0, fy)))
   }
 
   const alBajar = (e: EventoPuntero) => {

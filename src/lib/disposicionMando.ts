@@ -39,8 +39,8 @@ export function desdeRect(r: { left: number; top: number; width: number; height:
 /** Estilo en línea de una pieza colocada: centrada en su punto y escalada. */
 export function estiloPieza(c: Colocacion): Record<string, string> {
   return {
-    left: `${c.x * 100}vw`,
-    top: `${c.y * 100}dvh`,
+    left: `${c.x * 100}cqw`,
+    top: `${c.y * 100}cqh`,
     right: 'auto',
     bottom: 'auto',
     translate: '-50% -50%',

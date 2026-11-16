@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.22.0 (16/11/2026)
+
+Bloque A de las mejoras marcadas por el usuario (10 y 13).
+
+- Volumen del juego (10): deslizador en el menú del juego, uno para todos los juegos (decisión del usuario), sin tocar el volumen del iPhone (`ajustes.volumen`, `Altavoz.ponerVolumen`).
+- Girar la pantalla (13), para jugar tumbado de lado con el bloqueo de orientación del iPhone puesto: en el menú del juego, «No», «A la izquierda» o «A la derecha» (`ajustes.girarPantalla`). Con el iPhone en vertical, el juego se gira un cuarto de vuelta y se coloca como en horizontal.
+  - La colocación ya no depende de la orientación del iPhone sino de la del recuadro del juego: el CSS del juego pasa de `@media (orientation)` a consultas de contenedor (`.giro`, `container: juego / size`) y de `vw` y `dvh` a `cqw` y `cqh`.
+  - Las zonas seguras se giran con el juego (la Dynamic Island queda a un lado) y los toques se pasan a las coordenadas del juego girado (`src/lib/giro.ts`: cruceta, lápiz de DS, miniatura y editor de botones).
+  - Limitación: el menú y los avisos no se giran.
+- Pruebas: 132 unitarias y 51 de navegador; las 49 anteriores siguen en verde con el cambio a contenedor.
+
 ## 0.21.0 (15/11/2026)
 
 Bloque 3 de las mejoras marcadas por el usuario (11).

@@ -17,6 +17,6 @@ describe('botones movibles', () => {
     const c = desdeRect({ left: 100, top: 600, width: 168, height: 168 }, 400, 800)
     expect(c.x).toBeCloseTo(184 / 400)
     expect(c.y).toBeCloseTo(684 / 800)
-    expect(estiloPieza({ x: 0.25, y: 0.5, escala: 1.2 })).toMatchObject({ left: '25vw', top: '50dvh', translate: '-50% -50%', scale: '1.2' })
+    expect(estiloPieza({ x: 0.25, y: 0.5, escala: 1.2 })).toMatchObject({ left: '25cqw', top: '50cqh', translate: '-50% -50%', scale: '1.2' })
   })
 })

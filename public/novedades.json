@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.22.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Volumen del juego en el menú, sin tocar el del iPhone.",
+      "«Girar la pantalla» en el menú: con el bloqueo de orientación puesto, juega en horizontal tumbado de lado.",
+      "Elige si gira a la izquierda o a la derecha según el lado sobre el que te tumbes."
+    ]
+  },
+  {
     "version": "0.21.0",
     "fecha": "15/11/2026",
     "cambios": [

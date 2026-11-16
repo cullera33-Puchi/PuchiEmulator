@@ -3,10 +3,10 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { BedDouble, BookOpen, ChevronRight, Wind, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume2, VolumeX, X } from 'lucide-react'
+import { BedDouble, BookOpen, ChevronRight, RotateCw, Wind, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume1, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
-import { Hoja, Interruptor, useInterfaz } from '../componentes/Interfaz'
+import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
 import { bit, TECLAS } from '../emulador/botones'
 import { cargaAutoFallida, Sesion } from '../emulador/sesion'
 import { aplicarTema, cambiarAjustes, COLOR_NOCHE, useAjustes } from '../lib/ajustes'
@@ -63,7 +63,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   // DS: soplar al micrófono (mientras se mantiene) y la tapa cerrada (v0.20.0)
   const [soplando, setSoplando] = useState(false)
   // Botones movibles (v0.20.0): orientación actual y, mientras se edita, el borrador
-  const [orientacion, setOrientacion] = useState<Orientacion>(() => (matchMedia('(orientation: landscape)').matches ? 'horizontal' : 'vertical'))
+  const [orientacionIPhone, setOrientacion] = useState<Orientacion>(() => (matchMedia('(orientation: landscape)').matches ? 'horizontal' : 'vertical'))
+  // Girada (v0.22.0): con el iPhone en vertical, el juego se coloca como en horizontal
+  const girada = ajustes.girarPantalla !== 'no' && orientacionIPhone === 'vertical'
+  const orientacion: Orientacion = girada ? 'horizontal' : orientacionIPhone
   const [borrador, setBorrador] = useState<{ orientacion: Orientacion; piezas: DisposicionPiezas } | null>(null)
   const [tapaCerrada, setTapaCerrada] = useState(false)
   const [estados, setEstados] = useState<Estado[] | null>(null)
@@ -389,6 +392,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     seguir()
   }
 
+  useEffect(() => {
+    sesion.current?.altavoz.ponerVolumen(ajustes.volumen)
+  }, [ajustes.volumen, cargando])
+
   // Turbo: al abrir el juego y al cambiarlo
   useEffect(() => {
     if (!cargando) sesion.current?.ponerTurbo(turbo)
@@ -458,6 +465,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   }, [aspecto, nativo.ancho, nativo.alto])
 
   return (
+    <div className={`giro ${girada ? `girada ${ajustes.girarPantalla}` : ''}`} data-giro={girada ? (ajustes.girarPantalla === 'derecha' ? 90 : -90) : 0}>
     <div
       className={`juego ${controles.nitido ? '' : 'suave'} ${unaMano ? 'una-mano' : ''} ${controles.pantallaGrande ? 'grande' : ''} ${mando.jrpg ? 'jrpg' : ''}`}
       data-tema={tema.id}
@@ -715,6 +723,37 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             <span className="text-zinc-500">{ajustes.sonido ? 'Activado' : 'Desactivado'}</span>
           </button>
           <div className="separador" />
+          <div className="fila gap-3">
+            <Volume1 size={20} className="shrink-0 text-acento dark:text-acento-oscuro" />
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={Math.round(ajustes.volumen * 100)}
+              onChange={(e) => cambiarAjustes({ volumen: Number(e.target.value) / 100 })}
+              aria-label="Volumen del juego"
+              className="deslizador flex-1"
+            />
+            <span className="w-11 text-right text-zinc-500 tabular-nums">{Math.round(ajustes.volumen * 100)} %</span>
+          </div>
+          <div className="separador" />
+          <div className="fila flex-col items-stretch gap-2 py-3">
+            <span className="flex items-center gap-3">
+              <RotateCw size={20} className="text-acento dark:text-acento-oscuro" /> Girar la pantalla
+            </span>
+            <Segmentado
+              etiqueta="Girar la pantalla"
+              valor={ajustes.girarPantalla}
+              opciones={[
+                ['no', 'No'],
+                ['izquierda', 'A la izquierda'],
+                ['derecha', 'A la derecha'],
+              ]}
+              alCambiar={(v) => cambiarAjustes({ girarPantalla: v })}
+            />
+          </div>
+          <div className="separador" />
           <button className="fila" onClick={() => setVerPantalla(true)}>
             <Monitor size={20} className="text-acento dark:text-acento-oscuro" />
             <span className="flex-1">Pantalla</span>
@@ -784,6 +823,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           Volver al menú
         </button>
       </Hoja>
+    </div>
     </div>
   )
 }

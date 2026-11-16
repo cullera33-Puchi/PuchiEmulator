@@ -1408,3 +1408,42 @@ test('mover y cambiar de tamaño los botones: por juego, se recuerda y se restab
   await page.getByRole('button', { name: 'Listo' }).click()
   await expect.poll(async () => Math.abs((await a.boundingBox())!.y - original.y)).toBeLessThan(3)
 })
+
+test('girar la pantalla: con el iPhone en vertical, el juego se coloca en horizontal y responde', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('radiogroup', { name: 'Girar la pantalla' }).getByRole('radio', { name: 'A la derecha' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  const giro = page.locator('.giro')
+  await expect(giro).toHaveClass(/girada/)
+  await expect(giro).toHaveAttribute('data-giro', '90')
+  // En la pantalla del iPhone, la imagen de GBA (3:2, apaisada) se ve de pie: más alta que ancha
+  const lienzo = (await page.getByTestId('pantalla').boundingBox())!
+  expect(lienzo.height).toBeGreaterThan(lienzo.width * 1.3)
+  expect(lienzo.height).toBeGreaterThan(500)
+  // Y A responde donde se ve
+  await pulsar(page, 'A')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 251, 0])
+  await page.mouse.up()
+  // Volver a «No»
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('radiogroup', { name: 'Girar la pantalla' }).getByRole('radio', { name: 'No' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  await expect(giro).not.toHaveClass(/girada/)
+})
+
+test('volumen del juego en el menú, para todos los juegos', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  const deslizador = page.getByRole('slider', { name: 'Volumen del juego' })
+  await expect(deslizador).toHaveValue('100')
+  await deslizador.fill('40')
+  await expect(page.getByText('40 %')).toBeVisible()
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('puchiemulator-ajustes')!).volumen)).toBe(0.4)
+})
