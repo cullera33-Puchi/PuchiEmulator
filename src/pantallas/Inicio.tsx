@@ -19,7 +19,8 @@ import { APP_VERSION } from '../lib/version'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { cuando, plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
-import { CONSOLAS_APP, SISTEMAS, type Consola } from '../lib/sistemas'
+import { CONSOLAS_APP, SISTEMAS, type Consola, type NombreNucleo } from '../lib/sistemas'
+import { prepararNucleo } from '../emulador/nucleo'
 
 interface Props {
   /** Falso mientras está debajo de otra pantalla (v0.26.1): al volver a ser la de arriba, se recarga */
@@ -29,6 +30,9 @@ interface Props {
   alJugar: (juego: Juego, reanudar: boolean) => void
   alAjustes: () => void
 }
+
+/** Solo una vez por apertura de la app */
+let nucleosPreparados = false
 
 export const claveFotoConsola = (c: Consola) => `consola-${c}`
 
@@ -85,6 +89,27 @@ export function Inicio({ activa = true, alEstadisticas, alAbrirConsola, alJugar,
   const tiempoDe = (id: string) => sesiones.filter((x) => x.juegoId === id).reduce((a, x) => a + x.ms, 0)
 
   const orden = useMemo(() => ordenarConsolas(juegos ?? [], sesiones), [juegos, sesiones])
+
+  // Al abrir la app (una vez), se deja compilado el núcleo del último juego y el de la consola que
+  // más se juega (v0.28.0): abrirlos después cuesta menos. Con un respiro, para no frenar el arranque
+  useEffect(() => {
+    if (nucleosPreparados || !juegos?.length) return
+    const nucleos = new Set<NombreNucleo>()
+    if (ultimo) nucleos.add(SISTEMAS[ultimo.juego.sistema].nucleo)
+    const masJugada = orden.conJuegos[0]
+    if (masJugada) nucleos.add(SISTEMAS[CONSOLAS_APP[masJugada].sistemas[0]].nucleo)
+    const t = window.setTimeout(() => {
+      nucleosPreparados = true
+      for (const n of nucleos) {
+        const t0 = performance.now()
+        prepararNucleo(n).then(
+          () => registrar('info', 'Núcleo preparado', { nucleo: n, ms: Math.round(performance.now() - t0) }),
+          (e) => registrar('aviso', 'No se pudo preparar el núcleo', { nucleo: n, error: (e as Error)?.message }),
+        )
+      }
+    }, 1200)
+    return () => window.clearTimeout(t)
+  }, [juegos, ultimo, orden])
 
   const cuantos = (c: Consola) => juegos?.filter((j) => CONSOLAS_APP[c].sistemas.includes(j.sistema)).length ?? 0
 

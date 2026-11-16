@@ -133,6 +133,11 @@ export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sist
             alCambiar={(v) => cambiar({ filtro: v })}
           />
         </div>
+        <div className="separador" />
+        <div className="fila justify-between">
+          <span>Ahorrar batería (30 imágenes por segundo)</span>
+          <Interruptor etiqueta="Ahorrar batería (30 imágenes por segundo)" activo={a.limite30} alCambiar={(v) => cambiar({ limite30: v })} />
+        </div>
       </div>
       {juego && tieneControlesPropios(ajustes, juego.id, CLAVES_PANTALLA) && (
         <div className="lista mt-3">
@@ -149,6 +154,7 @@ export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sist
         {verColores && ' Colores como en la consola: la GBA y la Game Boy Color tenían pantallas apagadas y los juegos se pintaron con colores muy vivos para compensarlo; así se ven como en la consola.'}
         {verDS && ' Pantallas de DS: «Libro» es para los juegos que se juegan con la consola de lado (Hotel Dusk, Last Window, Brain Training): gira el iPhone y elige el lado de la táctil como en el juego. En «Grande y pequeña», arrastra la miniatura para moverla y tócala para cambiar cuál va grande. «Lado a lado» se ve mejor con el iPhone en horizontal.'}
         {' Filtro «Consola»: la rejilla de la pantalla LCD en las portátiles y las líneas de la tele en Super Nintendo.'}
+        {' Ahorrar batería: el juego va a su velocidad, pero la imagen se actualiza 30 veces por segundo en lugar de 60. Se ve algo menos fluido y el iPhone dibuja la mitad de veces; la emulación cuesta lo mismo.'}
       </p>
     </>
   )

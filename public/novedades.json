@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.28.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Los juegos abren antes: al entrar en la app se deja preparado el emulador de lo que más juegas.",
+      "Nuevo en Pantalla: «Ahorrar batería», que actualiza la imagen 30 veces por segundo con el juego a su velocidad. Va por juego.",
+      "El registro anota lo que tarda en abrirse cada juego, para seguir afinándolo."
+    ]
+  },
+  {
     "version": "0.27.0",
     "fecha": "16/11/2026",
     "cambios": [

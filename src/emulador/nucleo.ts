@@ -41,7 +41,54 @@ interface Modulo {
   }
 }
 
-type Fabrica = (opciones: { locateFile: (ruta: string) => string; print?: (t: string) => void; printErr?: (t: string) => void }) => Promise<Modulo>
+type Fabrica = (opciones: {
+  locateFile: (ruta: string) => string
+  print?: (t: string) => void
+  printErr?: (t: string) => void
+  instantiateWasm?: (imports: WebAssembly.Imports, exito: (instancia: WebAssembly.Instance, modulo: WebAssembly.Module) => void) => object
+}) => Promise<Modulo>
+
+const raizNucleos = () => `${import.meta.env.BASE_URL}nucleos/`
+
+/**
+ * Núcleos ya descargados y compilados (v0.28.0). Compilar el WebAssembly es lo que más tarda al abrir
+ * un juego: se hace una vez por núcleo y se reutiliza en las siguientes aperturas. `prepararNucleo`
+ * lo adelanta al abrir la app con el de la consola que más se juega.
+ */
+const listos = new Set<NombreNucleo>()
+const preparados = new Map<NombreNucleo, Promise<{ crear: Fabrica; modulo: WebAssembly.Module }>>()
+
+export function prepararNucleo(nombre: NombreNucleo): Promise<{ crear: Fabrica; modulo: WebAssembly.Module }> {
+  let p = preparados.get(nombre)
+  if (!p) {
+    const raiz = raizNucleos()
+    p = (async () => {
+      const [{ default: crear }, modulo] = await Promise.all([
+        import(/* @vite-ignore */ `${raiz}${nombre}.js`) as Promise<{ default: Fabrica }>,
+        (async () => {
+          const respuesta = fetch(`${raiz}${nombre}.wasm`)
+          try {
+            return await WebAssembly.compileStreaming(respuesta)
+          } catch {
+            // Sin compilación en streaming (o sin el tipo application/wasm): se compila entero
+            return WebAssembly.compile(await (await fetch(`${raiz}${nombre}.wasm`)).arrayBuffer())
+          }
+        })(),
+      ])
+      return { crear, modulo }
+    })()
+    // Si falla (por ejemplo, sin conexión y sin caché), se vuelve a intentar la próxima vez
+    p.then(
+      () => listos.add(nombre),
+      () => preparados.delete(nombre),
+    )
+    preparados.set(nombre, p)
+  }
+  return p
+}
+
+/** Si el núcleo ya está compilado: para saber en el registro si la apertura se lo ha ahorrado. */
+export const nucleoPreparado = (nombre: NombreNucleo) => listos.has(nombre)
 
 const MEMORIA_PARTIDA = 0
 const MEMORIA_RELOJ = 1
@@ -103,13 +150,22 @@ export class Nucleo {
   }
 
   static async cargar(nombre: NombreNucleo, extra: Record<string, string> = {}): Promise<Nucleo> {
-    const raiz = `${import.meta.env.BASE_URL}nucleos/`
-    const { default: crear } = (await import(/* @vite-ignore */ `${raiz}${nombre}.js`)) as { default: Fabrica }
-    const m = await crear({
+    const raiz = raizNucleos()
+    const { crear, modulo } = await prepararNucleo(nombre)
+    let fallo: (e: unknown) => void = () => undefined
+    const fallado = new Promise<never>((_, rechazar) => (fallo = rechazar))
+    const creado = crear({
       locateFile: (ruta) => `${raiz}${ruta}`,
       print: () => undefined,
       printErr: (t) => console.warn(t),
+      // Con el módulo ya compilado, solo queda crear la instancia (memoria propia para cada juego)
+      instantiateWasm: (imports, exito) => {
+        WebAssembly.instantiate(modulo, imports).then((instancia) => exito(instancia, modulo), fallo)
+        return {}
+      },
     })
+    // Si la instancia falla, Emscripten no se entera: sin esto, la carga se quedaría esperando
+    const m = await Promise.race([creado, fallado])
     m._pf_iniciar()
     const n = new Nucleo(m, nombre)
     for (const [k, v] of Object.entries({ ...OPCIONES[nombre], ...extra })) n.opcion(k, v)

@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.28.0 (16/11/2026)
+
+Bloque 2 de las mejoras marcadas por el usuario tras el análisis (3 y 4).
+
+- Apertura de los juegos (3): el registro anota en «Juego abierto» lo que tarda cada paso, en ms (`leer` la ROM, `nucleo`, `juego` con su partida y primer fotograma, `estado` donde se dejó y `total`), y si el núcleo ya estaba preparado (`nucleoPreparado`). Los núcleos compilados se guardan durante la sesión y se reutilizan (`prepararNucleo` en `src/emulador/nucleo.ts`, con `WebAssembly.compileStreaming` y el `instantiateWasm` de Emscripten); al abrir la app se dejan preparados, con un respiro de 1,2 s, el del último juego y el de la consola más jugada («Núcleo preparado» en el registro, con lo que ha tardado).
+- Ahorrar batería (4): ajuste de pantalla por juego (y general), «Ahorrar batería (30 imágenes por segundo)» (`limite30`): el bucle trabaja en uno de cada dos refrescos (uno de cada cuatro a 120 Hz) y hace los fotogramas de los dos, así que el juego va a su velocidad y se dibuja la mitad de veces. La emulación cuesta lo mismo. «Rendimiento» en el registro anota `limite30`.
+- Pruebas: 142 unitarias y 58 de navegador (nuevas: apertura con el núcleo preparado y 30 imágenes por segundo con el juego a 60 fotogramas por segundo).
+
 ## 0.27.0 (16/11/2026)
 
 Bloque 1 de las mejoras marcadas por el usuario tras el análisis de rendimiento y usabilidad (1 y 2).

@@ -15,6 +15,7 @@ import { cuando } from '../lib/formato'
 import { duracion } from '../lib/estadisticas'
 import { registrar } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
+import { nucleoPreparado } from '../emulador/nucleo'
 import { paletaPara, temaPara } from '../lib/temas'
 import { SelectorTema } from '../componentes/SelectorTema'
 import { EditorNotas } from '../componentes/Notas'
@@ -114,7 +115,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     let creada: Sesion | null = null
     ;(async () => {
       try {
+        const t0 = performance.now()
         const [juego, rom] = await Promise.all([leerJuego(id), leerRomGuardada(id)])
+        const msLeer = Math.round(performance.now() - t0)
+        const preparado = !!juego && nucleoPreparado(SISTEMAS[juego.sistema].nucleo)
         if (!juego || !rom) throw new Error('El juego ya no está en la biblioteca.')
         if (cancelado) return
         setNombre(juego.nombre)
@@ -165,7 +169,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           return
         }
         sesion.current = creada
-        registrar('info', 'Juego abierto', { sistema: juego.sistema, reanudar })
+        // Lo que ha tardado en abrirse (v0.28.0): leer la ROM, el núcleo (compilarlo si no estaba
+        // preparado), cargar el juego y su partida, y el estado donde se dejó
+        registrar('info', 'Juego abierto', {
+          sistema: juego.sistema,
+          reanudar,
+          nucleoPreparado: preparado,
+          ms: { leer: msLeer, ...creada.tiempos, total: Math.round(performance.now() - t0) },
+        })
         void actualizarJuego(alAbrir(juego))
         void leerEstado(juego.id, 'rapida').then((e) => !cancelado && setHayRapido(!!e))
         setCargando(false)
@@ -395,6 +406,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   useEffect(() => {
     sesion.current?.altavoz.ponerVolumen(ajustes.volumen)
   }, [ajustes.volumen, cargando])
+
+  // 30 imágenes por segundo (v0.28.0): al abrir el juego y al cambiarlo
+  useEffect(() => {
+    if (!cargando) sesion.current?.ponerLimite30(controles.limite30)
+  }, [controles.limite30, cargando])
 
   // Turbo: al abrir el juego y al cambiarlo
   useEffect(() => {

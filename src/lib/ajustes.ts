@@ -51,6 +51,8 @@ export interface Ajustes {
   snesAspecto: 'tv' | 'pixel'
   /** Filtro de imagen (v0.15.0): ninguno, el de la consola (rejilla en las portátiles, líneas en la tele), rejilla LCD o líneas de TV */
   filtro: 'ninguno' | 'consola' | 'lcd' | 'tv'
+  /** 30 imágenes por segundo (v0.28.0): el juego va a su velocidad, pero se dibuja la mitad de veces */
+  limite30: boolean
   /** Pantallas de Nintendo DS (v0.17.0): apiladas, libro (táctil a la derecha o a la izquierda) o grande y pequeña */
   pantallasDS: PantallasDS
   /** Tamaño de la miniatura en «grande y pequeña» (v0.20.0) */
@@ -105,6 +107,7 @@ export const POR_DEFECTO: Ajustes = {
   pantallaGrande: true,
   snesAspecto: 'tv',
   filtro: 'ninguno',
+  limite30: false,
   pantallasDS: 'apiladas',
   tamanoMiniDS: 'mediana',
   mandos: {},

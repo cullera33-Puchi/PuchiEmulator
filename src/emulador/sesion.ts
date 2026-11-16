@@ -99,6 +99,12 @@ export class Sesion {
   private correr = 0
   // Turbo (v0.19.0): botones que se pulsan y sueltan solos mientras se mantienen
   private turbo = 0
+  /** 30 imágenes por segundo (v0.28.0): solo se trabaja y se dibuja en uno de cada `cada` refrescos */
+  private limite30 = false
+  private saltados = 0
+  private dtPendiente = 0
+  /** Duración del refresco con el que se trabaja: la de la pantalla o, con el límite, la de 30 Hz */
+  private refrescoEfectivo = 0
   // Botones que pone la app y no el mando: soplar y la tapa de DS (v0.20.0)
   private extra = 0
   private fotogramaTurbo = 0
@@ -160,10 +166,20 @@ export class Sesion {
     return this.o.juego
   }
 
+  /** Lo que ha tardado cada paso de la apertura, en ms (v0.28.0), para el registro */
+  tiempos = { nucleo: 0, juego: 0, estado: 0 }
+
   private async preparar(): Promise<void> {
     const { juego, rom, lienzo } = this.o
     const info = SISTEMAS[juego.sistema]
+    let t = performance.now()
+    const paso = (k: keyof Sesion['tiempos']) => {
+      const ahora = performance.now()
+      this.tiempos[k] = Math.round(ahora - t)
+      t = ahora
+    }
     this.nucleo = await Nucleo.cargar(info.nucleo, this.o.opciones)
+    paso('nucleo')
     const partida = await leerPartida(juego.id)
     const datosPartida = partida ? { datos: new Uint8Array(partida.datos), rtc: partida.rtc ? new Uint8Array(partida.rtc) : undefined } : undefined
     if (!this.nucleo.cargarJuego(new Uint8Array(rom), info.extension, datosPartida)) {
@@ -177,6 +193,7 @@ export class Sesion {
     this.contexto = ctx
     // El primer fotograma aplica la partida guardada; después se puede cargar el estado
     this.nucleo.fotograma()
+    paso('juego')
     if (this.o.reanudar) {
       const estado = await leerEstado(juego.id, 'auto')
       if (estado) {
@@ -187,6 +204,7 @@ export class Sesion {
     } else if (cargaAutoFallida(juego.id)) {
       marcarCargaAuto(null)
     }
+    paso('estado')
     this.ultimaPartida = this.nucleo.leerPartida()?.datos ?? null
     this.dibujar()
     this.temporizadorGuardado = window.setInterval(() => void this.guardarPartidaSiCambia(), 1000)
@@ -280,15 +298,25 @@ export class Sesion {
 
   private avanzar(ahora: number): void {
     // Tras un parón largo (la app en segundo plano) no se intenta recuperar el tiempo perdido
-    const dt = Math.min(ahora - this.ultimo, 250)
+    const dtPantalla = Math.min(ahora - this.ultimo, 250)
     this.ultimo = ahora
-    this.refresco.medir(dt)
+    this.refresco.medir(dtPantalla)
     const mascara = this.botonesTactil | this.botonesTeclado | this.botonesMandos()
-    this.contarTiempo(dt, mascara | (this.rebobinando ? 1 << 30 : 0) | (this.velocidad > 1 ? 1 << 29 : 0))
+    this.contarTiempo(dtPantalla, mascara | (this.rebobinando ? 1 << 30 : 0) | (this.velocidad > 1 ? 1 << 29 : 0))
     if (this.rebobinando) {
-      this.irAtras(dt)
+      this.irAtras(dtPantalla)
       return
     }
+    // Con el límite de 30 imágenes por segundo, se salta el trabajo en los refrescos intermedios y
+    // en el siguiente se hacen los fotogramas de todos: el juego va a su velocidad
+    const cada = this.limite30 && this.refresco.ms > 0 ? Math.max(1, Math.round(1000 / 30 / this.refresco.ms)) : 1
+    this.dtPendiente += dtPantalla
+    if (++this.saltados < cada) return
+    this.saltados = 0
+    const dt = Math.min(this.dtPendiente, 250)
+    this.dtPendiente = 0
+    const refresco = this.refresco.ms * cada
+    this.refrescoEfectivo = refresco
     const t0 = performance.now()
 
     // Cuántos fotogramas tocan en este refresco: fijo si la consola va casi al ritmo de la pantalla
@@ -297,22 +325,22 @@ export class Sesion {
     // Lo rápido que va el juego de verdad: en sincronía con la pantalla, un poco más o menos que la
     // consola (por ejemplo, 60 Hz frente a 59,73 en GBA); el sonido se ajusta a eso desde el principio
     let ritmoReal = 1
-    const plan = planRitmo(1000 / this.paso, this.refresco.ms)
-    if (plan.modo === 'sincronizado' && dt < this.refresco.ms * 4.5) {
+    const plan = planRitmo(1000 / this.paso, refresco)
+    if (plan.modo === 'sincronizado' && dt < refresco * 4.5) {
       this.acumulado = 0
       // Si se ha perdido algún refresco, se cuentan también: el juego no se frena
       const antes = Math.floor(this.refrescos / plan.cadaRefrescos)
-      this.refrescos += refrescosPasados(dt, this.refresco.ms)
+      this.refrescos += refrescosPasados(dt, refresco)
       const ciclos = Math.floor(this.refrescos / plan.cadaRefrescos) - antes
       toca = Math.min(ciclos * plan.porRefresco, MAX_FOTOGRAMAS_SEGUIDOS) * this.velocidad
-      if (this.velocidad === 1) toca = limitarRecuperacion(toca, ciclos > 0 ? plan.porRefresco : 0, this.costeFotograma, this.refresco.ms * plan.cadaRefrescos)
-      ritmoReal = ((1000 / this.refresco.ms) * plan.porRefresco) / plan.cadaRefrescos / (1000 / this.paso)
+      if (this.velocidad === 1) toca = limitarRecuperacion(toca, ciclos > 0 ? plan.porRefresco : 0, this.costeFotograma, refresco * plan.cadaRefrescos)
+      ritmoReal = ((1000 / refresco) * plan.porRefresco) / plan.cadaRefrescos / (1000 / this.paso)
     } else {
       this.acumulado += dt * this.velocidad
       toca = Math.min(Math.floor(this.acumulado / this.paso), MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad)
       this.acumulado = toca === MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad ? 0 : this.acumulado - toca * this.paso
-      if (this.velocidad === 1 && this.refresco.ms > 0) {
-        const limitado = limitarRecuperacion(toca, Math.ceil(this.refresco.ms / this.paso), this.costeFotograma, this.refresco.ms)
+      if (this.velocidad === 1 && refresco > 0) {
+        const limitado = limitarRecuperacion(toca, Math.ceil(refresco / this.paso), this.costeFotograma, refresco)
         // Lo que no se recupera se pierde: si no, la deuda crecería sin parar
         if (limitado < toca) this.acumulado = Math.min(this.acumulado + (toca - limitado) * this.paso, this.paso)
         toca = limitado
@@ -366,7 +394,7 @@ export class Sesion {
     m.trabajo += trabajo
     m.modo = modo
     if (trabajo > m.maximo) m.maximo = trabajo
-    const presupuesto = this.refresco.ms || 1000 / 60
+    const presupuesto = this.refrescoEfectivo || this.refresco.ms || 1000 / 60
     if (trabajo > presupuesto * 0.8) m.largos++
     if (m.tiempo >= 30_000) this.anotarRendimiento()
   }
@@ -378,6 +406,7 @@ export class Sesion {
     registrar('info', 'Rendimiento', {
       sistema: this.o.juego.sistema,
       pantallaHz: Math.round(1000 / presupuesto),
+      limite30: this.limite30,
       consolaHz: Math.round(100_000 / this.paso) / 100,
       ritmo: m.modo,
       segundos: Math.round(m.tiempo / 1000),
@@ -493,6 +522,14 @@ export class Sesion {
   }
 
   /** Turbo: máscara de los botones con turbo (0, ninguno). */
+  /** 30 imágenes por segundo (v0.28.0), por juego: menos dibujo y menos refrescos de pantalla */
+  ponerLimite30(activo: boolean): void {
+    if (activo === this.limite30) return
+    this.limite30 = activo
+    this.saltados = 0
+    this.dtPendiente = 0
+  }
+
   ponerTurbo(mascara: number): void {
     this.turbo = mascara
   }
