@@ -40,7 +40,8 @@ test('rendimiento de los núcleos', async ({ page }) => {
           const m = (await crear({ locateFile: (r: string) => `${raiz}${r}`, print: () => undefined, printErr: () => undefined })) as M
           // Nintendo 64 dibuja con WebGL 2 en el lienzo que le deja la app (v0.32.0)
           const mm = m as unknown as { specialHTMLTargets?: Record<string, unknown> }
-          if (nucleo === 'n64' && mm.specialHTMLTargets) mm.specialHTMLTargets['!lienzo'] = new OffscreenCanvas(640, 480)
+          const lienzo = nucleo === 'n64' ? new OffscreenCanvas(640, 480) : null
+          if (lienzo && mm.specialHTMLTargets) mm.specialHTMLTargets['!lienzo'] = lienzo
           m._pf_iniciar()
           for (const [k, v] of Object.entries(opciones)) m._pf_opcion(m.stringToNewUTF8(k), m.stringToNewUTF8(v))
           m.FS?.mkdirTree('/sistema')
@@ -59,6 +60,8 @@ test('rendimiento de los núcleos', async ({ page }) => {
           }
           const ms = (performance.now() - t0) / n
           m._pf_descargar()
+          // Suelta el contexto de WebGL: el navegador admite pocos a la vez y cada ronda crea uno
+          ;(lienzo?.getContext('webgl2') as WebGL2RenderingContext | null)?.getExtension('WEBGL_lose_context')?.loseContext()
           return ms
         },
         { raiz, nucleo: c.nucleo, rom, extension: c.extension, opciones, msRonda: MS_POR_RONDA },

@@ -10,6 +10,7 @@ Nintendo 64, a partir del registro del usuario con un juego real: iba a unas 15 
 - Asyncify solo en la ruta que cambia de corrutina (`-sASYNCIFY_ONLY`, `nucleos/n64_asyncify.txt`): antes Emscripten instrumentaba todo, GLideN64 incluido, por las llamadas indirectas. El núcleo pasa de 3,3 a 2,7 MB (con los nombres de las funciones). Con la ROM de prueba no se nota (casi no usa GLideN64); en los juegos, se verá en el registro.
 - Si el núcleo falla, el registro dice en qué funciones (`funcionesDelFallo`; núcleo con `--profiling-funcs` y el error original guardado en el módulo).
 - Pruebas: 158 unitarias y 64 de navegador.
+- Publicación: la prueba de rendimiento de los núcleos se pasaba de los 5 minutos en GitHub (seis núcleos y su versión anterior, Nintendo 64 con WebGL por software) y paraba la publicación. Ahora tiene 14 minutos, suelta el contexto de WebGL tras cada ronda y, como solo informa, no para la publicación si falla.
 
 ## 0.32.0 (16/11/2026)
 

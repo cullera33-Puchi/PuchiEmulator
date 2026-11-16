@@ -8,7 +8,8 @@ import { defineConfig } from '@playwright/test'
 export default defineConfig({
   testDir: 'tests/rendimiento',
   testMatch: '**/*.e2e.ts',
-  timeout: 300_000,
+  // Seis núcleos y la versión anterior de cada uno; en GitHub, Nintendo 64 con WebGL por software tarda
+  timeout: 840_000,
   reporter: 'list',
   // WebGL por software en el navegador sin tarjeta gráfica (Nintendo 64 dibuja con WebGL 2)
   use: { browserName: 'chromium', baseURL: 'http://localhost:4173', trace: 'off', launchOptions: { args: ['--enable-unsafe-swiftshader'] } },

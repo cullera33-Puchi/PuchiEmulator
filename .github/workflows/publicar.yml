@@ -41,6 +41,9 @@ jobs:
       - name: Pruebas de navegador
         run: npm run e2e -- --trace off
       - name: Rendimiento de los núcleos (frente a la versión anterior)
+        # Solo informa: si falla o se pasa de tiempo, la publicación sigue (v0.32.1)
+        continue-on-error: true
+        timeout-minutes: 15
         run: |
           mkdir -p dist/referencia/nucleos
           for f in $(git ls-tree --name-only HEAD~1 public/nucleos/ | grep -E '\.(js|wasm)$'); do
