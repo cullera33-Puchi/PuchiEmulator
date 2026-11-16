@@ -82,6 +82,10 @@ const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     // Sin firmware, melonDS crea uno con este idioma: los juegos multilingües salen en español
     melonds_language: 'Spanish',
   },
+  // NES (v0.23.0): sonido de más calidad; el resto, como viene (paleta y bordes de la tele)
+  fceumm: {
+    fceumm_sndquality: 'High',
+  },
 }
 
 export class Nucleo {

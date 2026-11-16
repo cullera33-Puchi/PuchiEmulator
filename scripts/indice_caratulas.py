@@ -14,6 +14,7 @@ REPOS = {
     'gb': 'Nintendo_-_Game_Boy',
     'gbc': 'Nintendo_-_Game_Boy_Color',
     'gba': 'Nintendo_-_Game_Boy_Advance',
+    'nes': 'Nintendo_-_Nintendo_Entertainment_System',
     'snes': 'Nintendo_-_Super_Nintendo_Entertainment_System',
     'nds': 'Nintendo_-_Nintendo_DS',
 }

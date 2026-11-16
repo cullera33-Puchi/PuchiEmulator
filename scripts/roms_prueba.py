@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds y prueba.zip).
+"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds, prueba.nes y prueba.zip).
 
 Son programas propios y mínimos, sin código ni gráficos de Nintendo: pintan la pantalla de un
 color y cambian de color mientras se pulsa A. Sirven para comprobar imagen, botones y partida guardada
@@ -229,12 +229,78 @@ def nds() -> bytes:
     return bytes(rom)
 
 
+# NES (6502 a mano, mapper 0 con 16 KB de programa, CHR-RAM y memoria de partida con pila).
+# Con el dibujo apagado, la NES enseña el color de fondo ($3F00): azul al arrancar, verde mientras
+# se pulsa A (y deja una marca en la memoria de partida, $6000) y rojo al arrancar si ya estaba la
+# marca. Sin gráficos ni código de nadie.
+def _nes_codigo() -> bytes:
+    p = [
+        0x78, 0xD8, 0xA2, 0xFF, 0x9A,          # sei; cld; ldx #$ff; txs
+        'vb1', 0x2C, 0x02, 0x20, 0x10, ('rel', 'vb1'),  # espera al primer retrazado
+        'vb2', 0x2C, 0x02, 0x20, 0x10, ('rel', 'vb2'),
+        0xA9, 0x00, 0x8D, 0x00, 0x20, 0x8D, 0x01, 0x20,  # PPU apagada
+        0xA9, 0x12, 0x85, 0x00,                # color de arranque: azul
+        0xAD, 0x00, 0x60, 0xC9, 0x5A,          # lda $6000; cmp #$5a
+        0xD0, ('rel', 'bucle'),
+        0xA9, 0x16, 0x85, 0x00,                # con la marca, rojo
+        'bucle', 0x2C, 0x02, 0x20, 0x10, ('rel', 'bucle'),
+        0xA9, 0x01, 0x8D, 0x16, 0x40, 0xA9, 0x00, 0x8D, 0x16, 0x40,  # lee el mando
+        0xAD, 0x16, 0x40, 0x29, 0x01,          # primer bit: A
+        0xF0, ('rel', 'sin_a'),
+        0xA9, 0x5A, 0x8D, 0x00, 0x60,          # marca en la memoria de partida
+        0xA2, 0x1A,                            # verde
+        0x4C, ('abs', 'poner'),
+        'sin_a', 0xA6, 0x00,                   # el color de arranque
+        'poner', 0xA9, 0x3F, 0x8D, 0x06, 0x20, 0xA9, 0x00, 0x8D, 0x06, 0x20,
+        0x8E, 0x07, 0x20,                      # paleta $3F00
+        0xA9, 0x3F, 0x8D, 0x06, 0x20, 0xA9, 0x00, 0x8D, 0x06, 0x20,  # la PPU vuelve a $3F00
+        0x4C, ('abs', 'bucle'),
+        'nmi', 0x40,                           # rti
+    ]
+    base = 0xC000
+    etiquetas = {}
+    pos = 0
+    for x in p:
+        if isinstance(x, str):
+            etiquetas[x] = pos
+        elif isinstance(x, tuple):
+            pos += 1 if x[0] == 'rel' else 2
+        else:
+            pos += 1
+    out = bytearray()
+    for x in p:
+        if isinstance(x, str):
+            continue
+        if isinstance(x, tuple):
+            if x[0] == 'rel':
+                destino = etiquetas[x[1]] - (len(out) + 1)
+                assert -128 <= destino <= 127
+                out.append(destino & 0xFF)
+            else:
+                out += (base + etiquetas[x[1]]).to_bytes(2, 'little')
+        else:
+            out.append(x)
+    return bytes(out), base + etiquetas['nmi']
+
+
+def nes() -> bytes:
+    codigo, nmi = _nes_codigo()
+    prg = bytearray(0x4000)
+    prg[0:len(codigo)] = codigo
+    prg[0x3FFA:0x3FFC] = nmi.to_bytes(2, 'little')       # NMI
+    prg[0x3FFC:0x3FFE] = (0xC000).to_bytes(2, 'little')  # arranque
+    prg[0x3FFE:0x4000] = nmi.to_bytes(2, 'little')       # IRQ
+    cabecera = b'NES\x1a' + bytes([1, 0, 0x02, 0]) + bytes(8)  # 16 KB, CHR-RAM, con pila
+    return cabecera + bytes(prg)
+
+
 def main() -> None:
     SALIDA.mkdir(parents=True, exist_ok=True)
     (SALIDA / 'prueba.gba').write_bytes(gba())
     (SALIDA / 'prueba.gb').write_bytes(gb())
     (SALIDA / 'prueba.sfc').write_bytes(snes())
     (SALIDA / 'prueba.nds').write_bytes(nds())
+    (SALIDA / 'prueba.nes').write_bytes(nes())
     with zipfile.ZipFile(SALIDA / 'prueba.zip', 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('LEEME.txt', 'ROM de prueba comprimida')
         z.writestr('Prueba comprimida.gba', gba())

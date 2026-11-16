@@ -27,7 +27,7 @@ async function colorCentral(page: Page): Promise<[number, number, number]> {
   })
 }
 
-const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo', 'prueba.nds': 'Nintendo DS' }
+const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo', 'prueba.nds': 'Nintendo DS', 'prueba.nes': 'NES' }
 
 /** Abre la biblioteca de una consola desde el inicio. */
 async function entrar(page: Page, consola: string) {
@@ -51,7 +51,7 @@ async function pulsar(page: Page, etiqueta: string, ms = 300) {
 test('inicio sin juegos, añadir un juego de GBA y jugar con los botones', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText(/Añade tus juegos con/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(4)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(5)
 
   await anadir(page, 'prueba.gba')
   await expect(page.getByRole('button', { name: /prueba.*Game Boy Advance/i })).toBeVisible()
@@ -138,7 +138,7 @@ test('un fichero que no es un juego se rechaza', async ({ page }) => {
   await page.goto('/')
   await page.getByTestId('selector').setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
   await expect(page.getByText(/no es un juego/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(4)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(5)
 })
 
 test.describe('en horizontal', () => {
@@ -616,7 +616,7 @@ test('Game Boy y Game Boy Color comparten consola y biblioteca, GBA va aparte, y
   ])
   await expect(page.getByText('2 juegos añadidos')).toBeVisible()
   const consolas = page.getByTestId('consolas')
-  await expect(consolas.getByRole('button')).toHaveCount(8) // cuatro tarjetas con su botón de opciones
+  await expect(consolas.getByRole('button')).toHaveCount(10) // cinco tarjetas con su botón de opciones
   await expect(consolas.getByRole('button', { name: 'Game Boy y Game Boy Color, 2 juegos', exact: true })).toBeVisible()
 
   await entrar(page, 'Game Boy y Game Boy Color')
@@ -1446,4 +1446,29 @@ test('volumen del juego en el menú, para todos los juegos', async ({ page }) =>
   await deslizador.fill('40')
   await expect(page.getByText('40 %')).toBeVisible()
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('puchiemulator-ajustes')!).volumen)).toBe(0.4)
+})
+
+test('NES: tema Ocho bits, A y B, la pantalla responde y la partida se guarda', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.nes')
+  await expect(page.getByRole('heading', { name: 'NES' })).toBeVisible()
+  await page.getByRole('button', { name: /prueba, NES/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect(page.getByTestId('juego')).toHaveAttribute('data-tema', 'ochobits')
+  const mando = page.getByTestId('mando')
+  for (const n of ['A', 'B', 'Start', 'Select']) await expect(mando.getByRole('button', { name: n, exact: true })).toBeVisible()
+  await expect(mando.getByRole('button', { name: 'L', exact: true })).toHaveCount(0)
+  // Azul al arrancar; con A, verde y la marca en la memoria de partida
+  await expect.poll(() => colorCentral(page)).toEqual([32, 56, 239])
+  await pulsar(page, 'A')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 170, 0])
+  await page.mouse.up()
+  await page.waitForTimeout(1500)
+  // Al volver a abrir el juego desde el principio, la ROM encuentra la marca: rojo
+  await page.reload()
+  await entrar(page, 'NES')
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(() => colorCentral(page)).toEqual([219, 40, 0])
 })

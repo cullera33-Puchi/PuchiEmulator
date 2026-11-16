@@ -5,7 +5,7 @@
  */
 import type { Sistema } from './sistemas'
 
-export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'super' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
+export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'ochobits' | 'super' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
 
 export interface Tema {
   id: IdTema
@@ -94,6 +94,31 @@ export const TEMAS: Tema[] = [
     },
   },
   {
+    // NES (v0.23.0): gris claro, la franja oscura de la consola y A y B rojos
+    id: 'ochobits',
+    nombre: 'Ocho bits',
+    arriba: '#d9d8d3',
+    abajo: '#b8b7b1',
+    vars: {
+      '--fondo': 'linear-gradient(180deg, #d9d8d3 0%, #cfcec8 62%, #2b2b2e 62.2%, #2b2b2e 64%, #b8b7b1 64.2%)',
+      '--marco': '#1f1f22',
+      '--marco-relleno': '10px',
+      '--marco-radio': '6px',
+      '--ab': '#c4232b',
+      '--ab-texto': 'rgb(255 255 255 / 0.9)',
+      '--ab-pulsado': '#e2464e',
+      '--cruceta': '#1f1f22',
+      '--cruceta-pulsado': '#4a4a50',
+      '--pequeno': '#3a3a3e',
+      '--pequeno-texto': 'rgb(255 255 255 / 0.85)',
+      '--hombro': '#a5a49e',
+      '--hombro-texto': '#2b2b2e',
+      '--herramienta': 'rgb(0 0 0 / 0.08)',
+      '--herramienta-texto': '#2b2b2e',
+      '--borde': 'transparent',
+    },
+  },
+  {
     id: 'super',
     nombre: 'Super',
     arriba: '#d9d9de',
@@ -130,7 +155,7 @@ export const TEMAS: Tema[] = [
 ]
 
 /** Tema que se usa con «Según la consola». */
-export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', snes: 'super', nds: 'oscuro' }
+export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', nes: 'ochobits', snes: 'super', nds: 'oscuro' }
 
 export function temaPorId(id: IdTema): Tema {
   return TEMAS.find((t) => t.id === id) ?? TEMAS[0]

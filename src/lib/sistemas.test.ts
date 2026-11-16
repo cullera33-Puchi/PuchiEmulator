@@ -34,6 +34,12 @@ describe('detectarSistema', () => {
     expect(tituloInterno(fixture('prueba.nds'), 'nds')).toBe('PUCHIPRUEBA')
   })
 
+  it('reconoce la NES por la cabecera iNES, aunque el fichero se llame de otra forma', () => {
+    expect(detectarSistema(fixture('prueba.nes'), 'Juego (Spain).nes')).toBe('nes')
+    expect(detectarSistema(fixture('prueba.nes'), 'juego.bin')).toBe('nes')
+    expect(tituloInterno(fixture('prueba.nes'), 'nes')).toBe('')
+  })
+
   it('no reconoce otros ficheros', () => {
     expect(detectarSistema(new Uint8Array(512), 'foto.jpg')).toBeNull()
   })

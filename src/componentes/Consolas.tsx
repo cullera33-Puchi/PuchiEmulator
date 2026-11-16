@@ -111,6 +111,31 @@ function SuperNintendo() {
   )
 }
 
+/** NES (v0.23.0): caja gris de sobremesa con la franja oscura y su mando rectangular */
+function NES() {
+  return (
+    <svg viewBox="0 0 230 150" className="h-full w-auto drop-shadow-md" aria-hidden>
+      {/* Consola: caja con la tapa del cartucho arriba y la franja oscura con dos botones */}
+      <rect x="10" y="12" width="210" height="76" rx="6" fill="#d9d8d3" />
+      <rect x="10" y="12" width="210" height="34" rx="6" fill="#cfcec8" />
+      <rect x="64" y="20" width="108" height="20" rx="3" fill="#b7b6b0" />
+      <rect x="10" y="56" width="210" height="10" fill="#2b2b2e" />
+      <rect x="24" y="70" width="70" height="12" rx="2" fill="#2b2b2e" />
+      <rect x="30" y="73" width="12" height="6" rx="1" fill="#9d9c96" />
+      <rect x="48" y="73" width="12" height="6" rx="1" fill="#9d9c96" />
+      <circle cx="198" cy="76" r="3" fill="#c4232b" />
+      {/* Mando rectangular: cruceta, Select y Start y dos botones rojos */}
+      <rect x="44" y="100" width="142" height="44" rx="5" fill="#d9d8d3" />
+      <rect x="52" y="106" width="126" height="32" rx="3" fill="#2b2b2e" />
+      <Cruz x={72} y={122} t={7} color="#111114" />
+      <rect x="98" y="120" width="11" height="5" rx="2.5" fill="#9d9c96" />
+      <rect x="114" y="120" width="11" height="5" rx="2.5" fill="#9d9c96" />
+      <circle cx="146" cy="122" r="7" fill="#c4232b" />
+      <circle cx="164" cy="122" r="7" fill="#c4232b" />
+    </svg>
+  )
+}
+
 /** Game Boy y Game Boy Color juntas: la Color, más pequeña, delante a la derecha */
 function GameBoys() {
   return (
@@ -159,6 +184,7 @@ function NintendoDS() {
 export function DibujoConsola({ consola }: { consola: Consola }) {
   if (consola === 'nds') return <NintendoDS />
   if (consola === 'snes') return <SuperNintendo />
+  if (consola === 'nes') return <NES />
   if (consola === 'gba') return <GameBoyAdvance />
   return <GameBoys />
 }

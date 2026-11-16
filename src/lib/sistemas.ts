@@ -4,8 +4,8 @@
  */
 import { unzipSync } from 'fflate'
 
-export type Sistema = 'gb' | 'gbc' | 'gba' | 'snes' | 'nds'
-export type NombreNucleo = 'mgba' | 'snes9x' | 'melonds'
+export type Sistema = 'gb' | 'gbc' | 'gba' | 'nes' | 'snes' | 'nds'
+export type NombreNucleo = 'mgba' | 'snes9x' | 'melonds' | 'fceumm'
 
 export interface InfoSistema {
   nombre: string
@@ -27,6 +27,7 @@ export const SISTEMAS: Record<Sistema, InfoSistema> = {
   gb: { nombre: 'Game Boy', corto: 'GB', nucleo: 'mgba', extension: 'gb', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#8E8E93' },
   gbc: { nombre: 'Game Boy Color', corto: 'GBC', nucleo: 'mgba', extension: 'gbc', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#AF52DE' },
   gba: { nombre: 'Game Boy Advance', corto: 'GBA', nucleo: 'mgba', extension: 'gba', hombros: true, cuatroBotones: false, rebobinado: true, tactil: false, color: '#5856D6' },
+  nes: { nombre: 'NES', corto: 'NES', nucleo: 'fceumm', extension: 'nes', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#C8102E' },
   snes: { nombre: 'Super Nintendo', corto: 'SNES', nucleo: 'snes9x', extension: 'sfc', hombros: true, cuatroBotones: true, rebobinado: true, tactil: false, color: '#6E6E80' },
   nds: { nombre: 'Nintendo DS', corto: 'DS', nucleo: 'melonds', extension: 'nds', hombros: true, cuatroBotones: true, rebobinado: false, tactil: true, color: '#34343C' },
 }
@@ -36,7 +37,7 @@ export const SISTEMAS: Record<Sistema, InfoSistema> = {
  * Color van juntas; por dentro siguen siendo dos sistemas, cada uno con su tema y sus opciones.
  * Game Boy Advance va aparte (decisión del usuario).
  */
-export type Consola = 'gb' | 'gba' | 'snes' | 'nds'
+export type Consola = 'gb' | 'gba' | 'nes' | 'snes' | 'nds'
 
 export interface InfoConsola {
   nombre: string
@@ -52,16 +53,17 @@ export interface InfoConsola {
 export const CONSOLAS_APP: Record<Consola, InfoConsola> = {
   gb: { nombre: 'Game Boy y Game Boy Color', titulo: 'Game Boy y Color', sistemas: ['gb', 'gbc'], color: '#AF52DE', extensiones: '.gb, .gbc' },
   gba: { nombre: 'Game Boy Advance', titulo: 'Game Boy Advance', sistemas: ['gba'], color: '#5856D6', extensiones: '.gba' },
+  nes: { nombre: 'NES', titulo: 'NES', descripcion: 'También Famicom', sistemas: ['nes'], color: '#C8102E', extensiones: '.nes' },
   snes: { nombre: 'Super Nintendo', titulo: 'Super Nintendo', sistemas: ['snes'], color: '#6E6E80', extensiones: '.sfc, .smc' },
   nds: { nombre: 'Nintendo DS', titulo: 'Nintendo DS', descripcion: 'En pruebas', sistemas: ['nds'], color: '#34343C', extensiones: '.nds' },
 }
 
 /** Orden en el que se enseñan las consolas */
-export const CONSOLAS: Consola[] = ['gb', 'gba', 'snes', 'nds']
+export const CONSOLAS: Consola[] = ['gb', 'gba', 'nes', 'snes', 'nds']
 
 export const consolaDe = (s: Sistema): Consola => (s === 'gbc' ? 'gb' : s)
 
-const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba', sfc: 'snes', smc: 'snes', swc: 'snes', fig: 'snes', nds: 'nds' }
+const EXTENSIONES: Record<string, Sistema> = { gb: 'gb', gbc: 'gbc', cgb: 'gbc', gba: 'gba', agb: 'gba', sfc: 'snes', smc: 'snes', swc: 'snes', fig: 'snes', nds: 'nds', nes: 'nes' }
 
 export function extensionDe(nombre: string): string {
   const i = nombre.lastIndexOf('.')
@@ -76,8 +78,14 @@ function esGb(b: Uint8Array): boolean {
   return b.length >= 0x150 && b[0x104] === 0xce && b[0x105] === 0xed && b[0x106] === 0x66 && b[0x107] === 0x66
 }
 
+/** Cabecera iNES de los juegos de NES: «NES» y el carácter 0x1A. */
+function esNes(b: Uint8Array): boolean {
+  return b.length >= 16 && b[0] === 0x4e && b[1] === 0x45 && b[2] === 0x53 && b[3] === 0x1a
+}
+
 /** Consola de una ROM, o null si no se reconoce. */
 export function detectarSistema(bytes: Uint8Array, nombreFichero: string): Sistema | null {
+  if (esNes(bytes)) return 'nes'
   if (esGba(bytes)) return 'gba'
   if (esGb(bytes)) return bytes[0x143] & 0x80 ? 'gbc' : 'gb'
   const porExtension = EXTENSIONES[extensionDe(nombreFichero)]
@@ -118,6 +126,8 @@ export function tituloInterno(bytes: Uint8Array, sistema: Sistema): string {
     return o === null ? '' : texto(bytes, o, o + 21)
   }
   if (sistema === 'nds') return texto(bytes, 0, 12)
+  // Los cartuchos de NES no llevan título
+  if (sistema === 'nes') return ''
   if (sistema === 'gba') return texto(bytes, 0xa0, 0xac)
   // En Game Boy Color el título ocupa menos: los últimos bytes son el código y el indicador de color
   return texto(bytes, 0x134, sistema === 'gbc' ? 0x143 : 0x144)

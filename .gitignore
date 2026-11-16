@@ -10,6 +10,9 @@ playwright-report
 *.gb
 *.gbc
 *.sfc
+*.nes
+*.fds
+*.unf
 *.smc
 *.nds
 *.zip
@@ -19,5 +22,6 @@ playwright-report
 !tests/fixtures/prueba.gb
 !tests/fixtures/prueba.sfc
 !tests/fixtures/prueba.nds
+!tests/fixtures/prueba.nes
 !tests/fixtures/prueba.zip
 juegos_locales/

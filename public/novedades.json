@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.23.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Nueva consola: NES (también juegos de Famicom), con su propia tarjeta en el inicio.",
+      "Añade tus juegos .nes como siempre: la app los reconoce y busca su carátula.",
+      "Funciona todo lo demás: estados, rebobinar, turbo y el mando para juegos de rol (perfecto para Dragon Quest o Final Fantasy)."
+    ]
+  },
+  {
     "version": "0.22.0",
     "fecha": "16/11/2026",
     "cambios": [

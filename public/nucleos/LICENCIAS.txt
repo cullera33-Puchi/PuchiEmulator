@@ -25,3 +25,11 @@ melonds.js y melonds.wasm
   Commit: 4081e8358e66f1ea11879560be6b813dfeaab75a
   Incluye su BIOS libre (FreeBIOS). Compilado sin cambios con Emscripten 4.0.10, sin hilos ni
   OpenGL, junto con el puente de nucleos/puente.c.
+
+fceumm.js y fceumm.wasm
+  FCEUmm (FCE Ultra mappers modified), de los autores de FCE Ultra, FCEUmm y libretro.
+  Licencia: GNU General Public License v2 (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
+  Código fuente: https://github.com/libretro/libretro-fceumm
+  Commit: 8997c2bf9503f6d50585b11a1fd7207af53a2426
+  Incluye partes de libretro-common (licencia MIT). Compilado sin cambios con Emscripten 4.0.10
+  junto con el puente de nucleos/puente.c.

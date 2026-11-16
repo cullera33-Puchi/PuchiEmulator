@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.23.0 (16/11/2026)
+
+Bloque B de las mejoras marcadas por el usuario: la NES (1).
+
+- NES (Famicom) con FCEUmm (libretro, commit `8997c2bf`, GPLv2), compilado a WebAssembly (1,1 MB). Consola propia en el inicio, entre Game Boy Advance y Super Nintendo, con su dibujo y el tema «Ocho bits» (gris claro, franja oscura y A y B rojos; diseño propio, sin marcas). Se reconoce por la cabecera iNES (`.nes`, también en `.zip`). Mando con A, B, Start y Select; rebobinado, estados, turbo y el mando para juegos de rol (menú en Start o Select) funcionan como en el resto. Carátulas: índice de libretro con 13.896 nombres.
+- Puente: si el núcleo lee el juego desde su ruta (`need_fullpath`, como FCEUmm), la ROM se deja también como fichero en el sistema de ficheros del módulo. Los cuatro núcleos, recompilados.
+- ROM de prueba propia de NES (6502 a mano, mapper 0 con memoria de partida): azul al arrancar, verde con A y rojo al volver a abrir si se guardó la partida.
+- Pruebas: 133 unitarias y 52 de navegador.
+
 ## 0.22.0 (16/11/2026)
 
 Bloque A de las mejoras marcadas por el usuario (10 y 13).

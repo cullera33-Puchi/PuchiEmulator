@@ -6,7 +6,7 @@
 #   ./emsdk/emsdk install 4.0.10 && ./emsdk/emsdk activate 4.0.10
 #   source ./emsdk/emsdk_env.sh
 #
-# Uso: nucleos/compilar.sh [mgba] [snes9x] [melonds]
+# Uso: nucleos/compilar.sh [mgba] [snes9x] [melonds] [fceumm]
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
@@ -23,6 +23,8 @@ SNES9X_COMMIT="fae2fea08f74180759ef540ee94259213f503480"
 # se descarga aparte y puede no estar disponible)
 MELONDS_REPO="https://github.com/libretro/melonDS.git"
 MELONDS_COMMIT="4081e8358e66f1ea11879560be6b813dfeaab75a"
+FCEUMM_REPO="https://github.com/libretro/libretro-fceumm.git"
+FCEUMM_COMMIT="8997c2bf9503f6d50585b11a1fd7207af53a2426"
 ZLIB_REPO="https://github.com/madler/zlib.git"
 ZLIB_COMMIT="51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"
 
@@ -104,6 +106,27 @@ compilar_melonds() {
 	enlazar melonds em++ "$TRABAJO/melonds_libretro.o"
 }
 
-for nucleo in ${@:-mgba snes9x melonds}; do
+compilar_fceumm() {
+	traer "$FCEUMM_REPO" "$FCEUMM_COMMIT" "$TRABAJO/fceumm"
+	(cd "$TRABAJO/fceumm" && emmake make platform=emscripten -j"$(nproc)" >/dev/null)
+	local salida
+	salida="$(ls "$TRABAJO/fceumm"/fceumm_libretro_emscripten.* | head -1)"
+	cp "$salida" "$TRABAJO/fceumm_libretro.a"
+	# Como Snes9x, en modo estático espera las funciones de ficheros de libretro-common
+	local obj="$TRABAJO/fceumm-extra"
+	rm -rf "$obj" && mkdir -p "$obj"
+	local comun="$TRABAJO/fceumm/src/drivers/libretro/libretro-common"
+	for f in compat/compat_strl.c compat/compat_posix_string.c compat/compat_strcasestr.c compat/fopen_utf8.c \
+		encodings/encoding_utf.c file/file_path.c file/file_path_io.c streams/file_stream.c \
+		string/stdstring.c time/rtime.c vfs/vfs_implementation.c; do
+		[ -f "$comun/$f" ] || continue
+		emcc -O2 -c "$comun/$f" -I"$comun/include" -o "$obj/$(echo "$f" | tr / _ | sed 's/\.c$/.o/')"
+	done
+	rm -f "$TRABAJO/fceumm_extra.a"
+	emar rcs "$TRABAJO/fceumm_extra.a" "$obj"/*.o
+	enlazar fceumm emcc "$TRABAJO/fceumm_libretro.a" "$TRABAJO/fceumm_extra.a"
+}
+
+for nucleo in ${@:-mgba snes9x melonds fceumm}; do
 	"compilar_$nucleo"
 done

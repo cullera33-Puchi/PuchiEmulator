@@ -300,6 +300,14 @@ bool pf_cargar(void *datos, size_t tam, const char *extension) {
 	juegoInfo.data = datos;
 	juegoInfo.size = tam;
 	juego = datos;
+	/* Algunos núcleos (FCEUmm) leen el juego desde su ruta: se deja también como fichero */
+	if (info.need_fullpath) {
+		FILE *f = fopen(rutaJuego, "wb");
+		if (f) {
+			fwrite(datos, 1, tam, f);
+			fclose(f);
+		}
+	}
 
 	if (!retro_load_game(&juegoInfo)) {
 		return false;
