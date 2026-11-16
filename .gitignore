@@ -22,6 +22,9 @@ playwright-report
 *.unf
 *.smc
 *.nds
+*.z64
+*.n64
+*.v64
 *.zip
 *.sav
 *.srm
@@ -29,6 +32,7 @@ playwright-report
 !tests/fixtures/prueba.gb
 !tests/fixtures/prueba.sfc
 !tests/fixtures/prueba.nds
+!tests/fixtures/prueba.z64
 !tests/fixtures/prueba.nes
 !tests/fixtures/prueba.sms
 !tests/fixtures/prueba.gg

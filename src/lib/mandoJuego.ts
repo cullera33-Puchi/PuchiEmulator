@@ -98,7 +98,8 @@ export function mandoDe(mandos: Ajustes['mandos'], juegoId: string, sistema: Sis
   const base = mandoPorDefecto(sistema)
   const guardado = mandos[juegoId] ?? {}
   return {
-    jrpg: guardado.jrpg ?? base.jrpg,
+    // Nintendo 64 no tiene mando para juegos de rol: su disposición es fija
+    jrpg: SISTEMAS[sistema].n64 ? false : (guardado.jrpg ?? base.jrpg),
     menu: guardado.menu && menusDe(sistema).includes(guardado.menu) ? guardado.menu : base.menu,
     correr: guardado.correr && correrDe(sistema).includes(guardado.correr) ? guardado.correr : base.correr,
     direcciones: guardado.direcciones === 4 ? 4 : 8,
@@ -121,6 +122,7 @@ export const bitCorrer = (b: BotonCorrer) => bit(b)
 /** Botones a los que se puede poner turbo en cada consola. */
 export function botonesTurbo(sistema: Sistema): NombreBoton[] {
   const info = SISTEMAS[sistema]
+  if (info.n64) return ['A', 'B', 'Z', 'L', 'R']
   return [
     ...(info.tresBotones ? (['Y'] as NombreBoton[]) : []),
     ...(['A', 'B'] as NombreBoton[]),

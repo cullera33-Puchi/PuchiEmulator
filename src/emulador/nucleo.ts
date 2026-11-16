@@ -33,6 +33,11 @@ interface Modulo {
   _pf_cargar_estado(origen: number, tam: number): number
   _pf_opcion(clave: number, valor: number): void
   _pf_puntero(x: number, y: number, pulsado: number): void
+  // Desde la v0.32.0 (núcleos anteriores sin ellas)
+  _pf_analogico?(lado: number, x: number, y: number): void
+  _pf_imagen_gl?(): number
+  _pf_resultado?(): number
+  specialHTMLTargets?: Record<string, unknown>
   FS?: {
     mkdirTree(ruta: string): void
     writeFile(ruta: string, datos: Uint8Array): void
@@ -150,15 +155,60 @@ export const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     genesis_plus_gx_system_hw: 'auto',
     genesis_plus_gx_region_detect: 'auto',
   },
+  // Nintendo 64 (v0.32.0): GLideN64 con WebGL 2, el RSP de alto nivel y el intérprete con caché (en
+  // WebAssembly no hay recompilador); todo en un hilo y sin guardar los sombreadores en ficheros
+  n64: {
+    'mupen64plus-rdp-plugin': 'gliden64',
+    'mupen64plus-rsp-plugin': 'hle',
+    'mupen64plus-cpucore': 'cached_interpreter',
+    'mupen64plus-ThreadedRenderer': 'False',
+    'mupen64plus-43screensize': '640x480',
+    'mupen64plus-aspect': '4:3',
+    'mupen64plus-EnableShadersStorage': 'False',
+    'mupen64plus-pak1': 'memory',
+  },
+}
+
+/** Núcleos que dibujan ellos mismos con WebGL 2 (v0.32.0): la imagen está en su lienzo */
+const CON_WEBGL: Partial<Record<NombreNucleo, { ancho: number; alto: number }>> = { n64: { ancho: 640, alto: 480 } }
+
+/** Bits de los botones C de Nintendo 64 (ver `BOTON` en botones.ts): van a la palanca derecha */
+const C_ARRIBA = 1 << 16
+const C_ABAJO = 1 << 17
+const C_IZQUIERDA = 1 << 18
+const C_DERECHA = 1 << 19
+const PALANCA_MAX = 0x7fff
+
+/**
+ * Botones de la app a los del núcleo de Nintendo 64: su A es la B de libretro y su B, la Y. Los botones
+ * C ya han ido a la palanca derecha y no pasan.
+ */
+export function aN64(mascara: number): number {
+  const A = 1 << 8
+  const B = 1 << 0
+  const Y = 1 << 1
+  const resto = mascara & 0xffff & ~(A | B | Y)
+  return resto | (mascara & A ? B : 0) | (mascara & B ? Y : 0)
 }
 
 export class Nucleo {
   private readonly m: Modulo
   readonly nombre: NombreNucleo
+  /** Lienzo donde dibuja el núcleo con WebGL (Nintendo 64); null en los demás */
+  readonly lienzoGL: OffscreenCanvas | null
 
-  private constructor(m: Modulo, nombre: NombreNucleo) {
+  private constructor(m: Modulo, nombre: NombreNucleo, lienzoGL: OffscreenCanvas | null) {
     this.m = m
     this.nombre = nombre
+    this.lienzoGL = lienzoGL
+  }
+
+  /**
+   * Resultado de la última llamada al puente. En Nintendo 64, el núcleo va en corrutinas (fibras de
+   * Asyncify) y lo que devuelve una función que cambia de corrutina por el camino no es fiable.
+   */
+  private resultado(devuelto: number): number {
+    return this.m._pf_resultado ? this.m._pf_resultado() : devuelto
   }
 
   static async cargar(nombre: NombreNucleo, extra: Record<string, string> = {}): Promise<Nucleo> {
@@ -178,8 +228,16 @@ export class Nucleo {
     })
     // Si la instancia falla, Emscripten no se entera: sin esto, la carga se quedaría esperando
     const m = await Promise.race([creado, fallado])
+    // El núcleo de Nintendo 64 dibuja con WebGL 2 en este lienzo (el puente lo busca como «!lienzo»)
+    const gl = CON_WEBGL[nombre]
+    let lienzoGL: OffscreenCanvas | null = null
+    if (gl) {
+      if (typeof OffscreenCanvas === 'undefined' || !m.specialHTMLTargets) throw new Error('Este aparato no puede dibujar la Nintendo 64 (sin OffscreenCanvas).')
+      lienzoGL = new OffscreenCanvas(gl.ancho, gl.alto)
+      m.specialHTMLTargets['!lienzo'] = lienzoGL
+    }
     m._pf_iniciar()
-    const n = new Nucleo(m, nombre)
+    const n = new Nucleo(m, nombre, lienzoGL)
     for (const [k, v] of Object.entries({ ...OPCIONES[nombre], ...extra })) n.opcion(k, v)
     return n
   }
@@ -207,7 +265,7 @@ export class Nucleo {
     this.m.HEAPU8.set(rom, p)
     const ext = this.texto(extension)
     // El puente libera la copia de la ROM cuando el núcleo ya tiene la suya
-    const ok = this.m._pf_cargar(p, rom.byteLength, ext) === 1
+    const ok = this.resultado(this.m._pf_cargar(p, rom.byteLength, ext)) === 1
     this.m._free(ext)
     return ok
   }
@@ -221,7 +279,29 @@ export class Nucleo {
   }
 
   botones(mascara: number): void {
-    this.m._pf_botones(mascara)
+    const c = mascara & (C_ARRIBA | C_ABAJO | C_IZQUIERDA | C_DERECHA)
+    // Solo cuando cambian: al soltarlos, la palanca vuelve al centro
+    if (this.m._pf_analogico && c !== this.cAntes) {
+      // Botones C de Nintendo 64: la palanca derecha, a tope hacia cada lado
+      const x = mascara & C_IZQUIERDA ? -PALANCA_MAX : mascara & C_DERECHA ? PALANCA_MAX : 0
+      const y = mascara & C_ARRIBA ? -PALANCA_MAX : mascara & C_ABAJO ? PALANCA_MAX : 0
+      this.m._pf_analogico(1, x, y)
+      this.cAntes = c
+    }
+    this.m._pf_botones(this.nombre === 'n64' ? aN64(mascara) : mascara)
+  }
+
+  private cAntes = 0
+
+  /** Palanca izquierda (Nintendo 64), de -1 a 1 en cada eje; y hacia abajo es positivo. */
+  palanca(x: number, y: number): void {
+    const a = (v: number) => Math.max(-PALANCA_MAX, Math.min(PALANCA_MAX, Math.round(v * PALANCA_MAX)))
+    this.m._pf_analogico?.(0, a(x), a(y))
+  }
+
+  /** La imagen del último fotograma está en `lienzoGL` y no en la memoria del núcleo. */
+  get imagenGL(): boolean {
+    return !!this.lienzoGL && this.m._pf_imagen_gl?.() === 1
   }
 
   /** Toque en la imagen (Nintendo DS): x e y de 0 a 1 sobre todo el fotograma, o null al soltar. */
@@ -236,7 +316,7 @@ export class Nucleo {
 
   /** Ejecuta un fotograma; true si hay imagen nueva. */
   fotograma(): boolean {
-    return this.m._pf_fotograma() === 1
+    return this.resultado(this.m._pf_fotograma()) === 1
   }
 
   get fps(): number {
@@ -258,6 +338,7 @@ export class Nucleo {
 
   /** Fotograma en RGBA. Es una vista sobre la memoria del núcleo: se copia antes del siguiente. */
   video(): { datos: Uint8Array; ancho: number; alto: number } | null {
+    if (this.lienzoGL) return null
     const ancho = this.m._pf_video_ancho()
     const alto = this.m._pf_video_alto()
     const p = this.m._pf_video()
@@ -310,7 +391,7 @@ export class Nucleo {
     if (!tam) return null
     const p = this.m._malloc(tam)
     try {
-      if (this.m._pf_guardar_estado(p, tam) !== 1) return null
+      if (this.resultado(this.m._pf_guardar_estado(p, tam)) !== 1) return null
       return this.m.HEAPU8.slice(p, p + tam)
     } finally {
       this.m._free(p)
@@ -321,7 +402,7 @@ export class Nucleo {
     const p = this.m._malloc(datos.byteLength)
     try {
       this.m.HEAPU8.set(datos, p)
-      return this.m._pf_cargar_estado(p, datos.byteLength) === 1
+      return this.resultado(this.m._pf_cargar_estado(p, datos.byteLength)) === 1
     } finally {
       this.m._free(p)
     }

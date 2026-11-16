@@ -14,8 +14,18 @@ export const BOTON = {
   R: 11,
   /** DS: el micrófono oye un soplido mientras se mantiene (L2 en melonDS), v0.20.0 */
   SOPLAR: 12,
+  /** Nintendo 64 (v0.32.0): el gatillo Z, que es L2 en el núcleo */
+  Z: 12,
   /** DS: la tapa cerrada (L3 en melonDS), v0.20.0 */
   TAPA: 14,
+  /**
+   * Nintendo 64: botones C. No son de libretro: el núcleo los lee de la palanca derecha, y `Nucleo`
+   * convierte estos bits en esa palanca antes de cada fotograma.
+   */
+  C_ARRIBA: 16,
+  C_ABAJO: 17,
+  C_IZQUIERDA: 18,
+  C_DERECHA: 19,
 } as const
 
 export type NombreBoton = keyof typeof BOTON
@@ -91,8 +101,20 @@ export function direccionCruceta(dx: number, dy: number, anterior = 0, cuatro = 
   return mejor[1]
 }
 
-/** Mando físico con la distribución estándar (PlayStation, Xbox o MFi). */
-export function botonesDeMando(mando: Gamepad): number {
+/** Inclinación de una palanca a partir de la que cuenta (de 0 a 1) */
+const ZONA_PALANCA = 0.15
+
+/** Palanca izquierda de un mando físico (Nintendo 64), con zona muerta; [0, 0] si está suelta. */
+export function palancaDeMando(mando: Gamepad): [number, number] {
+  const [x = 0, y = 0] = mando.axes
+  return Math.hypot(x, y) < ZONA_PALANCA ? [0, 0] : [x, y]
+}
+
+/**
+ * Mando físico con la distribución estándar (PlayStation, Xbox o MFi). En Nintendo 64 (v0.32.0), la
+ * palanca izquierda va aparte (`palancaDeMando`), la derecha da los botones C y el gatillo izquierdo es Z.
+ */
+export function botonesDeMando(mando: Gamepad, n64 = false): number {
   const p = (i: number) => mando.buttons[i]?.pressed ?? false
   let m = 0
   // Distribución de Nintendo: el botón de abajo es B y el de la derecha es A
@@ -100,7 +122,10 @@ export function botonesDeMando(mando: Gamepad): number {
   if (p(1)) m |= bit('A')
   if (p(2)) m |= bit('Y')
   if (p(3)) m |= bit('X')
-  if (p(4) || p(6)) m |= bit('L')
+  if (n64) {
+    if (p(4)) m |= bit('L')
+    if (p(6)) m |= bit('Z')
+  } else if (p(4) || p(6)) m |= bit('L')
   if (p(5) || p(7)) m |= bit('R')
   if (p(8)) m |= bit('SELECT')
   if (p(9)) m |= bit('START')
@@ -108,6 +133,14 @@ export function botonesDeMando(mando: Gamepad): number {
   if (p(13)) m |= bit('ABAJO')
   if (p(14)) m |= bit('IZQUIERDA')
   if (p(15)) m |= bit('DERECHA')
+  if (n64) {
+    const [, , cx = 0, cy = 0] = mando.axes
+    if (cx < -0.5) m |= bit('C_IZQUIERDA')
+    if (cx > 0.5) m |= bit('C_DERECHA')
+    if (cy < -0.5) m |= bit('C_ARRIBA')
+    if (cy > 0.5) m |= bit('C_ABAJO')
+    return m
+  }
   const [x = 0, y = 0] = mando.axes
   if (Math.hypot(x, y) > 0.5) m |= direccionCruceta(x, y)
   return m

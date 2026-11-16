@@ -18,6 +18,8 @@ export default defineConfig({
     // Sin animaciones de navegación (dos pantallas a la vez durante medio segundo); la prueba
     // «transiciones» las activa para comprobarlas
     reducedMotion: 'reduce',
+    // WebGL por software en el navegador sin tarjeta gráfica (Nintendo 64 dibuja con WebGL 2)
+    launchOptions: { args: ['--enable-unsafe-swiftshader'] },
   },
   webServer: {
     command: 'npx vite preview --port 4173 --strictPort',

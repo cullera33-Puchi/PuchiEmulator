@@ -4,7 +4,7 @@
  * ángulo respecto al centro (ocho direcciones). Para no redibujar React a cada movimiento, el
  * aspecto de pulsado se cambia directamente en los elementos.
  */
-import { Footprints } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Footprints } from 'lucide-react'
 import { useEffect, useRef, type PointerEvent as EventoPuntero, type RefObject } from 'react'
 import { bit, direccionCruceta, type NombreBoton } from '../emulador/botones'
 import { vibracionActiva } from '../lib/ajustes'
@@ -39,10 +39,17 @@ interface Props {
   turbo?: number
   /** Correr fijo (modo JRPG): botón debajo de la A que se activa y se desactiva con un toque */
   correr?: { activo: boolean; boton: 'B' | 'Y'; alCambiar: () => void }
+  /**
+   * Nintendo 64 (v0.32.0): palanca analógica en el sitio de la cruceta, A, B y los cuatro botones C,
+   * Z en el hombro izquierdo, R en el derecho y L pequeño donde va Select. La palanca da de -1 a 1.
+   */
+  n64?: { alPalanca: (x: number, y: number) => void }
 }
 
 interface Dedo {
   cruceta: boolean
+  /** El dedo empezó en la palanca (Nintendo 64): la mueve aunque se salga */
+  palanca?: boolean
   mascara: number
   /** El dedo empezó en la imagen de una consola táctil: hace de lápiz */
   tactil?: boolean
@@ -52,6 +59,11 @@ interface Dedo {
 
 /** La cruceta recoge los toques hasta un 25 % más allá de su dibujo: el pulgar no siempre cae dentro. */
 const CRUCETA_AMPLIADA = 1.25
+
+/** La palanca llega a tope a este tanto del radio de su dibujo: no hace falta llevar el dedo al borde */
+const PALANCA_TOPE = 0.7
+/** Zona muerta de la palanca, en fracción del recorrido */
+const PALANCA_MUERTA = 0.08
 
 /** Pantalla táctil (Nintendo DS): el lienzo y a quién avisar del toque (0 a 1 sobre la imagen, o null) */
 export interface Tactil {
@@ -66,7 +78,15 @@ const BRAZOS: [NombreBoton, string][] = [
   ['DERECHA', 'derecha'],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando, tres, etiquetas, sinSelect }: Props) {
+/** Botones C de Nintendo 64, en cruz encima de A y B */
+const BOTONES_C: [NombreBoton, string, string, typeof ChevronUp][] = [
+  ['C_ARRIBA', 'c-arriba', 'C arriba', ChevronUp],
+  ['C_IZQUIERDA', 'c-izquierda', 'C izquierda', ChevronLeft],
+  ['C_DERECHA', 'c-derecha', 'C derecha', ChevronRight],
+  ['C_ABAJO', 'c-abajo', 'C abajo', ChevronDown],
+]
+
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando, tres, etiquetas, sinSelect, n64 }: Props) {
   // Lo que pone en cada botón: el nombre de la consola o, si no, el de libretro
   const nombre = (b: 'A' | 'B' | 'X' | 'Y' | 'START') => etiquetas?.[b] ?? (b === 'START' ? 'Start' : b)
   // Atributos de cada pieza: su nombre (para el editor) y, si se ha movido, su sitio y su tamaño
@@ -79,6 +99,32 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   alCambiarRef.current = alCambiar
   const cuatroRef = useRef(cuatroDirecciones)
   cuatroRef.current = cuatroDirecciones
+  const pomo = useRef<HTMLSpanElement>(null)
+  const n64Ref = useRef(n64)
+  n64Ref.current = n64
+
+  /** Mueve la palanca de Nintendo 64 al punto tocado (o la suelta, sin punto) */
+  const moverPalanca = (x?: number, y?: number) => {
+    const el = cruceta.current
+    let vx = 0
+    let vy = 0
+    if (el && x !== undefined && y !== undefined) {
+      const r = el.getBoundingClientRect()
+      const recorrido = (r.width / 2) * PALANCA_TOPE
+      // Con la pantalla girada, la dirección se mide en el juego, no en el iPhone
+      const [dx, dy] = vectorJuego(x - (r.left + r.width / 2), y - (r.top + r.height / 2), giroDe(el))
+      const largo = Math.hypot(dx, dy) / recorrido
+      const escala = largo > 1 ? 1 / largo : 1
+      vx = (dx / recorrido) * escala
+      vy = (dy / recorrido) * escala
+      if (Math.hypot(vx, vy) < PALANCA_MUERTA) vx = vy = 0
+    }
+    if (pomo.current) {
+      pomo.current.style.transform = vx || vy ? `translate(${(vx * PALANCA_TOPE * 50).toFixed(1)}%, ${(vy * PALANCA_TOPE * 50).toFixed(1)}%)` : ''
+      pomo.current.classList.toggle('pulsado', !!(vx || vy))
+    }
+    n64Ref.current?.alPalanca(vx, vy)
+  }
 
   const pintar = (m: number) => {
     const r = raiz.current
@@ -129,6 +175,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   const bajoElDedo = (x: number, y: number): Dedo => {
     const el = document.elementFromPoint(x, y)
     if (!el || !raiz.current?.contains(el)) return { cruceta: false, mascara: 0 }
+    if (n64Ref.current && (cruceta.current?.contains(el) || cercaDeLaCruceta(x, y))) return { cruceta: false, palanca: true, mascara: 0 }
     if (cruceta.current?.contains(el)) return { cruceta: true, mascara: desdeCruceta(x, y) }
     if ((el as HTMLElement).closest('[data-accion]')) return { cruceta: false, mascara: 0, accion: true }
     const boton = (el as HTMLElement).closest<HTMLElement>('[data-boton]')
@@ -152,6 +199,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     const d = bajoElDedo(e.clientX, e.clientY)
     dedos.current.set(e.pointerId, d)
     if (d.tactil) tocar(e.clientX, e.clientY)
+    if (d.palanca) moverPalanca(e.clientX, e.clientY)
     if (d.accion) {
       correr?.alCambiar()
       if (vibracionActiva()) vibrar()
@@ -167,12 +215,16 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       tocar(e.clientX, e.clientY)
       return
     }
+    if (d.palanca) {
+      moverPalanca(e.clientX, e.clientY)
+      return
+    }
     if (d.accion) return
     if (d.cruceta) d.mascara = desdeCruceta(e.clientX, e.clientY, d.mascara)
     else {
       const nuevo = bajoElDedo(e.clientX, e.clientY)
       // Deslizar desde un botón hasta la cruceta no la toma: la cruceta es de quien empieza en ella
-      d.mascara = nuevo.cruceta ? 0 : nuevo.mascara
+      d.mascara = nuevo.cruceta || nuevo.palanca ? 0 : nuevo.mascara
     }
     recalcular()
   }
@@ -181,6 +233,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     const d = dedos.current.get(e.pointerId)
     if (!dedos.current.delete(e.pointerId)) return
     if (d?.tactil) tactil?.alTocar(null)
+    if (d?.palanca) moverPalanca()
     recalcular()
     alToque?.()
   }
@@ -195,7 +248,9 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   // Si la app pasa a segundo plano con un dedo puesto, se sueltan todos los botones
   useEffect(() => {
     const soltar = () => {
+      const habiaPalanca = [...dedos.current.values()].some((d) => d.palanca)
       dedos.current.clear()
+      if (habiaPalanca) moverPalanca()
       recalcular()
     }
     window.addEventListener('blur', soltar)
@@ -217,14 +272,34 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       onContextMenu={(e) => e.preventDefault()}
       data-testid="mando"
     >
-      <div ref={cruceta} className="control cruceta" aria-label="Cruceta" {...pieza('cruceta')}>
-        {BRAZOS.map(([b, clase]) => (
-          <span key={b} data-boton={b} className={`brazo ${clase}`} />
-        ))}
-        <span className="centro" />
-      </div>
+      {n64 ? (
+        <div ref={cruceta} className="control cruceta palanca" aria-label="Palanca" data-testid="palanca" {...pieza('cruceta')}>
+          <span ref={pomo} className="pomo" />
+        </div>
+      ) : (
+        <div ref={cruceta} className="control cruceta" aria-label="Cruceta" {...pieza('cruceta')}>
+          {BRAZOS.map(([b, clase]) => (
+            <span key={b} data-boton={b} className={`brazo ${clase}`} />
+          ))}
+          <span className="centro" />
+        </div>
+      )}
 
-      {jrpg ? (
+      {n64 ? (
+        <div className="botones-accion n64" {...pieza('botones')}>
+          {BOTONES_C.map(([b, clase, etiqueta, Icono]) => (
+            <span key={b} data-boton={b} className={`control c ${clase}`} role="button" aria-label={etiqueta}>
+              <Icono size={18} strokeWidth={2.6} />
+            </span>
+          ))}
+          <span data-boton="B" className="control b" role="button" aria-label="B">
+            B
+          </span>
+          <span data-boton="A" className="control a" role="button" aria-label="A">
+            A
+          </span>
+        </div>
+      ) : jrpg ? (
         <div className="botones-accion jrpg" {...pieza('botones')}>
           {jrpg.extras.map((b) => (
             <span key={b} data-boton={b} className={`control ${b.toLowerCase()}`} role="button" aria-label={nombre(b)}>
@@ -282,15 +357,26 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
 
       {hombros && (
         <>
-          <span data-boton="L" className="control hombro l" role="button" aria-label="L" {...pieza('l')}>
-            L
-          </span>
+          {n64 ? (
+            <span data-boton="Z" className="control hombro l" role="button" aria-label="Z" {...pieza('l')}>
+              Z
+            </span>
+          ) : (
+            <span data-boton="L" className="control hombro l" role="button" aria-label="L" {...pieza('l')}>
+              L
+            </span>
+          )}
           <span data-boton="R" className="control hombro r" role="button" aria-label="R" {...pieza('r')}>
             R
           </span>
         </>
       )}
 
+      {n64 && (
+        <span data-boton="L" className="control pequeno select" role="button" aria-label="L" {...pieza('select')}>
+          L
+        </span>
+      )}
       {!sinSelect && (
         <span data-boton="SELECT" className="control pequeno select" role="button" aria-label="Select" {...pieza('select')}>
           SELECT

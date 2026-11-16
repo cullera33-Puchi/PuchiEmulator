@@ -16,7 +16,7 @@ import { guardarEstado, guardarPartida, guardarSesionJuego, leerEstado, leerPart
 import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
-import { bit, botonesDeMando } from './botones'
+import { bit, botonesDeMando, palancaDeMando } from './botones'
 import { Historial } from './historial'
 import { limitarRecuperacion, planRitmo, Refresco, refrescosPasados } from './ritmo'
 import { tocaPausar } from '../lib/sueno'
@@ -77,6 +77,17 @@ function marcarCargaAuto(juegoId: string | null): void {
 }
 
 /** Contexto para enseñar las imágenes del motor: sin copiarlas si se puede; si no, en 2D. */
+/** La imagen que se ve, en PNG, para la miniatura de un estado guardado. */
+function capturaDelLienzo(lienzo: HTMLCanvasElement): Promise<ArrayBuffer | undefined> {
+  return new Promise((resolver) => {
+    try {
+      lienzo.toBlob((b) => (b ? b.arrayBuffer().then(resolver, () => resolver(undefined)) : resolver(undefined)), 'image/png')
+    } catch {
+      resolver(undefined)
+    }
+  })
+}
+
 function contextoDe(lienzo: HTMLCanvasElement): ImageBitmapRenderingContext | CanvasRenderingContext2D | null {
   return lienzo.getContext('bitmaprenderer') ?? lienzo.getContext('2d', { alpha: false })
 }
@@ -115,6 +126,9 @@ export class Sesion {
   private frecuencia = 32768
   private botonesTactil = 0
   private botonesTeclado = 0
+  /** Nintendo 64 (v0.32.0): palanca de la pantalla, de -1 a 1 */
+  private palancaTactil: [number, number] = [0, 0]
+  private readonly n64: boolean
   // Correr fijo (modo JRPG) y turbo: los aplica el motor en cada fotograma
   private correr = 0
   private turbo = 0
@@ -179,6 +193,7 @@ export class Sesion {
 
   private constructor(o: OpcionesSesion) {
     this.o = o
+    this.n64 = !!SISTEMAS[o.juego.sistema].n64
     this.pantallas = o.pantallas ?? 'apiladas'
     this.principal = o.principal ?? 'abajo'
   }
@@ -432,7 +447,7 @@ export class Sesion {
   /** Pide `n` fotogramas al motor y, al volver, enseña la imagen, suena y guarda lo de rebobinar. */
   private enviar(n: number, mascara: number, frecuenciaSonido: number): void {
     this.enVuelo = true
-    this.motor.fotogramas({ n, mascara, turbo: this.turbo, correr: this.correr, extra: this.extra }).then(
+    this.motor.fotogramas({ n, mascara, turbo: this.turbo, correr: this.correr, extra: this.extra, palanca: this.n64 ? this.palanca() : undefined }).then(
       (r) => {
         this.enVuelo = false
         if (this.cerrada || this.roto) {
@@ -533,10 +548,31 @@ export class Sesion {
     this.altavoz.vaciar()
   }
 
+  /** Palanca de Nintendo 64: la de la pantalla o, si está suelta, la de un mando físico. */
+  private palanca(): [number, number] {
+    if (this.palancaTactil[0] || this.palancaTactil[1]) return this.palancaTactil
+    try {
+      for (const mando of navigator.getGamepads?.() ?? []) {
+        if (!mando) continue
+        const p = palancaDeMando(mando)
+        if (p[0] || p[1]) return p
+      }
+    } catch {
+      // sin mandos
+    }
+    return [0, 0]
+  }
+
+  /** Palanca de la pantalla (Nintendo 64), de -1 a 1 en cada eje. */
+  ponerPalanca(x: number, y: number): void {
+    this.palancaTactil = [x, y]
+    this.ultimaActividad = Date.now()
+  }
+
   private botonesMandos(): number {
     let m = 0
     try {
-      for (const mando of navigator.getGamepads?.() ?? []) if (mando) m |= botonesDeMando(mando)
+      for (const mando of navigator.getGamepads?.() ?? []) if (mando) m |= botonesDeMando(mando, this.n64)
     } catch {
       // sin mandos
     }
@@ -618,7 +654,9 @@ export class Sesion {
     if (this.roto || this.cerrada || !this.motor) return false
     const r = await this.motor.guardarEstado()
     if (!r || this.roto) return false
-    await guardarEstado({ id: this.o.juego.id, ranura, datos: r.datos.slice().buffer as ArrayBuffer, fecha: Date.now(), captura: r.captura })
+    // Nintendo 64: el motor no tiene la imagen (la dibuja el núcleo), se toma la que se ve
+    const captura = r.captura ?? (await capturaDelLienzo(this.o.lienzo))
+    await guardarEstado({ id: this.o.juego.id, ranura, datos: r.datos.slice().buffer as ArrayBuffer, fecha: Date.now(), captura })
     return true
   }
 

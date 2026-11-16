@@ -17,6 +17,7 @@ const CASOS: { nucleo: NombreNucleo; consola: string; rom: string; extension: st
   { nucleo: 'snes9x', consola: 'Super Nintendo', rom: 'prueba.sfc', extension: 'sfc' },
   { nucleo: 'melonds', consola: 'Nintendo DS', rom: 'prueba.nds', extension: 'nds' },
   { nucleo: 'genesis', consola: 'Mega Drive', rom: 'prueba.md', extension: 'md' },
+  { nucleo: 'n64', consola: 'Nintendo 64', rom: 'prueba.z64', extension: 'z64' },
 ]
 
 /** Cada ronda dura lo mismo en todas las consolas, para que las rápidas no midan casi nada */
@@ -37,12 +38,17 @@ test('rendimiento de los núcleos', async ({ page }) => {
           type M = Record<string, (...a: number[]) => number> & { HEAPU8: Uint8Array; stringToNewUTF8(s: string): number; FS?: { mkdirTree(r: string): void } }
           const { default: crear } = await import(/* @vite-ignore */ `${raiz}${nucleo}.js`)
           const m = (await crear({ locateFile: (r: string) => `${raiz}${r}`, print: () => undefined, printErr: () => undefined })) as M
+          // Nintendo 64 dibuja con WebGL 2 en el lienzo que le deja la app (v0.32.0)
+          const mm = m as unknown as { specialHTMLTargets?: Record<string, unknown> }
+          if (nucleo === 'n64' && mm.specialHTMLTargets) mm.specialHTMLTargets['!lienzo'] = new OffscreenCanvas(640, 480)
           m._pf_iniciar()
           for (const [k, v] of Object.entries(opciones)) m._pf_opcion(m.stringToNewUTF8(k), m.stringToNewUTF8(v))
           m.FS?.mkdirTree('/sistema')
           const p = m._malloc(rom.length)
           m.HEAPU8.set(rom, p)
-          if (m._pf_cargar(p, rom.length, m.stringToNewUTF8(extension)) !== 1) throw new Error(`${nucleo}: no carga la ROM`)
+          // Con las corrutinas de Nintendo 64, el resultado se lee aparte (pf_resultado)
+          const cargado = m._pf_cargar(p, rom.length, m.stringToNewUTF8(extension))
+          if ((m._pf_resultado ? m._pf_resultado() : cargado) !== 1) throw new Error(`${nucleo}: no carga la ROM`)
           // Calentamiento: el navegador optimiza el código de WebAssembly en las primeras vueltas
           for (let i = 0; i < 120; i++) m._pf_fotograma()
           const t0 = performance.now()

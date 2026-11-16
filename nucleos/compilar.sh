@@ -6,7 +6,7 @@
 #   ./emsdk/emsdk install 4.0.10 && ./emsdk/emsdk activate 4.0.10
 #   source ./emsdk/emsdk_env.sh
 #
-# Uso: nucleos/compilar.sh [mgba] [snes9x] [melonds] [fceumm] [genesis]
+# Uso: nucleos/compilar.sh [mgba] [snes9x] [melonds] [fceumm] [genesis] [n64]
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
@@ -27,6 +27,8 @@ FCEUMM_REPO="https://github.com/libretro/libretro-fceumm.git"
 FCEUMM_COMMIT="8997c2bf9503f6d50585b11a1fd7207af53a2426"
 GENESIS_REPO="https://github.com/libretro/Genesis-Plus-GX.git"
 GENESIS_COMMIT="b9c2316441978d4015ba30e9a95d9b0e6f8ee981"
+N64_REPO="https://github.com/libretro/mupen64plus-libretro-nx.git"
+N64_COMMIT="15bada85906593376e8fd697f1b0b3af3a20f512"
 ZLIB_REPO="https://github.com/madler/zlib.git"
 ZLIB_COMMIT="51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"
 
@@ -36,7 +38,7 @@ ZLIB_COMMIT="51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"
 OPTIMIZACION="${OPTIMIZACION--msimd128 -flto}"
 export EMCC_CFLAGS="$OPTIMIZACION"
 
-EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion","_pf_puntero"]'
+EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion","_pf_puntero","_pf_analogico","_pf_imagen_gl","_pf_resultado"]'
 
 traer() { # repo commit carpeta
 	if [ ! -d "$3/.git" ]; then
@@ -50,15 +52,17 @@ traer() { # repo commit carpeta
 enlazar() { # nombre enlazador (emcc, o em++ si el núcleo es C++) bibliotecas...
 	local nombre="$1" enlazador="$2"
 	shift 2
-	# El puente se compila siempre como C, para que sus funciones pf_* conserven el nombre
-	emcc -O3 -c "$RAIZ/nucleos/puente.c" -I"$RAIZ/nucleos" -o "$TRABAJO/puente.o"
+	# El puente se compila siempre como C, para que sus funciones pf_* conserven el nombre.
+	# PUENTE_EXTRA y ENLACE_EXTRA: lo que añade un núcleo concreto (Nintendo 64: WebGL y Asyncify)
+	emcc -O3 ${PUENTE_EXTRA:-} -c "$RAIZ/nucleos/puente.c" -I"$RAIZ/nucleos" -o "$TRABAJO/puente.o"
 	"$enlazador" -O3 "$TRABAJO/puente.o" "$@" \
 		-o "$SALIDA/$nombre.js" \
 		-sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=crearNucleo \
 		-sENVIRONMENT=web,worker -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864 \
 		-sSTACK_SIZE=1048576 -sFILESYSTEM=1 -sINVOKE_RUN=0 \
 		-sEXPORTED_FUNCTIONS="$EXPORTADAS" \
-		-sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAP16","HEAPU32","stringToNewUTF8","FS"]'
+		-sEXPORTED_RUNTIME_METHODS='["HEAPU8","HEAP16","HEAPU32","stringToNewUTF8","FS","specialHTMLTargets"]' \
+		${ENLACE_EXTRA:-}
 	echo "Listo: public/nucleos/$nombre.js y $nombre.wasm ($(du -h "$SALIDA/$nombre.wasm" | cut -f1))"
 }
 
@@ -159,6 +163,30 @@ compilar_genesis() {
 	rm -f "$TRABAJO/genesis_extra.a"
 	emar rcs "$TRABAJO/genesis_extra.a" "$obj"/*.o
 	enlazar genesis emcc "$TRABAJO/genesis_libretro.a" "$TRABAJO/genesis_extra.a"
+}
+
+compilar_n64() {
+	# Nintendo 64 (v0.32.0): Mupen64Plus-Next con GLideN64 (OpenGL ES 3, que en el navegador es WebGL 2;
+	# GLES3=1 manda sobre el «GLES := 1» de su Makefile para Emscripten, que lo dejaba en OpenGL ES 2)
+	# y el intérprete con caché (en WebAssembly no hay recompilador).
+	# Sin -flto (aún sin medir) y con -fno-common: su Makefile pone -fcommon, y en WebAssembly las variables
+	# globales sin valor inicial quedan entonces sin definir (g_dev, retro_thread)
+	local EMCC_CFLAGS="${OPTIMIZACION//-flto/} -fno-common"
+	export EMCC_CFLAGS
+	traer "$N64_REPO" "$N64_COMMIT" "$TRABAJO/n64"
+	traer "$ZLIB_REPO" "$ZLIB_COMMIT" "$TRABAJO/zlib"
+	# Su Makefile pide el zlib de los «ports» de Emscripten, que se descarga aparte: se usa el nuestro.
+	# xxHash, con SIMD de WebAssembly, carga una capa de NEON que no compila en C++: va sin ella
+	(cd "$TRABAJO/n64" && emmake make platform=emscripten GLES3=1 clean >/dev/null &&
+		emmake make platform=emscripten GLES3=1 CPUFLAGS="-DEMSCRIPTEN -DNO_ASM -D\"XXH_HAS_INCLUDE(x)=0\" -I$TRABAJO/zlib" -j"$(nproc)" >/dev/null)
+	# Todas las piezas menos su libco (para WebAssembly no tiene; va la nuestra, con fibras de Emscripten).
+	# Sueltas y no en una biblioteca: compila con -fcommon y el enlazador no saca de una biblioteca las
+	# variables globales sin valor inicial (g_dev, las funciones de GL de glsym)
+	(cd "$TRABAJO/n64" && find "$TRABAJO/n64" -name '*.o' ! -path '*/libretro-common/libco/*' | sort > "$TRABAJO/n64.piezas")
+	emcc -O3 -c "$RAIZ/nucleos/libco_emscripten.c" -I"$TRABAJO/n64/libretro-common/include" -o "$TRABAJO/libco_emscripten.o"
+	PUENTE_EXTRA="-DPF_GL" \
+		ENLACE_EXTRA="-sINITIAL_MEMORY=134217728 -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sFULL_ES3 -sGL_ENABLE_GET_PROC_ADDRESS" \
+		enlazar n64 em++ "@$TRABAJO/n64.piezas" "$TRABAJO/libco_emscripten.o"
 }
 
 for nucleo in ${@:-mgba snes9x melonds fceumm genesis}; do

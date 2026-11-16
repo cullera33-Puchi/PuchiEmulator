@@ -1,5 +1,21 @@
 # Cambios
 
+## 0.32.0 (16/11/2026)
+
+Nintendo 64 en pruebas, pedida por el usuario (fila 7 de la hoja de ruta y 17 del análisis).
+
+- Núcleo: Mupen64Plus-Next (GPLv2) con GLideN64, compilado a WebAssembly con OpenGL ES 3, que en el navegador es WebGL 2; RSP de alto nivel e intérprete con caché.
+  - Corrutinas del núcleo con las fibras de Emscripten (`nucleos/libco_emscripten.c`, `-sASYNCIFY`). Al cerrar el juego, la corrutina del núcleo vuelve al hilo principal en lugar de abortar.
+  - Con las fibras, el valor que devuelve una función que cambia de corrutina no es fiable: el puente guarda el resultado de `pf_cargar`, `pf_fotograma` y los estados, y la app lo lee con `pf_resultado`.
+  - Ajustes de compilación necesarios: `GLES3=1` en la línea de `make`, `-fno-common`, xxHash sin `arm_neon.h`, zlib propia y memoria inicial de 128 MB. Detalle en `nucleos/README.md`.
+- Puente (`PF_GL`): contexto WebGL 2 en el `OffscreenCanvas` que deja la app (`specialHTMLTargets['!lienzo']`), imágenes que el núcleo deja en ese lienzo (`pf_imagen_gl`) y palancas analógicas (`pf_analogico`). Todos los núcleos recompilados con el puente nuevo.
+- Motor: en Nintendo 64 no hay pintor; la imagen del lienzo del núcleo se entrega con `transferToImageBitmap`, una vez por fotograma. La captura de los estados sale de la pantalla. Sin rebobinado (cada estado pesa 16 MB).
+- Reconocimiento por la cabecera en los tres órdenes de bytes (.z64, .v64 y .n64), también dentro de un zip, y título interno.
+- Mando táctil: palanca analógica que sigue al dedo en el sitio de la cruceta, A azul, B verde, cuatro botones C amarillos, Z en el hombro izquierdo, R en el derecho y L pequeño en el sitio de Select. Los botones C van al núcleo como la palanca derecha. Mando físico: palanca izquierda, botones C con la derecha y Z con el gatillo izquierdo. Turbo en A, B, Z, L y R; sin mando para juegos de rol.
+- Tema «Carbón», dibujo propio de la consola en el inicio e índice de carátulas de libretro (1.115 nombres).
+- ROM de prueba propia en MIPS (`scripts/n64_prueba.s`, `tests/fixtures/prueba.z64`): azul, verde con A y marca en la EEPROM, rojo si ya había marca, amarillo con la palanca y magenta con un botón C.
+- Pruebas: 157 unitarias y 64 de navegador (nueva la de Nintendo 64: palanca, A, botones C, estados y partida). Las de navegador y la de rendimiento usan WebGL por software (`--enable-unsafe-swiftshader`). Rendimiento con la ROM de prueba en el navegador de pruebas, sin tarjeta gráfica: 5,9 ms por fotograma.
+
 ## 0.31.0 (16/11/2026)
 
 Mejoras 5 y 6 del análisis de rendimiento, pedidas por el usuario: la emulación en un hilo aparte y el dibujo con la tarjeta gráfica.

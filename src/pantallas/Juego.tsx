@@ -554,6 +554,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         tres={SISTEMAS[sistema].tresBotones}
         etiquetas={SISTEMAS[sistema].etiquetas}
         sinSelect={SISTEMAS[sistema].sinSelect}
+        n64={SISTEMAS[sistema].n64 ? { alPalanca: (x, y) => sesion.current?.ponerPalanca(x, y) } : undefined}
         colocaciones={colocaciones}
         editando={!!borrador}
         correr={mando.jrpg ? { activo: corriendo, boton: mando.correr, alCambiar: cambiarCorrer } : undefined}

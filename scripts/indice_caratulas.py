@@ -17,6 +17,7 @@ REPOS = {
     'nes': 'Nintendo_-_Nintendo_Entertainment_System',
     'snes': 'Nintendo_-_Super_Nintendo_Entertainment_System',
     'nds': 'Nintendo_-_Nintendo_DS',
+    'n64': 'Nintendo_-_Nintendo_64',
     'sms': 'Sega_-_Master_System_-_Mark_III',
     'gg': 'Sega_-_Game_Gear',
     'md': 'Sega_-_Mega_Drive_-_Genesis',
@@ -44,8 +45,11 @@ def nombres(repo: str) -> list[str]:
 
 
 def main() -> None:
+    import sys
     SALIDA.mkdir(parents=True, exist_ok=True)
-    for sistema, repo in REPOS.items():
+    elegidos = sys.argv[1:] or list(REPOS)
+    for sistema in elegidos:
+        repo = REPOS[sistema]
         lista = nombres(repo)
         (SALIDA / f'{sistema}.json').write_text(json.dumps({'repo': repo, 'nombres': lista}, ensure_ascii=False, separators=(',', ':')))
         print(sistema, len(lista))

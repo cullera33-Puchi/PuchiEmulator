@@ -112,6 +112,34 @@ function SuperNintendo() {
 }
 
 /** NES (v0.23.0): caja gris de sobremesa con la franja oscura y su mando rectangular */
+function Nintendo64() {
+  return (
+    <svg viewBox="0 0 230 160" className="h-full w-auto drop-shadow-md" aria-hidden>
+      {/* Consola de sobremesa gris carbón: ranura del cartucho en el centro y cuatro puertos delante */}
+      <path d="M30 10h170c12 0 20 8 22 20l4 34c1 10-6 18-16 18H20C10 82 3 74 4 64l4-34C10 18 18 10 30 10z" fill="#4a4a52" />
+      <path d="M5 54h220l1 10c1 10-6 18-16 18H20C10 82 3 74 4 64z" fill="#38383f" />
+      <rect x="78" y="18" width="74" height="22" rx="6" fill="#2b2b31" />
+      <rect x="88" y="25" width="54" height="8" rx="4" fill="#18181c" />
+      {[0, 1, 2, 3].map((i) => (
+        <rect key={i} x={70 + i * 24} y="62" width="14" height="10" rx="3" fill="#232328" />
+      ))}
+      <rect x="26" y="26" width="26" height="8" rx="4" fill="#5d5d66" />
+      <rect x="178" y="26" width="26" height="8" rx="4" fill="#5d5d66" />
+      {/* Mando de tres asas con palanca en el centro, A azul, B verde y cuatro botones C amarillos */}
+      <path d="M62 100c10-8 96-8 106 0 10 8 16 20 14 34-1 8-8 12-14 8l-12-10c-6 18-12 22-18 22s-10-6-12-20h-24c-2 14-6 20-12 20s-12-4-18-22l-12 10c-6 4-13 0-14-8-2-14 4-26 16-34z" fill="#5a5a63" />
+      <Cruz x={76} y={114} t={6} color="#2b2b31" />
+      <circle cx="115" cy="128" r="7" fill="#2b2b31" />
+      <circle cx="115" cy="128" r="4.5" fill="#6e6e78" />
+      <circle cx="148" cy="122" r="5" fill="#2f5fc4" />
+      <circle cx="140" cy="113" r="4.2" fill="#2f9a52" />
+      <circle cx="160" cy="104" r="3" fill="#e6b41e" />
+      <circle cx="154" cy="110" r="3" fill="#e6b41e" />
+      <circle cx="166" cy="110" r="3" fill="#e6b41e" />
+      <circle cx="160" cy="116" r="3" fill="#e6b41e" />
+    </svg>
+  )
+}
+
 function NES() {
   return (
     <svg viewBox="0 0 230 150" className="h-full w-auto drop-shadow-md" aria-hidden>
@@ -224,6 +252,7 @@ function NintendoDS() {
 }
 
 export function DibujoConsola({ consola }: { consola: Consola }) {
+  if (consola === 'n64') return <Nintendo64 />
   if (consola === 'nds') return <NintendoDS />
   if (consola === 'snes') return <SuperNintendo />
   if (consola === 'nes') return <NES />

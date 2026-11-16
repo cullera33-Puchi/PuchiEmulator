@@ -58,6 +58,30 @@ describe('detectarSistema', () => {
   })
 })
 
+describe('Nintendo 64', () => {
+  const z64 = fixture('prueba.z64')
+  // Los otros dos órdenes de bytes de los volcados: por parejas (.v64) y de cuatro en cuatro (.n64)
+  const v64 = z64.map((_, i) => z64[i ^ 1])
+  const n64 = z64.map((_, i) => z64[i ^ 3])
+
+  it('se reconoce por la cabecera en los tres órdenes de bytes, con cualquier nombre', () => {
+    for (const b of [z64, v64, n64]) expect(detectarSistema(b, 'juego.bin')).toBe('n64')
+  })
+
+  it('lee el título interno en cualquier orden de bytes', () => {
+    for (const b of [z64, v64, n64]) expect(tituloInterno(b, 'n64')).toBe('PUCHIPRUEBA')
+  })
+
+  it('las extensiones .z64, .n64 y .v64 bastan si la cabecera no dice nada', () => {
+    for (const e of ['z64', 'n64', 'V64']) expect(detectarSistema(new Uint8Array(16), `juego.${e}`)).toBe('n64')
+  })
+
+  it('dentro de un zip, se encuentra por la cabecera', () => {
+    const zip = zipSync({ 'leeme.txt': new Uint8Array(10), 'juego.rom': v64 })
+    expect(leerRom(zip, 'juego.zip')?.sistema).toBe('n64')
+  })
+})
+
 describe('leerRom', () => {
   it('saca la ROM de un zip, saltándose el resto de ficheros', () => {
     const r = leerRom(fixture('prueba.zip'), 'Prueba.zip')

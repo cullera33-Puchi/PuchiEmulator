@@ -10,7 +10,8 @@ export default defineConfig({
   testMatch: '**/*.e2e.ts',
   timeout: 300_000,
   reporter: 'list',
-  use: { browserName: 'chromium', baseURL: 'http://localhost:4173', trace: 'off' },
+  // WebGL por software en el navegador sin tarjeta gráfica (Nintendo 64 dibuja con WebGL 2)
+  use: { browserName: 'chromium', baseURL: 'http://localhost:4173', trace: 'off', launchOptions: { args: ['--enable-unsafe-swiftshader'] } },
   webServer: {
     command: 'npx vite preview --port 4173 --strictPort',
     port: 4173,

@@ -27,7 +27,7 @@ async function colorCentral(page: Page): Promise<[number, number, number]> {
   })
 }
 
-const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo', 'prueba.nds': 'Nintendo DS', 'prueba.nes': 'NES', 'prueba.md': 'Mega Drive', 'prueba.sms': 'Master System y Game Gear', 'prueba.gg': 'Master System y Game Gear' }
+const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo', 'prueba.nds': 'Nintendo DS', 'prueba.nes': 'NES', 'prueba.md': 'Mega Drive', 'prueba.sms': 'Master System y Game Gear', 'prueba.gg': 'Master System y Game Gear', 'prueba.z64': 'Nintendo 64' }
 
 /** Abre la biblioteca de una consola desde el inicio. */
 /** Selector de ficheros de la pantalla de arriba: el inicio se queda montado debajo de las apiladas (v0.26.1) */
@@ -54,7 +54,7 @@ async function pulsar(page: Page, etiqueta: string, ms = 300) {
 test('inicio sin juegos, añadir un juego de GBA y jugar con los botones', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText(/Añade tus juegos con/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(7)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(8)
 
   await anadir(page, 'prueba.gba')
   await expect(page.getByRole('button', { name: /prueba.*Game Boy Advance/i })).toBeVisible()
@@ -141,7 +141,7 @@ test('un fichero que no es un juego se rechaza', async ({ page }) => {
   await page.goto('/')
   await selector(page).setInputFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('hola') })
   await expect(page.getByText(/no es un juego/)).toBeVisible()
-  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(7)
+  await expect(page.getByTestId('consolas').getByRole('button', { name: /sin juegos/ })).toHaveCount(8)
 })
 
 test.describe('en horizontal', () => {
@@ -639,8 +639,8 @@ test('Game Boy y Game Boy Color comparten consola y biblioteca, GBA va aparte, y
   ])
   await expect(page.getByText('2 juegos añadidos')).toBeVisible()
   const consolas = page.getByTestId('consolas')
-  await expect(consolas.getByRole('button')).toHaveCount(8) // su tarjeta con el botón de opciones y las seis vacías juntas (v0.26.0)
-  await expect(page.getByTestId('sin-juegos').getByRole('button')).toHaveCount(6)
+  await expect(consolas.getByRole('button')).toHaveCount(9) // su tarjeta con el botón de opciones y las siete vacías juntas (v0.26.0; la N64, desde la v0.32.0)
+  await expect(page.getByTestId('sin-juegos').getByRole('button')).toHaveCount(7)
   await expect(consolas.getByRole('button', { name: 'Game Boy y Game Boy Color, 2 juegos', exact: true })).toBeVisible()
 
   await entrar(page, 'Game Boy y Game Boy Color')
@@ -1807,4 +1807,71 @@ test('la tarjeta gráfica pinta las disposiciones de DS igual que el 2D, píxel 
     }
     expect(vistas.webgl, pantallasDS).toBe(vistas['2d'])
   }
+})
+
+/** Color que domina en el centro de la pantalla (Nintendo 64 lo dibuja con WebGL y no da valores exactos). */
+async function tono(page: Page): Promise<string> {
+  const [r, g, b] = await colorCentral(page)
+  const alto = (v: number) => v > 180
+  const bajo = (v: number) => v < 70
+  if (alto(r) && alto(g) && bajo(b)) return 'amarillo'
+  if (alto(r) && bajo(g) && alto(b)) return 'magenta'
+  if (alto(r) && bajo(g) && bajo(b)) return 'rojo'
+  if (bajo(r) && alto(g) && bajo(b)) return 'verde'
+  if (bajo(r) && bajo(g) && alto(b)) return 'azul'
+  return `otro (${r}, ${g}, ${b})`
+}
+
+test('Nintendo 64 (en pruebas): palanca, A, botones C, Z, estados y partida guardada (v0.32.0)', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.z64')
+  await expect(page.getByRole('heading', { name: 'Nintendo 64' })).toBeVisible()
+  await page.getByRole('button', { name: /PUCHIPRUEBA|prueba, Nintendo 64/ }).first().click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect(page.getByTestId('juego')).toHaveAttribute('data-tema', 'carbon')
+  const mando = page.getByTestId('mando')
+  for (const n of ['A', 'B', 'Z', 'L', 'R', 'Start', 'C arriba', 'C abajo', 'C izquierda', 'C derecha']) await expect(mando.getByRole('button', { name: n, exact: true })).toBeVisible()
+  await expect(mando.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
+  await expect(mando.getByLabel('Cruceta')).toHaveCount(0)
+  // Sin rebobinado: cada estado pesa 16 MB
+  await expect(page.getByRole('button', { name: /Rebobinar/ })).toHaveCount(0)
+
+  // Azul al arrancar; con A, verde y la marca en la EEPROM
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('azul')
+  await pulsar(page, 'A')
+  await expect.poll(() => tono(page)).toBe('verde')
+  await page.mouse.up()
+  await page.getByRole('button', { name: 'Guardar rápido' }).click()
+  await expect(page.getByText('Guardado rápido', { exact: true })).toBeVisible({ timeout: 15_000 })
+
+  // La palanca a la derecha: amarillo; al soltarla vuelve al centro
+  const palanca = (await page.getByTestId('palanca').boundingBox())!
+  await page.mouse.move(palanca.x + palanca.width / 2, palanca.y + palanca.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(palanca.x + palanca.width, palanca.y + palanca.height / 2, { steps: 5 })
+  await expect.poll(() => tono(page)).toBe('amarillo')
+  await expect(page.getByTestId('palanca').locator('.pomo')).toHaveClass(/pulsado/)
+  await page.mouse.up()
+  await expect(page.getByTestId('palanca').locator('.pomo')).not.toHaveClass(/pulsado/)
+
+  // Un botón C: magenta
+  await pulsar(page, 'C derecha')
+  await expect.poll(() => tono(page)).toBe('magenta')
+  await page.mouse.up()
+  // Que el «soltar» llegue al núcleo antes de cargar: si no, la ROM vería C aún pulsado al volver
+  await page.waitForTimeout(500)
+
+  // Cargar el estado guardado vuelve al verde
+  await page.getByRole('button', { name: 'Cargar rápido' }).click()
+  await expect(page.getByText('Guardado rápido cargado')).toBeVisible({ timeout: 15_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('verde')
+  await page.waitForTimeout(1500)
+
+  // Al volver a abrir el juego desde el principio, la ROM encuentra la marca en la EEPROM: rojo
+  await page.reload()
+  await entrar(page, 'Nintendo 64')
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('rojo')
 })

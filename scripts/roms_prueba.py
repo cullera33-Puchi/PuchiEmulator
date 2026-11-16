@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds, prueba.nes, prueba.md, prueba.sms, prueba.gg y prueba.zip).
+"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds, prueba.nes, prueba.md, prueba.sms, prueba.gg, prueba.z64 y prueba.zip).
 
 Son programas propios y mínimos, sin código ni gráficos de Nintendo: pintan la pantalla de un
 color y cambian de color mientras se pulsa A. Sirven para comprobar imagen, botones y partida guardada
@@ -409,6 +409,46 @@ def gg() -> bytes:
     return _sega8(True)
 
 
+# Nintendo 64 (MIPS, ensamblado con llvm-mc -triple=mips -mcpu=mips3 desde scripts/n64_prueba.s; solo
+# llamadas relativas, así que no hace falta enlazar). Va donde iría el código de arranque de la consola
+# (0x40 a 0x1000), que el emulador copia y ejecuta en 0xA4000040 sin comprobarlo: no lleva nada de
+# Nintendo. Pantalla de 320 x 240: azul al arrancar, verde al pulsar A (deja 0x5A en la EEPROM) y rojo
+# al arrancar si ya estaba la marca; amarillo con la palanca a la derecha y magenta con un botón C.
+N64_CODIGO = bytes.fromhex(
+    '3c08a4402409320ead0900003c090010ad09000424090140ad09000824090002'
+    'ad09000c3c0903e535292239ad0900142409020dad09001824090c15ad09001c'
+    '3c090c1535290c15ad0900203c09006c352902ecad0900243c090025352901ff'
+    'ad0900283c09000e35290204ad09002c24090200ad09003024090400ad090034'
+    '3c04a020ac8000003c09020835290400ac8900042409ffffac890008ac89000c'
+    '3c09fe00ac890010041100480000000004110050000000008c89000800094e02'
+    '240a005a2410003f152a0002000000003410f8010411005c0000000000008825'
+    '3c04a0203c09ff0135290401ac8900002409ffffac8900043c09fe00ac890008'
+    'ac80000cac800010041100300000000004110038000000008c8f0004000fc400'
+    '0018c6032b18002917000004000000003419ffc110000006000000003c18000f'
+    '01f8c02413000007000000003419f83f1330000400000000032080250411003a'
+    '000000003c0a800001ea48241120ffdc000000001620ffda0000000024110001'
+    '241007c104110030000000003c04a020ac8000003c090a0135290500ac890004'
+    '3c095a00ac890008ac80000c3c09fffeac89001004110005000000000411000d'
+    '000000001000ffc600000000248b0014248c003cad600000256b0004156cfffd'
+    '0000000024090001ac89003c03e00008000000003c0da4803c090020ada90000'
+    '3c091fc0352907c0ada900108da90018312900031520fffd000000003c090020'
+    'ada900003c091fc0352907c0ada900048da90018312900031520fffd00000000'
+    '03e000080000000000104c00013048253c0ba0103c0ca012358c5800ad690000'
+    '256b0004156cfffd0000000003e0000800000000'
+)
+
+
+def n64() -> bytes:
+    rom = bytearray(0x100000)  # 1 MB
+    rom[0:4] = (0x80371240).to_bytes(4, 'big')  # configuración del bus y orden de bytes (.z64)
+    rom[4:8] = (0x0F).to_bytes(4, 'big')
+    rom[8:12] = (0x80000400).to_bytes(4, 'big')  # punto de entrada (no se usa: el código va en 0x40)
+    rom[0x20:0x34] = b'PUCHIPRUEBA'.ljust(20)
+    rom[0x3B:0x40] = b'NPPE\x00'  # cartucho, «PP», NTSC
+    rom[0x40:0x40 + len(N64_CODIGO)] = N64_CODIGO
+    return bytes(rom)
+
+
 def main() -> None:
     SALIDA.mkdir(parents=True, exist_ok=True)
     (SALIDA / 'prueba.gba').write_bytes(gba())
@@ -419,6 +459,7 @@ def main() -> None:
     (SALIDA / 'prueba.md').write_bytes(md())
     (SALIDA / 'prueba.sms').write_bytes(sms())
     (SALIDA / 'prueba.gg').write_bytes(gg())
+    (SALIDA / 'prueba.z64').write_bytes(n64())
     with zipfile.ZipFile(SALIDA / 'prueba.zip', 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('LEEME.txt', 'ROM de prueba comprimida')
         z.writestr('Prueba comprimida.gba', gba())

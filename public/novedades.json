@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.32.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Nintendo 64, en pruebas: añade tus juegos .z64, .n64 o .v64 desde Archivos.",
+      "Mando con palanca que sigue al dedo, A, B, los cuatro botones C, Z, L y R.",
+      "La partida del cartucho y los estados se guardan como en el resto de consolas; sin rebobinar.",
+      "Es la consola que más exige al iPhone: unos juegos irán fluidos y otros no. Si alguno va lento o se ve raro, pásame el registro."
+    ]
+  },
+  {
     "version": "0.31.0",
     "fecha": "16/11/2026",
     "cambios": [

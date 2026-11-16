@@ -45,6 +45,57 @@ static bool opcionesCambiadas = false;
 static void *juego = NULL;
 static char rutaJuego[64];
 
+/* Palancas analógicas (Nintendo 64, v0.32.0): izquierda (la palanca) y derecha (los botones C) */
+static int16_t analogico[2][2];
+
+#ifdef PF_GL
+/*
+ * Dibujo con la tarjeta gráfica (v0.32.0, Nintendo 64). El núcleo pide un contexto OpenGL ES 3 y
+ * pinta en él; aquí es un WebGL 2 sobre el lienzo que la app deja en specialHTMLTargets['!lienzo']
+ * (un OffscreenCanvas del hilo del motor). La imagen se queda en el lienzo: la app la recoge.
+ */
+#include <emscripten/html5.h>
+static struct retro_hw_render_callback hw;
+static bool hwPedido = false;
+static EMSCRIPTEN_WEBGL_CONTEXT_HANDLE contextoGL = 0;
+
+static uintptr_t framebufferActual(void) { return 0; }
+static retro_proc_address_t procesoGL(const char *nombre) { return (retro_proc_address_t) emscripten_webgl_get_proc_address(nombre); }
+
+static bool crearContextoGL(void) {
+	EmscriptenWebGLContextAttributes a;
+	emscripten_webgl_init_context_attributes(&a);
+	a.majorVersion = 2;
+	a.minorVersion = 0;
+	a.alpha = false;
+	a.depth = hw.depth;
+	a.stencil = hw.stencil;
+	a.antialias = false;
+	a.premultipliedAlpha = false;
+	a.preserveDrawingBuffer = false;
+	contextoGL = emscripten_webgl_create_context("!lienzo", &a);
+	if (contextoGL <= 0) {
+		fprintf(stderr, "[puente] sin WebGL 2 (%d)\n", (int) contextoGL);
+		return false;
+	}
+	emscripten_webgl_make_context_current(contextoGL);
+	if (hw.context_reset) {
+		hw.context_reset();
+	}
+	return true;
+}
+#endif
+
+/* La imagen del último fotograma está en el lienzo de WebGL y no en `video` */
+static bool imagenGL = false;
+
+/*
+ * Resultado de la última llamada (v0.32.0). Con las fibras de Asyncify (Nintendo 64), una función que
+ * cambia de corrutina por el camino (retro_run, retro_serialize) devuelve a JavaScript un valor que no
+ * es el suyo: la app lo lee después con pf_resultado.
+ */
+static int resultado = 0;
+
 /* ---- Registro ---- */
 
 static void registro(enum retro_log_level nivel, const char *fmt, ...) {
@@ -165,6 +216,23 @@ static bool entorno(unsigned cmd, void *datos) {
 		av.geometry = *(const struct retro_game_geometry *) datos;
 		avCambiado = true;
 		return true;
+#ifdef PF_GL
+	case RETRO_ENVIRONMENT_SET_HW_RENDER: {
+		struct retro_hw_render_callback *cb = (struct retro_hw_render_callback *) datos;
+		if (cb->context_type != RETRO_HW_CONTEXT_OPENGLES3 && cb->context_type != RETRO_HW_CONTEXT_OPENGLES2 &&
+		    cb->context_type != RETRO_HW_CONTEXT_OPENGLES_VERSION) {
+			return false;
+		}
+		cb->get_current_framebuffer = framebufferActual;
+		cb->get_proc_address = procesoGL;
+		hw = *cb;
+		hwPedido = true;
+		return true;
+	}
+	case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER:
+		*(unsigned *) datos = RETRO_HW_CONTEXT_OPENGLES3;
+		return true;
+#endif
 	case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
 	case RETRO_ENVIRONMENT_SET_MEMORY_MAPS:
 	case RETRO_ENVIRONMENT_SET_SUPPORT_ACHIEVEMENTS:
@@ -192,6 +260,14 @@ static void asegurarVideo(unsigned ancho, unsigned alto) {
 static void refrescarVideo(const void *datos, unsigned ancho, unsigned alto, size_t paso) {
 	if (!datos) {
 		return; /* fotograma repetido */
+	}
+	if (datos == RETRO_HW_FRAME_BUFFER_VALID) {
+		/* Pintado con la tarjeta gráfica: la imagen está en el lienzo */
+		videoAncho = ancho;
+		videoAlto = alto;
+		imagenGL = true;
+		videoNuevo = true;
+		return;
 	}
 	asegurarVideo(ancho, alto);
 	uint32_t *destino = video;
@@ -263,6 +339,12 @@ static int16_t estadoMando(unsigned puerto, unsigned dispositivo, unsigned indic
 		default: return 0;
 		}
 	}
+	if ((dispositivo & RETRO_DEVICE_MASK) == RETRO_DEVICE_ANALOG) {
+		if (indice > RETRO_DEVICE_INDEX_ANALOG_RIGHT || id > RETRO_DEVICE_ID_ANALOG_Y) {
+			return 0;
+		}
+		return analogico[indice][id];
+	}
 	if ((dispositivo & RETRO_DEVICE_MASK) != RETRO_DEVICE_JOYPAD) {
 		return 0;
 	}
@@ -309,12 +391,19 @@ bool pf_cargar(void *datos, size_t tam, const char *extension) {
 		}
 	}
 
+	resultado = 0;
 	if (!retro_load_game(&juegoInfo)) {
 		return false;
 	}
+#ifdef PF_GL
+	if (hwPedido && !crearContextoGL()) {
+		return false;
+	}
+#endif
 	retro_get_system_av_info(&av);
 	avCambiado = true;
 	retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
+	resultado = 1;
 	/* La ROM se conserva hasta descargar el juego: algunos núcleos (melonDS) guardan el puntero y
 	   la vuelven a leer al reiniciar. Liberarla aquí hacía que reiniciar un juego de DS fallara. */
 	return true;
@@ -352,7 +441,8 @@ int pf_fotograma(void) {
 	muestras = 0;
 	videoNuevo = false;
 	retro_run();
-	return videoNuevo ? 1 : 0;
+	resultado = videoNuevo ? 1 : 0;
+	return resultado;
 }
 
 EMSCRIPTEN_KEEPALIVE void *pf_video(void) { return video; }
@@ -382,5 +472,25 @@ EMSCRIPTEN_KEEPALIVE size_t pf_memoria_tam(unsigned id) { return retro_get_memor
 
 /* Estados guardados. */
 EMSCRIPTEN_KEEPALIVE size_t pf_estado_tam(void) { return retro_serialize_size(); }
-EMSCRIPTEN_KEEPALIVE bool pf_guardar_estado(void *destino, size_t tam) { return retro_serialize(destino, tam); }
-EMSCRIPTEN_KEEPALIVE bool pf_cargar_estado(const void *origen, size_t tam) { return retro_unserialize(origen, tam); }
+EMSCRIPTEN_KEEPALIVE bool pf_guardar_estado(void *destino, size_t tam) {
+	resultado = retro_serialize(destino, tam) ? 1 : 0;
+	return resultado != 0;
+}
+EMSCRIPTEN_KEEPALIVE bool pf_cargar_estado(const void *origen, size_t tam) {
+	resultado = retro_unserialize(origen, tam) ? 1 : 0;
+	return resultado != 0;
+}
+EMSCRIPTEN_KEEPALIVE int pf_resultado(void) { return resultado; }
+
+/* Palanca analógica: lado 0 (izquierda) o 1 (derecha), x e y de -0x8000 a 0x7FFF (v0.32.0). */
+EMSCRIPTEN_KEEPALIVE
+void pf_analogico(int lado, int x, int y) {
+	if (lado < 0 || lado > 1) {
+		return;
+	}
+	analogico[lado][0] = (int16_t) x;
+	analogico[lado][1] = (int16_t) y;
+}
+
+/* 1 si el último fotograma se pintó con la tarjeta gráfica (la imagen está en el lienzo). */
+EMSCRIPTEN_KEEPALIVE int pf_imagen_gl(void) { return imagenGL ? 1 : 0; }

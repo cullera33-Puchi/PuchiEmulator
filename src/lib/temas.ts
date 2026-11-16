@@ -5,7 +5,7 @@
  */
 import type { Sistema } from './sistemas'
 
-export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'ochobits' | 'super' | 'negra' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
+export type IdTema = 'oscuro' | 'clasica' | 'advance' | 'ochobits' | 'super' | 'negra' | 'carbon' | 'baya' | 'kiwi' | 'turquesa' | 'amarilla' | 'uva'
 
 export interface Tema {
   id: IdTema
@@ -172,6 +172,35 @@ export const TEMAS: Tema[] = [
       '--borde': 'rgb(255 255 255 / 0.12)',
     },
   },
+  {
+    // Nintendo 64 (v0.32.0): gris carbón, A azul, B verde y botones C amarillos
+    id: 'carbon',
+    nombre: 'Carbón',
+    arriba: '#3a3a40',
+    abajo: '#232327',
+    vars: {
+      '--fondo': 'linear-gradient(180deg, #3a3a40, #232327)',
+      '--marco': '#151518',
+      '--marco-relleno': '10px',
+      '--marco-radio': '12px',
+      '--ab': '#4a4a52',
+      '--boton-a': '#2f5fc4',
+      '--boton-b': '#2f9a52',
+      '--boton-c': '#e6b41e',
+      '--boton-c-texto': '#3a2c00',
+      '--ab-texto': 'rgb(255 255 255 / 0.92)',
+      '--ab-pulsado': '#70707a',
+      '--cruceta': '#4a4a52',
+      '--cruceta-pulsado': '#70707a',
+      '--pequeno': '#b8282f',
+      '--pequeno-texto': 'rgb(255 255 255 / 0.92)',
+      '--hombro': '#4a4a52',
+      '--hombro-texto': 'rgb(255 255 255 / 0.88)',
+      '--herramienta': 'rgb(255 255 255 / 0.08)',
+      '--herramienta-texto': 'rgb(255 255 255 / 0.85)',
+      '--borde': 'rgb(255 255 255 / 0.1)',
+    },
+  },
   color('baya', 'Baya', '#c8265e', '#a51a4b'),
   color('kiwi', 'Kiwi', '#9fc93f', '#84ab2d'),
   color('turquesa', 'Turquesa', '#25aaa3', '#1a8b86'),
@@ -180,7 +209,7 @@ export const TEMAS: Tema[] = [
 ]
 
 /** Tema que se usa con «Según la consola». */
-export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', nes: 'ochobits', snes: 'super', nds: 'oscuro', sms: 'negra', gg: 'negra', md: 'negra' }
+export const TEMA_DE_CONSOLA: Record<Sistema, IdTema> = { gb: 'clasica', gbc: 'uva', gba: 'advance', nes: 'ochobits', snes: 'super', n64: 'carbon', nds: 'oscuro', sms: 'negra', gg: 'negra', md: 'negra' }
 
 export function temaPorId(id: IdTema): Tema {
   return TEMAS.find((t) => t.id === id) ?? TEMAS[0]

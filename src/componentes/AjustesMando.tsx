@@ -93,7 +93,7 @@ export function AjustesMando({ juego, alEditar }: { juego?: { id: string; sistem
   const cambiar = (cambio: Partial<ControlesMando>) => (juego ? cambiarMandoJuego(juego.id, cambio) : cambiarAjustes(cambio))
   return (
     <>
-      {juego && <MandoDelJuego id={juego.id} sistema={juego.sistema} />}
+      {juego && !SISTEMAS[juego.sistema].n64 && <MandoDelJuego id={juego.id} sistema={juego.sistema} />}
       {juego && <p className="cabecera-grupo">Botones de este juego</p>}
       {juego && alEditar && (
         <>

@@ -9,6 +9,7 @@ La app usa núcleos libretro existentes compilados a WebAssembly. El resultado e
 | FCEUmm | NES (Famicom) | GPLv2 | https://github.com/libretro/libretro-fceumm | `8997c2bf9503f6d50585b11a1fd7207af53a2426` |
 | Genesis Plus GX | Mega Drive, Master System y Game Gear | Propia, solo uso no comercial | https://github.com/libretro/Genesis-Plus-GX | `b9c2316441978d4015ba30e9a95d9b0e6f8ee981` |
 | Snes9x | Super Nintendo | Propia, solo uso no comercial | https://github.com/libretro/snes9x | `fae2fea08f74180759ef540ee94259213f503480` |
+| Mupen64Plus-Next (con GLideN64) | Nintendo 64 | GPLv2 | https://github.com/libretro/mupen64plus-libretro-nx | `15bada85906593376e8fd697f1b0b3af3a20f512` |
 
 Snes9x es C++ y se enlaza con `em++`. En su modo estático espera que la aplicación aporte zlib y las funciones de ficheros de libretro-common; el script las compila aparte (zlib 1.3.1, `51b7f2ab`, licencia zlib; libretro-common, licencia MIT) y las añade al enlace. El puente se compila siempre como C.
 
@@ -20,6 +21,16 @@ Genesis Plus GX (v0.24.0) lleva las tres consolas de Sega en un solo núcleo, qu
 
 Opciones de compilación (v0.27.0): todos con SIMD de WebAssembly (`-msimd128`) y optimización entre ficheros (`-flto`), salvo FCEUmm, solo con SIMD (con `-flto` duplica su tamaño sin ganar velocidad). Van en `OPTIMIZACION` de `compilar.sh`, que las pasa a todas las llamadas a `emcc` con `EMCC_CFLAGS`, y cada núcleo se compila desde limpio. Medido con `npm run rendimiento` frente a la v0.26.2, en milisegundos por fotograma: NES un 43 % menos, Mega Drive un 14 %, GBA y Super Nintendo entre un 4 y un 10 %, y Nintendo DS igual (su Makefile desactiva la vectorización automática; activarla no ganaba nada medible). El SIMD de WebAssembly exige Safari 16.4 o posterior.
 
+Mupen64Plus-Next (v0.32.0, Nintendo 64) dibuja con la tarjeta gráfica: GLideN64 sobre OpenGL ES 3, que en el navegador es WebGL 2. El script lo compila con `GLES3=1` en la línea de `make` (el bloque de Emscripten del Makefile fuerza OpenGL ES 2, y sus sombreadores no compilan con él), el RSP de alto nivel y el intérprete con caché (en WebAssembly no hay recompilador). Otros detalles:
+
+- El núcleo va en dos corrutinas (libco). `nucleos/libco_emscripten.c` las implementa con las fibras de Emscripten, que necesitan `-sASYNCIFY`; sustituye a la libco del núcleo. Una función que cambia de corrutina por el camino (`retro_run`, `retro_serialize`) devuelve a JavaScript un valor que no es el suyo: el puente guarda el resultado y la app lo lee con `pf_resultado`.
+- `-fno-common`: con las definiciones provisionales de C, el enlazador de WebAssembly dejaba variables sin definir.
+- xxHash con SIMD incluía `arm_neon.h` dentro de un bloque `extern "C"`: se compila con `XXH_HAS_INCLUDE(x)=0`.
+- zlib, la misma copia que Snes9x (`-I` en `CPUFLAGS`; el puerto de zlib de Emscripten necesita descargarse).
+- Se enlazan los objetos sueltos (el archivo que genera el Makefile tiene nombres repetidos) con `-sINITIAL_MEMORY=128 MB`.
+- El puente crea un contexto WebGL 2 en un `OffscreenCanvas` que la app deja en `specialHTMLTargets['!lienzo']` (`PF_GL` en `puente.c`): la imagen se queda en ese lienzo y la app la recoge con `transferToImageBitmap`. Los botones C son la palanca derecha (`pf_analogico`).
+- Cada estado ocupa 16 MB y la memoria de partida (EEPROM, Controller Pak, SRAM y Flash), 290 KB.
+
 El código fuente de cada núcleo está en el repositorio y el commit indicados; el binario se ha compilado de él sin cambios, con `nucleos/compilar.sh`.
 
 ## Compilar
@@ -28,7 +39,7 @@ El código fuente de cada núcleo está en el repositorio y el commit indicados;
 git clone https://github.com/emscripten-core/emsdk.git
 ./emsdk/emsdk install 4.0.10 && ./emsdk/emsdk activate 4.0.10
 source ./emsdk/emsdk_env.sh
-npm run nucleos            # o: bash nucleos/compilar.sh mgba snes9x melonds fceumm genesis
+npm run nucleos            # o: bash nucleos/compilar.sh mgba snes9x melonds fceumm genesis n64
 ```
 
 El script descarga el núcleo en `.nucleos/` (ignorado por git), lo compila como biblioteca estática y lo enlaza con `puente.c`.

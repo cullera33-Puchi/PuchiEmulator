@@ -47,6 +47,8 @@ export interface PeticionFotogramas {
   turbo: number
   correr: number
   extra: number
+  /** Palanca analógica (Nintendo 64), de -1 a 1 en cada eje */
+  palanca?: [number, number]
 }
 
 export interface ResultadoFotogramas {
@@ -74,6 +76,8 @@ export class Motor {
   private ultimaPartida: Uint8Array | null = null
   private antesDeCargar: Uint8Array | null = null
   private audio = new Int16Array(8192)
+  /** Nintendo 64: hay un fotograma nuevo en el lienzo de WebGL que aún no se ha enseñado */
+  private glNuevo = false
 
   private constructor(nucleo: Nucleo, pintor: Pintor, c: ConfigMotor) {
     this.nucleo = nucleo
@@ -100,8 +104,10 @@ export class Motor {
     if (partida) nucleo.escribirPartida(partida.datos, partida.rtc)
     // El primer fotograma aplica la partida guardada; después se puede cargar el estado
     nucleo.fotograma()
-    const { pintor, ms: pintorMs } = elegirPintor(c.pintor, nucleo.video())
+    // Nintendo 64 dibuja en su propio lienzo: el pintor no se usa y no se gasta otro contexto de WebGL
+    const { pintor, ms: pintorMs } = nucleo.lienzoGL ? { pintor: new Pintor2D(), ms: undefined } : elegirPintor(c.pintor, nucleo.video())
     const motor = new Motor(nucleo, pintor, c)
+    motor.glNuevo = true
     paso('juego')
     let autoCargado = false
     if (c.estadoAuto) {
@@ -117,7 +123,7 @@ export class Motor {
         frecuencia: nucleo.frecuenciaAudio,
         partida: motor.ultimaPartida ? { datos: motor.ultimaPartida } : null,
         tiempos,
-        pintor: motor.pintor.tipo,
+        pintor: motor.tipoPintor,
         pintorMs,
         imagenes: motor.pintar(),
         autoCargado,
@@ -126,11 +132,27 @@ export class Motor {
   }
 
   get tipoPintor(): TipoPintor {
-    return this.pintor.tipo
+    return this.nucleo.lienzoGL ? 'webgl' : this.pintor.tipo
   }
 
-  /** Pinta el último fotograma del núcleo. Si la tarjeta gráfica falla, se sigue con el 2D. */
+  /** Un fotograma del núcleo; true si hay imagen nueva. */
+  private fotograma(): boolean {
+    const hay = this.nucleo.fotograma()
+    if (hay) this.glNuevo = true
+    return hay
+  }
+
+  /**
+   * Pinta el último fotograma del núcleo. Si la tarjeta gráfica falla, se sigue con el 2D. En Nintendo
+   * 64 la imagen ya está dibujada en el lienzo del núcleo: se entrega tal cual, una vez por fotograma.
+   */
   private pintar(): Imagenes | null {
+    const gl = this.nucleo.lienzoGL
+    if (gl) {
+      if (!this.glNuevo || !this.nucleo.imagenGL) return null
+      this.glNuevo = false
+      return { imagen: gl.transferToImageBitmap(), ancho: gl.width, alto: gl.height }
+    }
     const v = this.nucleo.video()
     if (!v) return null
     try {
@@ -148,6 +170,7 @@ export class Motor {
     // Correr fijo: al tocar el botón que está fijo, se suelta unos fotogramas para que el juego lo note
     if (p.correr && p.mascara & p.correr && !(this.basePrevia & p.correr)) this.huecoCorrer = 3
     this.basePrevia = p.mascara
+    if (p.palanca) this.nucleo.palanca(p.palanca[0], p.palanca[1])
     let hayImagen = false
     let muestras = 0
     const rebobinado: ResultadoFotogramas['rebobinado'] = []
@@ -155,7 +178,7 @@ export class Motor {
       const enviada = mascaraConCorrer(mascaraConTurbo(p.mascara, p.turbo, this.fotogramaTurbo++), p.correr, this.huecoCorrer > 0) | p.extra
       if (this.huecoCorrer > 0) this.huecoCorrer--
       this.nucleo.botones(enviada)
-      if (this.nucleo.fotograma()) hayImagen = true
+      if (this.fotograma()) hayImagen = true
       const a = this.nucleo.audio()
       if (muestras + a.length > this.audio.length) {
         const mayor = new Int16Array(Math.max(this.audio.length * 2, muestras + a.length))
@@ -221,7 +244,7 @@ export class Motor {
   irA(estado: Uint8Array, botones: number): Imagenes | null {
     this.nucleo.cargarEstado(estado)
     this.nucleo.botones(botones)
-    this.nucleo.fotograma()
+    this.fotograma()
     return this.pintar()
   }
 

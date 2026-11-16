@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { bit, botonesDeMando, direccionCruceta } from './botones'
+import { bit, botonesDeMando, direccionCruceta, palancaDeMando } from './botones'
+import { aN64 } from './nucleo'
 
 describe('direccionCruceta', () => {
   const grados = (g: number, r = 1): [number, number] => [Math.cos((g * Math.PI) / 180) * r, Math.sin((g * Math.PI) / 180) * r]
@@ -65,5 +66,25 @@ describe('botonesDeMando', () => {
   it('lee la palanca izquierda como cruceta', () => {
     expect(botonesDeMando(mando([], [0.9, 0]))).toBe(bit('DERECHA'))
     expect(botonesDeMando(mando([], [0.2, 0]))).toBe(0)
+  })
+
+  it('Nintendo 64: la palanca izquierda va aparte, la derecha da los botones C y el gatillo izquierdo es Z', () => {
+    expect(botonesDeMando(mando([], [0.9, 0]), true)).toBe(0)
+    expect(palancaDeMando(mando([], [0.9, -0.3]))).toEqual([0.9, -0.3])
+    expect(palancaDeMando(mando([], [0.05, 0.05]))).toEqual([0, 0])
+    expect(botonesDeMando(mando([], [0, 0, 0.9, 0]), true)).toBe(bit('C_DERECHA'))
+    expect(botonesDeMando(mando([], [0, 0, 0, -0.9]), true)).toBe(bit('C_ARRIBA'))
+    expect(botonesDeMando(mando([6]), true)).toBe(bit('Z'))
+    expect(botonesDeMando(mando([4]), true)).toBe(bit('L'))
+    expect(botonesDeMando(mando([7]), true)).toBe(bit('R'))
+  })
+})
+
+describe('aN64', () => {
+  it('la A de la app es la B de libretro y la B, la Y; los botones C no pasan', () => {
+    expect(aN64(bit('A'))).toBe(bit('B'))
+    expect(aN64(bit('B'))).toBe(bit('Y'))
+    expect(aN64(bit('A') | bit('B') | bit('START') | bit('Z'))).toBe(bit('B') | bit('Y') | bit('START') | bit('Z'))
+    expect(aN64(bit('C_DERECHA') | bit('R'))).toBe(bit('R'))
   })
 })
