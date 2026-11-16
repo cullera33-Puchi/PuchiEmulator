@@ -232,6 +232,11 @@ test('rebobinar vuelve atrás en el juego y el avance rápido cambia de velocida
   await expect(page.getByText('Cargando…')).toBeHidden()
   // Desactivado por decisión del usuario (v0.37.3): sin botón. El código sigue y se prueba activándolo
   await expect(page.getByRole('button', { name: /Rebobinar/ })).toHaveCount(0)
+  // El avance rápido sigue (decisión del usuario: solo se quita ir hacia atrás)
+  await page.getByRole('button', { name: /Avance rápido/ }).click()
+  await expect(page.getByRole('button', { name: /Avance rápido/ })).toHaveAccessibleName('Avance rápido (x2)')
+  await page.getByRole('button', { name: /Avance rápido/ }).click()
+  await page.getByRole('button', { name: /Avance rápido/ }).click()
   await page.evaluate(() => {
     const a = JSON.parse(localStorage.getItem('puchiemulator-ajustes') ?? '{}')
     localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ ...a, rebobinado: true }))
