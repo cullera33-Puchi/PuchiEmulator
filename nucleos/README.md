@@ -18,6 +18,8 @@ FCEUmm, como Snes9x, espera en modo estático las funciones de ficheros de libre
 
 Genesis Plus GX (v0.24.0) lleva las tres consolas de Sega en un solo núcleo, que reconoce cada una por la ROM. Como FCEUmm, el script compila sus piezas de libretro-common (también `file_stream_transforms.c`). Usa el mapeador de Sega solo con ROMs de más de 48 KB: por eso las ROMs de prueba de Master System y Game Gear ocupan 128 KB.
 
+Opciones de compilación (v0.27.0): todos con SIMD de WebAssembly (`-msimd128`) y optimización entre ficheros (`-flto`), salvo FCEUmm, solo con SIMD (con `-flto` duplica su tamaño sin ganar velocidad). Van en `OPTIMIZACION` de `compilar.sh`, que las pasa a todas las llamadas a `emcc` con `EMCC_CFLAGS`, y cada núcleo se compila desde limpio. Medido con `npm run rendimiento` frente a la v0.26.2, en milisegundos por fotograma: NES un 43 % menos, Mega Drive un 14 %, GBA y Super Nintendo entre un 4 y un 10 %, y Nintendo DS igual (su Makefile desactiva la vectorización automática; activarla no ganaba nada medible). El SIMD de WebAssembly exige Safari 16.4 o posterior.
+
 El código fuente de cada núcleo está en el repositorio y el commit indicados; el binario se ha compilado de él sin cambios, con `nucleos/compilar.sh`.
 
 ## Compilar

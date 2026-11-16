@@ -30,6 +30,12 @@ GENESIS_COMMIT="b9c2316441978d4015ba30e9a95d9b0e6f8ee981"
 ZLIB_REPO="https://github.com/madler/zlib.git"
 ZLIB_COMMIT="51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"
 
+# Opciones de compilación que se añaden a todas las llamadas a emcc (también dentro de los Makefile
+# de cada núcleo), con EMCC_CFLAGS. Por defecto, SIMD y optimización entre ficheros (v0.27.0, medido
+# con npm run rendimiento). Se puede cambiar al llamar: OPTIMIZACION="..." nucleos/compilar.sh
+OPTIMIZACION="${OPTIMIZACION--msimd128 -flto}"
+export EMCC_CFLAGS="$OPTIMIZACION"
+
 EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion","_pf_puntero"]'
 
 traer() { # repo commit carpeta
@@ -58,6 +64,8 @@ enlazar() { # nombre enlazador (emcc, o em++ si el núcleo es C++) bibliotecas..
 
 compilar_mgba() {
 	traer "$MGBA_REPO" "$MGBA_COMMIT" "$TRABAJO/mgba"
+	# Desde limpio: si cambian las opciones, Make y CMake no lo detectan
+	rm -rf "$TRABAJO/mgba/build-wasm"
 	mkdir -p "$TRABAJO/mgba/build-wasm"
 	(
 		cd "$TRABAJO/mgba/build-wasm"
@@ -76,7 +84,7 @@ compilar_mgba() {
 compilar_snes9x() {
 	traer "$SNES9X_REPO" "$SNES9X_COMMIT" "$TRABAJO/snes9x"
 	traer "$ZLIB_REPO" "$ZLIB_COMMIT" "$TRABAJO/zlib"
-	(cd "$TRABAJO/snes9x/libretro" && emmake make platform=emscripten -j"$(nproc)" >/dev/null)
+	(cd "$TRABAJO/snes9x/libretro" && emmake make platform=emscripten clean >/dev/null && emmake make platform=emscripten -j"$(nproc)" >/dev/null)
 	cp "$TRABAJO/snes9x/libretro/snes9x_libretro_emscripten.bc" "$TRABAJO/snes9x_libretro.a"
 
 	# En el modo estático, Snes9x espera que la aplicación aporte zlib y las funciones de
@@ -102,15 +110,18 @@ compilar_snes9x() {
 compilar_melonds() {
 	traer "$MELONDS_REPO" "$MELONDS_COMMIT" "$TRABAJO/melonds"
 	# Sin hilos ni OpenGL: renderizador por software en el hilo del juego. Trae su propia BIOS libre
-	(cd "$TRABAJO/melonds" && emmake make platform=emscripten HAVE_THREADS=0 HAVE_OPENGL=0 -j"$(nproc)" >/dev/null)
+	(cd "$TRABAJO/melonds" && emmake make platform=emscripten HAVE_THREADS=0 HAVE_OPENGL=0 clean >/dev/null && emmake make platform=emscripten HAVE_THREADS=0 HAVE_OPENGL=0 -j"$(nproc)" >/dev/null)
 	# Make lo deja como .bc, pero es un objeto WebAssembly ya enlazado
 	cp "$TRABAJO/melonds/melonds_libretro_emscripten.bc" "$TRABAJO/melonds_libretro.o"
 	enlazar melonds em++ "$TRABAJO/melonds_libretro.o"
 }
 
 compilar_fceumm() {
+	# Sin -flto: en FCEUmm duplica el tamaño (de 1,1 a 2,3 MB) sin ganar velocidad (v0.27.0)
+	local EMCC_CFLAGS="${OPTIMIZACION//-flto/}"
+	export EMCC_CFLAGS
 	traer "$FCEUMM_REPO" "$FCEUMM_COMMIT" "$TRABAJO/fceumm"
-	(cd "$TRABAJO/fceumm" && emmake make platform=emscripten -j"$(nproc)" >/dev/null)
+	(cd "$TRABAJO/fceumm" && emmake make platform=emscripten clean >/dev/null && emmake make platform=emscripten -j"$(nproc)" >/dev/null)
 	local salida
 	salida="$(ls "$TRABAJO/fceumm"/fceumm_libretro_emscripten.* | head -1)"
 	cp "$salida" "$TRABAJO/fceumm_libretro.a"
@@ -131,7 +142,7 @@ compilar_fceumm() {
 
 compilar_genesis() {
 	traer "$GENESIS_REPO" "$GENESIS_COMMIT" "$TRABAJO/genesis"
-	(cd "$TRABAJO/genesis" && emmake make -f Makefile.libretro platform=emscripten -j"$(nproc)" >/dev/null)
+	(cd "$TRABAJO/genesis" && emmake make -f Makefile.libretro platform=emscripten clean >/dev/null && emmake make -f Makefile.libretro platform=emscripten -j"$(nproc)" >/dev/null)
 	local salida
 	salida="$(ls "$TRABAJO/genesis"/genesis_plus_gx_libretro_emscripten.* | head -1)"
 	cp "$salida" "$TRABAJO/genesis_libretro.a"

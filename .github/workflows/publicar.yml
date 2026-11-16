@@ -24,6 +24,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          # El commit anterior, para medir los núcleos frente a los de la versión anterior
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -37,6 +40,13 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Pruebas de navegador
         run: npm run e2e -- --trace off
+      - name: Rendimiento de los núcleos (frente a la versión anterior)
+        run: |
+          mkdir -p dist/referencia/nucleos
+          for f in $(git ls-tree --name-only HEAD~1 public/nucleos/ | grep -E '\.(js|wasm)$'); do
+            git show "HEAD~1:$f" > "dist/referencia/nucleos/$(basename "$f")"
+          done
+          npm run rendimiento
       - name: Build para la ruta del repositorio
         run: npm run build
         env:

@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.27.0 (16/11/2026)
+
+Bloque 1 de las mejoras marcadas por el usuario tras el análisis de rendimiento y usabilidad (1 y 2).
+
+- Prueba de rendimiento de los núcleos (1): `npm run rendimiento` (`tests/rendimiento/rendimiento.e2e.ts`, `playwright.rendimiento.config.ts`) carga cada núcleo con su ROM de prueba, sin la app alrededor, y mide los milisegundos por fotograma (mediana de 7 rondas de 1,5 s). Si están los núcleos de la versión anterior en `dist/referencia/nucleos`, los mide en la misma máquina, alternando, y da la diferencia. El flujo de publicación los saca del commit anterior y deja la tabla en el resumen de GitHub, con un aviso (sin fallar) si alguno va más de un 15 % más lento. Ruido medido con los mismos núcleos a los dos lados: un 6 % como mucho.
+- Núcleos recompilados con SIMD y optimización entre ficheros (2): `OPTIMIZACION` en `nucleos/compilar.sh` (por defecto `-msimd128 -flto`, que se pasa con `EMCC_CFLAGS`; FCEUmm sin `-flto`) y compilación siempre desde limpio. Frente a la v0.26.2: NES un 43 % menos de tiempo por fotograma, Mega Drive un 14 %, GBA y Super Nintendo entre un 4 y un 10 %, Nintendo DS igual. Mismas versiones de cada núcleo.
+- `OPCIONES` de `src/emulador/nucleo.ts` se exporta para la prueba de rendimiento.
+- Pruebas: 142 unitarias, 56 de navegador y la de rendimiento.
+
 ## 0.26.2 (16/11/2026)
 
 - Cabeceras: el texto baja 20 puntos bajo la franja de la hora (antes 8), porque el usuario aún lo veía algo difuminado. Es el efecto de borde de iOS 26 en las apps de la pantalla de inicio, que difumina una franja bajo la barra de estado y no se puede quitar desde la web; la medida va en `--aire-arriba` (`.cabecera-fija`).

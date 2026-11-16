@@ -53,7 +53,7 @@ const MEMORIA_RELOJ = 1
 const PARTIDA_EN_FICHERO: Partial<Record<NombreNucleo, string>> = { melonds: '/sistema/juego.sav' }
 
 /** Opciones fijas de cada núcleo. */
-const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
+export const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
   mgba: {
     mgba_sgb_borders: 'OFF',
     mgba_skip_bios: 'ON',

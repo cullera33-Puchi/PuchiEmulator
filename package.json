@@ -1,7 +1,7 @@
 {
   "name": "puchiemulator",
   "private": true,
-  "version": "0.26.2",
+  "version": "0.27.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "playwright test",
+    "rendimiento": "playwright test -c playwright.rendimiento.config.ts",
     "nucleos": "bash nucleos/compilar.sh",
     "roms:prueba": "python3 scripts/roms_prueba.py",
     "iconos": "python3 scripts/iconos.py",

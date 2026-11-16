@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.27.0",
+    "fecha": "16/11/2026",
+    "cambios": [
+      "Emuladores más rápidos: NES casi el doble, Mega Drive un 14 % y Game Boy Advance y Super Nintendo algo más.",
+      "Menos trabajo para el iPhone: menos calor y batería con el mismo juego.",
+      "Cada versión nueva mide el rendimiento de los emuladores antes de publicarse."
+    ]
+  },
+  {
     "version": "0.26.2",
     "fecha": "16/11/2026",
     "cambios": [

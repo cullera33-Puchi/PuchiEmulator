@@ -82,6 +82,7 @@ App web privada (PWA) para jugar en el iPhone a juegos de Game Boy, Game Boy Col
 
 - Se compilan con `nucleos/compilar.sh` (Emscripten 4.0.10) y el resultado (`public/nucleos/*.js` y `*.wasm`) se sube al repositorio, para que la publicación no dependa de compilarlos. Las versiones de cada núcleo están fijadas en el script por commit.
 - Al cambiar un núcleo o el puente, recompilar, pasar las pruebas y anotarlo en `CHANGELOG.md` y en `nucleos/README.md`.
+- Opciones de compilación en `OPTIMIZACION` de `nucleos/compilar.sh` (v0.27.0): SIMD y `-flto` (FCEUmm sin `-flto`), siempre desde limpio. Todo cambio de opciones o de versión de un núcleo se mide con `npm run rendimiento` (tras `npm run build`, con los núcleos anteriores en `dist/referencia/nucleos`); el flujo de publicación lo hace solo frente al commit anterior y deja la tabla en el resumen de GitHub.
 - Las opciones fijas de cada núcleo van en `OPCIONES` de `src/emulador/nucleo.ts` (en mGBA: sin bordes de Super Game Boy, sin BIOS oficial).
 
 ## Cómo trabajar
@@ -121,6 +122,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; FCEUmm
 
 ## Estado
 
+- v0.27.0 (16/11/2026): mejoras 1 y 2 del análisis de rendimiento y usabilidad (marcadas por el usuario: 1, 2, 3, 4 y 7; la 8, descartada): prueba de rendimiento de los núcleos en cada publicación y núcleos con SIMD y LTO (NES un 43 % más rápido, Mega Drive un 14 %, GBA y Super Nintendo entre un 4 y un 10 %, DS igual). 142 pruebas unitarias y 56 de navegador. Siguen la 3 y la 4 (bloque 2) y la 7 (bloque 3).
 - v0.26.2 (16/11/2026): cabeceras 20 puntos bajo la hora (8 no bastaron, según el usuario). Pendiente de que confirme que se ven nítidas.
 - v0.26.1 (16/11/2026): volver deslizando con la pantalla anterior debajo (sin pantallazo negro) y cabeceras algo más bajas para que no se vean borrosas bajo la hora, informados por el usuario. 142 pruebas unitarias y 56 de navegador. Lo borroso no se puede reproducir aquí (el navegador de pruebas no simula la franja del iPhone): pendiente de que el usuario lo confirme.
 - v0.26.0 (16/11/2026): inicio compacto (propuesta A elegida por el usuario entre dos maquetas): seguir jugando en fila deslizable, consolas en dos columnas de la más jugada a la menos y las vacías juntas al final. 142 pruebas unitarias y 55 de navegador.
