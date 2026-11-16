@@ -9,6 +9,7 @@ import { useEffect, useRef, type PointerEvent as EventoPuntero, type RefObject }
 import { bit, direccionCruceta, type NombreBoton } from '../emulador/botones'
 import { vibracionActiva } from '../lib/ajustes'
 import { NOMBRE_BOTON, type BotonMenu } from '../lib/mandoJuego'
+import { estiloPieza, type DisposicionPiezas, type Pieza } from '../lib/disposicionMando'
 import { vibrar } from '../lib/vibracion'
 
 interface Props {
@@ -23,6 +24,10 @@ interface Props {
   jrpg?: { menu: BotonMenu; extras: ('X' | 'Y')[] }
   /** Cruceta sin diagonales */
   cuatroDirecciones?: boolean
+  /** Piezas movidas por el usuario (v0.20.0): dónde va cada una y su tamaño */
+  colocaciones?: DisposicionPiezas
+  /** Editando la colocación: el mando no manda nada al juego */
+  editando?: boolean
   /** Máscara de los botones con turbo: se marcan con una «T» */
   turbo?: number
   /** Correr fijo (modo JRPG): botón debajo de la A que se activa y se desactiva con un toque */
@@ -54,7 +59,9 @@ const BRAZOS: [NombreBoton, string][] = [
   ['DERECHA', 'derecha'],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0 }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando }: Props) {
+  // Atributos de cada pieza: su nombre (para el editor) y, si se ha movido, su sitio y su tamaño
+  const pieza = (p: Pieza) => ({ 'data-pieza': p, style: colocaciones?.[p] ? (estiloPieza(colocaciones[p]!) as React.CSSProperties) : undefined })
   const raiz = useRef<HTMLDivElement>(null)
   const cruceta = useRef<HTMLDivElement>(null)
   const dedos = useRef(new Map<number, Dedo>())
@@ -127,6 +134,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
 
   const alBajar = (e: EventoPuntero) => {
     e.preventDefault()
+    if (editando) return
     const d = bajoElDedo(e.clientX, e.clientY)
     dedos.current.set(e.pointerId, d)
     if (d.tactil) tocar(e.clientX, e.clientY)
@@ -187,7 +195,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   return (
     <div
       ref={raiz}
-      className="mando"
+      className={`mando ${editando ? 'editando' : ''}`}
       onPointerDown={alBajar}
       onPointerMove={alMover}
       onPointerUp={alSubir}
@@ -195,7 +203,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       onContextMenu={(e) => e.preventDefault()}
       data-testid="mando"
     >
-      <div ref={cruceta} className="control cruceta" aria-label="Cruceta">
+      <div ref={cruceta} className="control cruceta" aria-label="Cruceta" {...pieza('cruceta')}>
         {BRAZOS.map(([b, clase]) => (
           <span key={b} data-boton={b} className={`brazo ${clase}`} />
         ))}
@@ -203,7 +211,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       </div>
 
       {jrpg ? (
-        <div className="botones-accion jrpg">
+        <div className="botones-accion jrpg" {...pieza('botones')}>
           {jrpg.extras.map((b) => (
             <span key={b} data-boton={b} className={`control ${b.toLowerCase()}`} role="button" aria-label={b}>
               {b}
@@ -233,7 +241,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
           )}
         </div>
       ) : (
-      <div className={`botones-accion ${cuatro ? 'cuatro' : ''}`}>
+      <div className={`botones-accion ${cuatro ? 'cuatro' : ''}`} {...pieza('botones')}>
         {cuatro && (
           <>
             <span data-boton="X" className="control x" role="button" aria-label="X">
@@ -255,19 +263,19 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
 
       {hombros && (
         <>
-          <span data-boton="L" className="control hombro l" role="button" aria-label="L">
+          <span data-boton="L" className="control hombro l" role="button" aria-label="L" {...pieza('l')}>
             L
           </span>
-          <span data-boton="R" className="control hombro r" role="button" aria-label="R">
+          <span data-boton="R" className="control hombro r" role="button" aria-label="R" {...pieza('r')}>
             R
           </span>
         </>
       )}
 
-      <span data-boton="SELECT" className="control pequeno select" role="button" aria-label="Select">
+      <span data-boton="SELECT" className="control pequeno select" role="button" aria-label="Select" {...pieza('select')}>
         SELECT
       </span>
-      <span data-boton="START" className="control pequeno start" role="button" aria-label="Start">
+      <span data-boton="START" className="control pequeno start" role="button" aria-label="Start" {...pieza('start')}>
         START
       </span>
     </div>

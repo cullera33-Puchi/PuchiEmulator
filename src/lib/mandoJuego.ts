@@ -7,6 +7,7 @@ import { cambiarAjustes, leerAjustes, type Ajustes } from './ajustes'
 import { SISTEMAS, type Sistema } from './sistemas'
 import { bit, type NombreBoton } from '../emulador/botones'
 import type { PrincipalDS } from '../emulador/pantallasDS'
+import type { DisposicionPiezas, Orientacion } from './disposicionMando'
 
 export type BotonMenu = 'X' | 'Y' | 'START' | 'SELECT'
 export type BotonCorrer = 'B' | 'Y'
@@ -42,6 +43,8 @@ export type MandoGuardado = Partial<MandoJuego & ControlesMando> & {
   miniDS?: { x: number; y: number }
   /** Botones con turbo en este juego (v0.19.0) */
   turbo?: NombreBoton[]
+  /** Botones movidos por el usuario, por orientación (v0.20.0) */
+  disposicion?: Partial<Record<Orientacion, DisposicionPiezas>>
 }
 
 /** Pantalla y botones de un juego: los suyos o, si no tiene, los generales. */

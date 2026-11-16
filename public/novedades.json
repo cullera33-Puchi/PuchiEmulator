@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.21.0",
+    "fecha": "15/11/2026",
+    "cambios": [
+      "Mueve los botones a donde te venga mejor y cambia su tamaño: Menú, Mando, «Mover y cambiar de tamaño los botones».",
+      "Se guarda en cada juego, por separado en vertical y en horizontal.",
+      "«Restablecer» los devuelve a su sitio de siempre."
+    ]
+  },
+  {
     "version": "0.20.0",
     "fecha": "15/11/2026",
     "cambios": [

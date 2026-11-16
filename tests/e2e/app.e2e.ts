@@ -1360,3 +1360,51 @@ test('DS: soplar mientras se mantiene y cerrar la tapa desde el menú', async ({
   await page.getByRole('button', { name: 'Menú', exact: true }).click()
   await expect(page.getByRole('switch', { name: 'Cerrar la tapa' })).toHaveAttribute('aria-checked', 'false')
 })
+
+test('mover y cambiar de tamaño los botones: por juego, se recuerda y se restablece', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  const a = page.getByTestId('mando').getByRole('button', { name: 'A', exact: true })
+  const original = (await a.boundingBox())!
+
+  const abrirEditor = async () => {
+    await page.getByRole('button', { name: 'Menú', exact: true }).click()
+    await page.getByRole('button', { name: /^Mando/ }).click()
+    await page.getByRole('button', { name: 'Mover y cambiar de tamaño los botones' }).click()
+    await expect(page.getByTestId('editor-mando')).toBeVisible()
+  }
+  await abrirEditor()
+  // Arrastrar los botones de acción hacia arriba y a la izquierda, y agrandarlos
+  await page.mouse.move(original.x + original.width / 2, original.y + original.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(original.x - 100, original.y - 150, { steps: 8 })
+  await page.mouse.up()
+  await expect(page.getByTestId('editor-mando')).toHaveAttribute('data-elegida', 'botones')
+  await page.getByRole('button', { name: 'Más grande' }).click()
+  await page.getByRole('button', { name: 'Más grande' }).click()
+  await expect(page.getByText('120 %')).toBeVisible()
+  await page.getByRole('button', { name: 'Listo' }).click()
+  await expect(page.getByTestId('editor-mando')).toHaveCount(0)
+  const movida = (await a.boundingBox())!
+  expect(movida.y).toBeLessThan(original.y - 100)
+  expect(movida.width).toBeGreaterThan(original.width * 1.1)
+  // A sigue funcionando en su sitio nuevo
+  await pulsar(page, 'A')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 251, 0])
+  await page.mouse.up()
+
+  // Se recuerda al volver a abrir el juego
+  await page.getByRole('button', { name: 'Menú', exact: true }).click()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(async () => Math.abs((await a.boundingBox())!.y - movida.y)).toBeLessThan(3)
+
+  // Restablecer los devuelve a su sitio
+  await abrirEditor()
+  await page.getByRole('button', { name: 'Restablecer' }).click()
+  await page.getByRole('button', { name: 'Listo' }).click()
+  await expect.poll(async () => Math.abs((await a.boundingBox())!.y - original.y)).toBeLessThan(3)
+})

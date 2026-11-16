@@ -104,6 +104,41 @@
   image-rendering: auto;
 }
 
+/* Editor de los botones (v0.20.0): una capa encima de todo que recoge los toques; cada pieza se
+   marca con un borde discontinuo */
+.editor-mando {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  touch-action: none;
+  background: rgb(0 0 0 / 0.15);
+}
+.editor-barra {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  top: calc(var(--seguro-arriba) + 8px);
+  width: min(360px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgb(28 28 30 / 0.94);
+  color: #fff;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.4);
+}
+.mando.editando [data-pieza] {
+  opacity: 1;
+  outline: 2px dashed rgb(255 255 255 / 0.75);
+  outline-offset: 4px;
+}
+.juego:has(.editor-mando[data-elegida='cruceta']) .mando [data-pieza='cruceta'],
+.juego:has(.editor-mando[data-elegida='botones']) .mando [data-pieza='botones'],
+.juego:has(.editor-mando[data-elegida='l']) .mando [data-pieza='l'],
+.juego:has(.editor-mando[data-elegida='r']) .mando [data-pieza='r'],
+.juego:has(.editor-mando[data-elegida='select']) .mando [data-pieza='select'],
+.juego:has(.editor-mando[data-elegida='start']) .mando [data-pieza='start'] {
+  outline: 3px solid #0a84ff;
+}
+
 /* Turbo (v0.19.0): una «T» pequeña en el botón */
 .control.turbo::after {
   content: 'T';

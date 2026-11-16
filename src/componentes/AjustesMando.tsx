@@ -82,7 +82,7 @@ function MandoDelJuego({ id, sistema }: { id: string; sistema: Sistema }) {
  * Botones. Dentro de un juego, los cambios son solo para ese juego; en Ajustes, son los de por
  * defecto para los juegos que no tienen los suyos.
  */
-export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema } } = {}) {
+export function AjustesMando({ juego, alEditar }: { juego?: { id: string; sistema: Sistema }; alEditar?: () => void } = {}) {
   const ajustes = useAjustes()
   const a = juego ? controlesDe(ajustes, juego.id) : ajustes
   const cambiar = (cambio: Partial<ControlesMando>) => (juego ? cambiarMandoJuego(juego.id, cambio) : cambiarAjustes(cambio))
@@ -90,6 +90,16 @@ export function AjustesMando({ juego }: { juego?: { id: string; sistema: Sistema
     <>
       {juego && <MandoDelJuego id={juego.id} sistema={juego.sistema} />}
       {juego && <p className="cabecera-grupo">Botones de este juego</p>}
+      {juego && alEditar && (
+        <>
+          <div className="lista mb-1">
+            <button className="fila text-acento dark:text-acento-oscuro" onClick={alEditar}>
+              Mover y cambiar de tamaño los botones
+            </button>
+          </div>
+          <p className="pie-grupo mb-4">Arrastra cada botón a donde te venga mejor el pulgar. Se guarda para este juego, por separado en vertical y en horizontal.</p>
+        </>
+      )}
       <div className="lista">
         <div className="fila flex-col items-stretch gap-2 py-3">
           <span>Tamaño de los botones</span>

@@ -20,6 +20,8 @@ import { SelectorTema } from '../componentes/SelectorTema'
 import { EditorNotas } from '../componentes/Notas'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
 import { AjustesPantalla } from '../componentes/AjustesPantalla'
+import { EditorMando } from '../componentes/EditorMando'
+import type { DisposicionPiezas, Orientacion } from '../lib/disposicionMando'
 import { bitCorrer, cambiarMandoJuego, controlesDe, extrasJrpg, mandoDe, mascaraTurbo } from '../lib/mandoJuego'
 import { esLibro, type PrincipalDS } from '../emulador/pantallasDS'
 import { MiniaturaDS } from '../componentes/MiniaturaDS'
@@ -60,6 +62,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [verSueno, setVerSueno] = useState(false)
   // DS: soplar al micrófono (mientras se mantiene) y la tapa cerrada (v0.20.0)
   const [soplando, setSoplando] = useState(false)
+  // Botones movibles (v0.20.0): orientación actual y, mientras se edita, el borrador
+  const [orientacion, setOrientacion] = useState<Orientacion>(() => (matchMedia('(orientation: landscape)').matches ? 'horizontal' : 'vertical'))
+  const [borrador, setBorrador] = useState<{ orientacion: Orientacion; piezas: DisposicionPiezas } | null>(null)
   const [tapaCerrada, setTapaCerrada] = useState(false)
   const [estados, setEstados] = useState<Estado[] | null>(null)
   const [verEstados, setVerEstados] = useState(false)
@@ -359,6 +364,31 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     registrar('info', cerrada ? 'Tapa de DS cerrada' : 'Tapa de DS abierta')
   }
 
+  useEffect(() => {
+    const m = matchMedia('(orientation: landscape)')
+    const cambio = () => setOrientacion(m.matches ? 'horizontal' : 'vertical')
+    m.addEventListener('change', cambio)
+    return () => m.removeEventListener('change', cambio)
+  }, [])
+
+  const colocaciones = borrador?.piezas ?? ajustes.mandos[id]?.disposicion?.[orientacion]
+
+  const editarBotones = () => {
+    setVerMando(false)
+    setMenu(false)
+    setBorrador({ orientacion, piezas: ajustes.mandos[id]?.disposicion?.[orientacion] ?? {} })
+    registrar('info', 'Editar los botones', { orientacion })
+  }
+
+  const terminarEdicion = () => {
+    if (!borrador) return
+    const anterior = ajustes.mandos[id]?.disposicion ?? {}
+    cambiarMandoJuego(id, { disposicion: { ...anterior, [borrador.orientacion]: borrador.piezas } })
+    registrar('info', 'Botones colocados', { piezas: Object.keys(borrador.piezas).length, orientacion: borrador.orientacion })
+    setBorrador(null)
+    seguir()
+  }
+
   // Turbo: al abrir el juego y al cambiarlo
   useEffect(() => {
     if (!cargando) sesion.current?.ponerTurbo(turbo)
@@ -460,6 +490,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         jrpg={mando.jrpg ? { menu: mando.menu, extras: extrasJrpg(sistema, mando.menu) } : undefined}
         cuatroDirecciones={mando.jrpg && mando.direcciones === 4}
         turbo={turbo}
+        colocaciones={colocaciones}
+        editando={!!borrador}
         correr={mando.jrpg ? { activo: corriendo, boton: mando.correr, alCambiar: cambiarCorrer } : undefined}
         tactil={esTactil ? { lienzo, alTocar: (x, y) => sesion.current?.ponerPuntero(x, y) } : undefined}
         alCambiar={(m) => sesion.current?.ponerBotonesTactil(m)} alToque={() => {
@@ -555,6 +587,15 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         </button>
       )}
 
+      {borrador && (
+        <EditorMando
+          colocaciones={borrador.piezas}
+          alCambiar={(piezas) => setBorrador({ ...borrador, piezas })}
+          alRestablecer={() => setBorrador({ ...borrador, piezas: {} })}
+          alListo={terminarEdicion}
+        />
+      )}
+
       {tapaCerrada && !menu && (
         <button className="absolute inset-0 z-10 grid place-items-center bg-black/85 p-8 text-center" onClick={() => cambiarTapa(false)} data-testid="tapa-cerrada">
           <span className="flex flex-col items-center gap-3">
@@ -624,7 +665,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       </Hoja>
 
       <Hoja oscura abierta={menu && verMando} alCerrar={() => setVerMando(false)} titulo="Mando">
-        <AjustesMando juego={{ id, sistema }} />
+        <AjustesMando juego={{ id, sistema }} alEditar={editarBotones} />
         <button className="boton-texto mt-4 w-full py-2" onClick={() => setVerMando(false)}>
           Volver al menú
         </button>

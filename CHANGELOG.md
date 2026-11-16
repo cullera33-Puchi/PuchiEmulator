@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.21.0 (15/11/2026)
+
+Bloque 3 de las mejoras marcadas por el usuario (11).
+
+- Mover y cambiar de tamaño los botones, por juego: en Menú, Mando, «Mover y cambiar de tamaño los botones». Con el juego en pausa, se arrastra cada pieza (cruceta, botones de acción, L, R, Select y Start) y se cambia su tamaño con − y + (del 60 % al 180 %, en pasos del 10 %); «Restablecer» las devuelve a su sitio y «Listo» guarda. Se guarda por juego y por separado en vertical y en horizontal (`disposicion` en `ajustes.mandos`), con el centro de cada pieza como fracción de la pantalla (`src/lib/disposicionMando.ts`, `EditorMando`). Las piezas movidas mandan sobre cualquier disposición (una mano, juegos de rol, DS).
+- Pruebas: 129 unitarias y 49 de navegador.
+
 ## 0.20.0 (15/11/2026)
 
 Bloque 2 de las mejoras marcadas por el usuario: Nintendo DS (6, 8, 9 y 10).
