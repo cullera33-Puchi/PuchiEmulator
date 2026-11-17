@@ -19,4 +19,15 @@ describe('botones movibles', () => {
     expect(c.y).toBeCloseTo(684 / 800)
     expect(estiloPieza({ x: 0.25, y: 0.5, escala: 1.2 })).toMatchObject({ left: '25cqw', top: '50cqh', translate: '-50% -50%', scale: '1.2' })
   })
+
+  it('las piezas de abajo guardan su distancia al borde de abajo, aunque cambie el alto (v0.42.4)', () => {
+    // Colocada con 874 de alto, a 100 puntos del borde de abajo
+    const c = { x: 0.3, y: (874 - 100) / 874, escala: 1, alto: 874 }
+    expect(estiloPieza(c)).toMatchObject({ top: 'auto', bottom: '100px', translate: '-50% 50%' })
+    // Sin alto guardado (antes de la v0.42.4), con el alto que se le diga
+    expect(estiloPieza({ x: 0.3, y: 0.9, escala: 1 }, 800)).toMatchObject({ bottom: '80px' })
+    // Mover y partir de la pantalla apuntan el alto del recuadro
+    expect(mover({ x: 0.5, y: 0.5, escala: 1 }, 0, 0.1, 812).alto).toBe(812)
+    expect(desdeRect({ left: 0, top: 700, width: 100, height: 100 }, 400, 812).alto).toBe(812)
+  })
 })

@@ -51,7 +51,7 @@ export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }:
     const mando = document.querySelector<HTMLElement>('.mando')
     if (!el || !mando) return null
     // Centro de la pieza en el recuadro del juego (vale también con la pantalla girada)
-    return { x: (el.offsetLeft + el.offsetWidth / 2) / mando.clientWidth, y: (el.offsetTop + el.offsetHeight / 2) / mando.clientHeight, escala: 1 }
+    return { x: (el.offsetLeft + el.offsetWidth / 2) / mando.clientWidth, y: (el.offsetTop + el.offsetHeight / 2) / mando.clientHeight, escala: 1, alto: mando.clientHeight }
   }
 
   const medida = () => {
@@ -77,7 +77,7 @@ export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }:
     if (!a || e.pointerId !== a.dedo) return
     const { ancho, alto, giro } = medida()
     const [dx, dy] = vectorJuego(e.clientX - a.x, e.clientY - a.y, giro)
-    const c = mover(a.inicio, dx / ancho, dy / alto)
+    const c = mover(a.inicio, dx / ancho, dy / alto, alto)
     alCambiar({ ...colocaciones, [a.pieza]: c })
   }
 

@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.42.4 (17/11/2026)
+
+A partir de una captura del usuario con un juego de DS en vertical (modo para juegos de rol y botones movidos con el editor): la cruceta y los botones pisaban la fila de herramientas.
+
+- Los botones movidos se guardaban como fracción del alto del recuadro. Como iOS 26 abre la app unas veces con 874 de alto y otras con 812, una cruceta colocada abajo cambiaba de distancia al borde, mientras la fila de herramientas va siempre pegada abajo. Ahora las piezas de la mitad de abajo se colocan a la misma distancia del borde de abajo que cuando se movieron (`alto` en `Colocacion`, `estiloPieza`); las de la mitad de arriba, como antes. Las movidas antes de esta versión, sin alto guardado, toman el de la pantalla.
+- En el juego de la captura, la cruceta y los botones se movieron a la franja de abajo cuando la fila de herramientas no se veía (se cortaba, v0.35.0 a v0.42.0): ahí siguen pisándose. Se arregla con «Restablecer» en el editor de botones de ese juego.
+- 187 pruebas unitarias (nueva: distancia al borde de abajo) y 77 de navegador.
+
 ## 0.42.3 (17/11/2026)
 
 A partir del registro del usuario con un juego real de PlayStation («arranca bien, pero la pantalla se ha quedado más pequeña») y con la DS.

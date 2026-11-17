@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.42.4",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Los botones que mueves de sitio guardan su distancia al borde de abajo: ya no suben ni bajan según cómo abra el iPhone la app.",
+      "Si en algún juego los botones pisan la fila de guardar y menú, en Menú, Mando, «Mover y cambiar de tamaño los botones», toca «Restablecer»."
+    ]
+  },
+  {
     "version": "0.42.3",
     "fecha": "17/11/2026",
     "cambios": [
