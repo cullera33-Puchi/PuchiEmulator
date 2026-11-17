@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.41.2",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Nintendo DS en vertical: la fila de abajo (guardar, Select, Start y menú) vuelve a verse entera en la app instalada."
+    ]
+  },
+  {
     "version": "0.41.1",
     "fecha": "17/11/2026",
     "cambios": [

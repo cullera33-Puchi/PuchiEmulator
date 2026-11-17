@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.41.2 (17/11/2026)
+
+A partir de una captura del usuario con la DS en vertical en la app instalada: la fila de abajo (guardar y cargar, Select, Start, avance rápido y menú) salía cortada por la mitad, con una franja negra debajo.
+
+- Causa: desde la v0.35.0, en la app instalada el recuadro del juego usa el alto grande de la pantalla (`100lvh`), porque en iOS 26 lo fijado a la pantalla se quedaba unos 62 puntos corto. Pero la capa que lo contiene seguía con el alto corto y, con la animación de entrada del juego (relleno «both»), iOS la usaba como contenedor del recuadro y recortaba lo que sobresalía. En la DS en vertical, la fila de abajo va pegada al borde y es lo que se cortaba; en el resto de consolas, el corte caía en el margen de abajo y no se notaba.
+- Arreglo: la capa del juego, con el mismo alto que el recuadro en la app instalada (`.capa.capa-juego`), y la animación de abrir un juego sin relleno al acabar (`backwards`), para que la capa deje de contener al recuadro.
+- Sin poder reproducirlo aquí (el navegador de pruebas no imita la app instalada ni el alto corto de iOS 26): pendiente de que el usuario lo confirme. Pruebas: 186 unitarias y 75 de navegador.
+
 ## 0.41.1 (17/11/2026)
 
 Lo que ha enseñado la primera pasada con WebKit (21): 60 de 74 pruebas bien a la primera.
