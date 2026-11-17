@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.42.2",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Con el menú del juego abierto, ya no asoma el color del tema por debajo."
+    ]
+  },
+  {
     "version": "0.42.1",
     "fecha": "17/11/2026",
     "cambios": [

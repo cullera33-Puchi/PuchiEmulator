@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.42.2 (17/11/2026)
+
+A partir de otra captura del usuario (GBA con el menú abierto, en la ventana corta de iOS 26): debajo de la hoja del menú asomaba el color del tema.
+
+- Por debajo de la ventana corta solo llega el fondo de la página, que en el juego es el color de abajo del tema. Con una hoja abierta en el juego (el menú y sus apartados), ese fondo toma el color de la hoja (`body.en-juego:has(.hoja)`), en claro o en oscuro según la hoja: la hoja parece llegar hasta abajo.
+- 186 pruebas unitarias y 77 de navegador.
+
 ## 0.42.1 (17/11/2026)
 
 A partir de otra captura del usuario con la DS en vertical (v0.42.0): la fila de abajo seguía cortada a unos 62 puntos del borde. El arreglo de la v0.41.2 no era el bueno.

@@ -772,6 +772,17 @@
   top: calc(var(--seguro-arriba) + 18px + min(calc(100cqw * var(--proporcion, 0.6667)), 50cqh));
 }
 
+/* Con una hoja abierta en el juego (el menú), lo que asoma por debajo de la ventana es el fondo de la
+   página: del color de la hoja, para que no se vea un corte (v0.42.1). En la app instalada, iOS 26 a
+   veces deja la ventana 62 puntos más corta que la pantalla y por debajo solo llega este fondo. El
+   del juego lo pone Juego.tsx en línea, por eso «!important» */
+body.en-juego:has(.hoja) {
+  background: #f2f2f7 !important;
+}
+[data-theme='dark'] body.en-juego:has(.hoja),
+body.en-juego:has([data-theme='dark'] .hoja) {
+  background: #09090b !important;
+}
 body.en-juego .aviso {
   top: calc(env(safe-area-inset-top) + 8px);
   bottom: auto !important;

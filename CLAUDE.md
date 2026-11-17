@@ -174,6 +174,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; FCEUmm
 
 ## Estado
 
+- v0.42.2 (17/11/2026): con el menú abierto en la ventana corta de iOS 26 asomaba el color del tema por debajo (captura del usuario con GBA): el fondo de la página toma el color de la hoja mientras hay una abierta en el juego.
 - v0.42.1 (17/11/2026): DS en vertical, otra captura del usuario: la fila de abajo seguía cortada. Causa en su registro: iOS 26 abre la app con la ventana entera (874) o 62 puntos más corta (812), y el juego usaba el alto grande (874). Ahora mide la ventana de verdad (`--alto-ventana`). Pendiente de que el usuario lo confirme, y si la imagen negra de la DS de su captura era el juego.
 - v0.42.0 (17/11/2026): mejora 28, pedida por el usuario por el calor con Super Nintendo (su registro: 60 imágenes por segundo, 1 ms por fotograma, ninguna perdida; el calor viene de la pantalla y del avance rápido). Ahorrar batería en todos los juegos, ahorro automático con la pantalla a 40 refrescos o menos y avance rápido en el registro. 186 pruebas unitarias y 77 de navegador. Pendiente: que el usuario diga si «rasca» era el sonido o la imagen.
 - v0.41.3 (17/11/2026): a partir de una captura del usuario (Super Nintendo en vertical): la fila de guardar, cargar, menú y avance rápido, descentrada desde que se quitó rebobinar. Con un solo botón a la derecha, la fila se corre media pieza (`--corre-fila`); con una mano, sin hueco. Prueba de navegador en siete consolas. 186 pruebas unitarias y 76 de navegador.
