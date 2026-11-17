@@ -20,7 +20,7 @@ import {
 
 describe('mando para JRPG', () => {
   it('menú por defecto: X en Super Nintendo y DS, Start en GBA y Game Boy', () => {
-    expect(mandoDe({}, 'j', 'snes')).toEqual({ jrpg: false, menu: 'X', correr: 'B', direcciones: 8 })
+    expect(mandoDe({}, 'j', 'snes')).toEqual({ jrpg: false, menu: 'X', correr: 'B', direcciones: 8, palancas: false })
     expect(mandoDe({}, 'j', 'nds').menu).toBe('X')
     expect(mandoDe({}, 'j', 'gba').menu).toBe('START')
     expect(mandoDe({}, 'j', 'gb').menu).toBe('START')
@@ -34,8 +34,11 @@ describe('mando para JRPG', () => {
   })
 
   it('lo guardado manda, salvo lo que no existe en esa consola', () => {
-    expect(mandoDe({ j: { jrpg: true, menu: 'Y', correr: 'Y' } }, 'j', 'snes')).toEqual({ jrpg: true, menu: 'Y', correr: 'Y', direcciones: 8 })
-    expect(mandoDe({ j: { jrpg: true, menu: 'X', correr: 'Y', direcciones: 4 } }, 'j', 'gba')).toEqual({ jrpg: true, menu: 'START', correr: 'B', direcciones: 4 })
+    expect(mandoDe({ j: { jrpg: true, menu: 'Y', correr: 'Y' } }, 'j', 'snes')).toEqual({ jrpg: true, menu: 'Y', correr: 'Y', direcciones: 8, palancas: false })
+    expect(mandoDe({ j: { jrpg: true, menu: 'X', correr: 'Y', direcciones: 4 } }, 'j', 'gba')).toEqual({ jrpg: true, menu: 'START', correr: 'B', direcciones: 4, palancas: false })
+    // Palancas analógicas solo en PlayStation (v0.38.0)
+    expect(mandoDe({ j: { palancas: true } }, 'j', 'psx').palancas).toBe(true)
+    expect(mandoDe({ j: { palancas: true } }, 'j', 'snes').palancas).toBe(false)
     expect(mandoDe({ otro: { jrpg: true } }, 'j', 'gba').jrpg).toBe(false)
   })
 

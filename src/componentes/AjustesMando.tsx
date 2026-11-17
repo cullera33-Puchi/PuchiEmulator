@@ -76,6 +76,19 @@ function MandoDelJuego({ id, sistema }: { id: string; sistema: Sistema }) {
           </>
         )}
       </div>
+      {SISTEMAS[sistema].psx && (
+        <>
+          <div className="lista mt-4">
+            <div className="fila justify-between">
+              <span>Palancas analógicas</span>
+              <Interruptor etiqueta="Palancas analógicas" activo={m.palancas} alCambiar={(v) => cambiar({ palancas: v })} />
+            </div>
+          </div>
+          <p className="pie-grupo">
+            Para los juegos que usan las palancas del mando DualShock. La izquierda sustituye a la cruceta y la derecha va sobre los botones; las dos siguen al pulgar. Un toque corto en una palanca la pulsa (L3 y R3). Si un juego no las reconoce, pulsa L1, R1 y Select a la vez: es el botón ANALOG del mando.
+          </p>
+        </>
+      )}
       <p className="pie-grupo mb-4">
         Solo para este juego. A más grande donde descansa el pulgar, y B y el botón de menú a su alrededor. «Correr», debajo de la A, deja {correr.length > 1 ? 'el botón elegido' : 'B'} pulsado; tócalo otra vez para soltarlo. Sin diagonales, la cruceta solo da arriba, abajo, izquierda y derecha: va mejor en los juegos que se mueven por casillas.
       </p>

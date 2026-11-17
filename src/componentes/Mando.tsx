@@ -49,12 +49,29 @@ interface Props {
    * libretro) y dos botones en cada hombro, L2 y L1 a la izquierda y R1 y R2 a la derecha
    */
   psx?: boolean
+  /**
+   * PlayStation con las palancas activadas (v0.38.0): la izquierda en el sitio de la cruceta (flotante,
+   * como la de la N64) y la derecha sobre los botones. Un toque corto en una palanca es L3 o R3.
+   */
+  palancasPsx?: { alMover: (lado: Lado, x: number, y: number) => void }
 }
+
+/** Palanca: 0, la izquierda (o la única, en N64); 1, la derecha (PlayStation) */
+type Lado = 0 | 1
+
+/** Un toque en una palanca de menos de este tiempo y sin moverla apenas es pulsarla (L3 o R3) */
+const TOQUE_PALANCA_MS = 250
+const TOQUE_PALANCA_MOVIMIENTO = 0.15
+/** Lo que dura pulsado L3 o R3 tras un toque */
+const PULSACION_PALANCA_MS = 120
 
 interface Dedo {
   cruceta: boolean
-  /** El dedo empezó en la palanca (Nintendo 64): la mueve aunque se salga */
-  palanca?: boolean
+  /** El dedo empezó en una palanca: la mueve aunque se salga */
+  palanca?: Lado
+  /** Cuándo empezó y cuánto se ha movido como mucho, en radios (para el toque de L3 y R3) */
+  inicio?: number
+  movido?: number
   /** Palanca flotante (v0.33.0): donde se apoyó el pulgar, que hace de centro */
   centro?: [number, number]
   mascara: number
@@ -115,7 +132,7 @@ const BOTONES_C: [NombreBoton, string, string, typeof ChevronUp][] = [
   ['C_ABAJO', 'c-abajo', 'C abajo', ChevronDown],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando, tres, etiquetas, sinSelect, n64, psx }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando, tres, etiquetas, sinSelect, n64, psx, palancasPsx }: Props) {
   // Lo que pone en cada botón: el nombre de la consola o, si no, el de libretro
   const nombre = (b: 'A' | 'B' | 'X' | 'Y' | 'START') => etiquetas?.[b] ?? (b === 'START' ? 'Start' : b)
   // Atributos de cada pieza: su nombre (para el editor) y, si se ha movido, su sitio y su tamaño
@@ -128,14 +145,21 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   alCambiarRef.current = alCambiar
   const cuatroRef = useRef(cuatroDirecciones)
   cuatroRef.current = cuatroDirecciones
-  const pomo = useRef<HTMLSpanElement>(null)
-  const aro = useRef<HTMLSpanElement>(null)
+  const palancaDer = useRef<HTMLDivElement>(null)
+  const pomos = [useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null)] as const
+  const aros = [useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null)] as const
   const n64Ref = useRef(n64)
   n64Ref.current = n64
+  const palancasRef = useRef(palancasPsx)
+  palancasRef.current = palancasPsx
+  /** Hay palanca en el sitio de la cruceta: Nintendo 64, o PlayStation con las palancas */
+  const conPalanca = () => !!n64Ref.current || !!palancasRef.current
+  /** Botones pulsados un momento por un toque en una palanca (L3 y R3) */
+  const pulsacionPalanca = useRef(0)
 
-  /** Centro de la palanca en su sitio, su radio en pantalla y lo que mide un píxel suyo en pantalla */
-  const geometriaPalanca = () => {
-    const el = cruceta.current
+  /** Centro de una palanca en su sitio, su radio en pantalla y lo que mide un píxel suyo en pantalla */
+  const geometriaPalanca = (lado: Lado = 0) => {
+    const el = lado === 0 ? cruceta.current : palancaDer.current
     if (!el) return null
     const r = el.getBoundingClientRect()
     return { el, cx: r.left + r.width / 2, cy: r.top + r.height / 2, radio: r.width / 2, factor: el.offsetWidth ? r.width / el.offsetWidth : 1 }
@@ -153,8 +177,10 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
    * Mueve la palanca de Nintendo 64 (o la suelta, sin dedo). El centro es donde se apoyó el pulgar: el
    * dibujo va allí mientras dura el toque (palanca flotante, v0.33.0) y vuelve a su sitio al soltar.
    */
-  const moverPalanca = (d?: Dedo, x?: number, y?: number) => {
-    const g = geometriaPalanca()
+  const moverPalanca = (lado: Lado, d?: Dedo, x?: number, y?: number) => {
+    const g = geometriaPalanca(lado)
+    const aro = aros[lado]
+    const pomo = pomos[lado]
     let vx = 0
     let vy = 0
     if (g && d?.centro && x !== undefined && y !== undefined) {
@@ -162,6 +188,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       // Con la pantalla girada, la dirección se mide en el juego, no en el iPhone
       const [dx, dy] = vectorJuego(x - d.centro[0], y - d.centro[1], giro)
       ;[vx, vy] = vectorPalanca(dx, dy, g.radio * PALANCA_TOPE)
+      d.movido = Math.max(d.movido ?? 0, Math.hypot(dx, dy) / g.radio)
       const [ox, oy] = vectorJuego(d.centro[0] - g.cx, d.centro[1] - g.cy, giro)
       if (aro.current) aro.current.style.transform = `translate(${(ox / g.factor).toFixed(1)}px, ${(oy / g.factor).toFixed(1)}px)`
     } else if (aro.current) aro.current.style.transform = ''
@@ -169,7 +196,21 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       pomo.current.style.transform = vx || vy ? `translate(${(vx * RECORRIDO_POMO * 100).toFixed(1)}%, ${(vy * RECORRIDO_POMO * 100).toFixed(1)}%)` : ''
       pomo.current.classList.toggle('pulsado', !!(vx || vy))
     }
-    n64Ref.current?.alPalanca(vx, vy)
+    if (palancasRef.current) palancasRef.current.alMover(lado, vx, vy)
+    else if (lado === 0) n64Ref.current?.alPalanca(vx, vy)
+  }
+
+  /** Suelta una palanca; si ha sido un toque corto sin moverla, la pulsa un momento (L3 o R3) */
+  const soltarPalanca = (lado: Lado, d?: Dedo) => {
+    moverPalanca(lado)
+    if (!palancasRef.current || !d?.inicio || performance.now() - d.inicio > TOQUE_PALANCA_MS || (d.movido ?? 0) > TOQUE_PALANCA_MOVIMIENTO) return
+    const b = bit(lado === 0 ? 'L3' : 'R3')
+    pulsacionPalanca.current |= b
+    recalcular()
+    window.setTimeout(() => {
+      pulsacionPalanca.current &= ~b
+      recalcular()
+    }, PULSACION_PALANCA_MS)
   }
 
   const pintar = (m: number) => {
@@ -182,7 +223,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   }
 
   const recalcular = () => {
-    let m = 0
+    let m = pulsacionPalanca.current
     for (const d of dedos.current.values()) m |= d.mascara
     if (m !== mascara.current) {
       // Vibración breve solo al pulsar un botón nuevo, no al soltar
@@ -221,15 +262,20 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   const bajoElDedo = (x: number, y: number): Dedo => {
     const el = document.elementFromPoint(x, y)
     if (!el || !raiz.current?.contains(el)) return { cruceta: false, mascara: 0 }
-    if (n64Ref.current) {
+    if (conPalanca()) {
+      const ocupada = (lado: Lado) => [...dedos.current.values()].some((d) => d.palanca === lado)
+      const empezar = (lado: Lado): Dedo => (ocupada(lado) ? { cruceta: false, mascara: 0 } : { cruceta: false, palanca: lado, mascara: 0, centro: [x, y], inicio: performance.now(), movido: 0 })
+      // Palanca derecha (PlayStation): el dedo empieza en ella o muy cerca, sin caer en un botón
+      if (palancasRef.current) {
+        const g = geometriaPalanca(1)
+        const boton = (el as HTMLElement).closest<HTMLElement>('[data-boton]')
+        if (g && (palancaDer.current?.contains(el) || (!boton && Math.hypot(x - g.cx, y - g.cy) <= g.radio * CRUCETA_AMPLIADA))) return empezar(1)
+      }
       // Palanca flotante: en la palanca o en su zona, salvo que el dedo caiga en un botón u otra pieza.
       // Un solo dedo la lleva: un segundo dedo en la zona no se la quita al primero (v0.36.0)
       const otraPieza = (el as HTMLElement).closest<HTMLElement>('[data-boton], [data-pieza]')
       const enPalanca = cruceta.current?.contains(el) || ((!otraPieza || otraPieza === raiz.current) && enZonaPalanca(x, y))
-      if (enPalanca) {
-        if ([...dedos.current.values()].some((d) => d.palanca)) return { cruceta: false, mascara: 0 }
-        return { cruceta: false, palanca: true, mascara: 0, centro: [x, y] }
-      }
+      if (enPalanca) return empezar(0)
     }
     if (cruceta.current?.contains(el)) return { cruceta: true, mascara: desdeCruceta(x, y) }
     if ((el as HTMLElement).closest('[data-accion]')) return { cruceta: false, mascara: 0, accion: true }
@@ -254,7 +300,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     const d = bajoElDedo(e.clientX, e.clientY)
     dedos.current.set(e.pointerId, d)
     if (d.tactil) tocar(e.clientX, e.clientY)
-    if (d.palanca) moverPalanca(d, e.clientX, e.clientY)
+    if (d.palanca !== undefined) moverPalanca(d.palanca, d, e.clientX, e.clientY)
     if (d.accion) {
       correr?.alCambiar()
       if (vibracionActiva()) vibrar()
@@ -270,8 +316,8 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       tocar(e.clientX, e.clientY)
       return
     }
-    if (d.palanca) {
-      moverPalanca(d, e.clientX, e.clientY)
+    if (d.palanca !== undefined) {
+      moverPalanca(d.palanca, d, e.clientX, e.clientY)
       return
     }
     if (d.accion) return
@@ -279,7 +325,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     else {
       const nuevo = bajoElDedo(e.clientX, e.clientY)
       // Deslizar desde un botón hasta la cruceta no la toma: la cruceta es de quien empieza en ella
-      d.mascara = nuevo.cruceta || nuevo.palanca ? 0 : nuevo.mascara
+      d.mascara = nuevo.cruceta || nuevo.palanca !== undefined ? 0 : nuevo.mascara
     }
     recalcular()
   }
@@ -288,7 +334,7 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
     const d = dedos.current.get(e.pointerId)
     if (!dedos.current.delete(e.pointerId)) return
     if (d?.tactil) tactil?.alTocar(null)
-    if (d?.palanca) moverPalanca()
+    if (d?.palanca !== undefined) soltarPalanca(d.palanca, d)
     recalcular()
     alToque?.()
   }
@@ -303,9 +349,9 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   // Si la app pasa a segundo plano con un dedo puesto, se sueltan todos los botones
   useEffect(() => {
     const soltar = () => {
-      const habiaPalanca = [...dedos.current.values()].some((d) => d.palanca)
+      const lados = new Set([...dedos.current.values()].flatMap((d) => (d.palanca === undefined ? [] : [d.palanca])))
       dedos.current.clear()
-      if (habiaPalanca) moverPalanca()
+      for (const lado of lados) moverPalanca(lado)
       recalcular()
     }
     window.addEventListener('blur', soltar)
@@ -327,10 +373,10 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
       onContextMenu={(e) => e.preventDefault()}
       data-testid="mando"
     >
-      {n64 ? (
-        <div ref={cruceta} className="control cruceta palanca" aria-label="Palanca" data-testid="palanca" {...pieza('cruceta')}>
-          <span ref={aro} className="aro">
-            <span ref={pomo} className="pomo" />
+      {n64 || palancasPsx ? (
+        <div ref={cruceta} className="control cruceta palanca" aria-label={palancasPsx ? 'Palanca izquierda' : 'Palanca'} data-testid="palanca" {...pieza('cruceta')}>
+          <span ref={aros[0]} className="aro">
+            <span ref={pomos[0]} className="pomo" />
           </span>
         </div>
       ) : (
@@ -422,6 +468,14 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
           </>
         )}
       </div>
+      )}
+
+      {palancasPsx && (
+        <div ref={palancaDer} className="control palanca-derecha palanca" aria-label="Palanca derecha" data-testid="palanca-derecha" {...pieza('palanca')}>
+          <span ref={aros[1]} className="aro">
+            <span ref={pomos[1]} className="pomo" />
+          </span>
+        </div>
       )}
 
       {hombros && (

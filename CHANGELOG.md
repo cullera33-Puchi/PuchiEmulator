@@ -1,5 +1,17 @@
 # Cambios
 
+## 0.39.0 (17/11/2026)
+
+Segunda entrega de las mejoras marcadas por el usuario: PlayStation (23 y 24). Decisiones del usuario: discos juntos por el nombre y palancas por juego, opcionales.
+
+- 23, varios discos por juego: al elegir los discos de un juego a la vez («Juego (Disc 1)», «(Disc 2)», «(Disco 2 de 3)», «[CD2]»…), la app los junta en un solo juego, con una sola tarjeta de memoria (`numeroDeDisco` y `montarGrupo` en `src/lib/discos.ts`). Se guardan como «disco1.chd», «disco2-pista1.bin» y «disco2.cue»… con una lista «discos.m3u», que es lo que abre el núcleo; el SHA-1 es el de todos los discos en orden. Con uno solo, todo como antes. En el menú del juego, «Disco: 1 de 3» para cambiarlo cuando el juego lo pide; se recuerda en el juego (`Disco.actual`) y, al volver a abrirlo, el núcleo arranca con ese disco (lo elige antes de cargar).
+- PBP (el formato de PlayStation de la PSP, también de varios discos): se reconoce por su cabecera y lo abre el núcleo. Sin PBP de prueba propio: comprobado solo el reconocimiento.
+- Puente (`nucleos/puente.c`): control de discos de libretro, en sus dos versiones (`pf_discos`, `pf_disco_actual`, `pf_disco_inicial` y `pf_cambiar_disco`) y el tipo de mando del puerto 1 (`pf_mando`). Solo se ha recompilado el núcleo de PlayStation: el resto no usa nada de esto.
+- 24, palancas analógicas (apartado Mando de cada juego de PlayStation, desactivadas por defecto): el mando pasa a DualShock (también en marcha, sin cerrar el juego). La palanca izquierda va en el sitio de la cruceta, flotante como la de la N64; la derecha, en la esquina de abajo a la derecha en vertical y encima de los botones en horizontal, y se mueve con el editor (pieza «palanca»). Un toque corto en una palanca la pulsa (L3 y R3). El núcleo activa el modo analógico cuando el juego lo pide; L1, R1 y Select a la vez hacen de botón ANALOG. Con un mando físico, las dos palancas y L3 y R3. `Mando` generaliza la palanca de la N64 a dos (un dedo por palanca).
+- Mando para juegos de rol en PlayStation: los botones salían con A, B, X e Y; ahora con ○, ✕, △ y □ (`etiquetas`).
+- Programa de prueba de PlayStation: pone el mando en modo analógico (a las 40 imágenes: al cambiar de mando, la consola lo ve medio segundo después) y lee las dos palancas (blanco, negro y rojo con L3); segundo disco de prueba que arranca en amarillo (`prueba-psx-2.bin`).
+- Pruebas: 181 unitarias y 73 de navegador (nuevas: número de disco, PBP, juntar discos con su lista; juego de dos discos con cambio de disco que se recuerda al volver a abrirlo, y palancas con L3).
+
 ## 0.38.0 (17/11/2026)
 
 Primera entrega de las mejoras que ha marcado el usuario (22, 23, 24, 26, 27 y 29 de la hoja de ruta): las de la interfaz.

@@ -24,6 +24,7 @@ const NOMBRE: Record<Pieza, string> = {
   guardar: 'Guardar y cargar',
   herramientas: 'Herramientas',
   menu: 'Menú',
+  palanca: 'Palanca derecha',
 }
 
 /**

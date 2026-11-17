@@ -67,6 +67,9 @@ const metodos: Record<string, (...args: never[]) => unknown> = {
   puntero: (x: number | null, y: number, pantallas: PantallasDS, principal: PrincipalDS) => usar().puntero(x, y, pantallas, principal),
   opcion: (clave: string, valor: string) => usar().opcion(clave, valor),
   reiniciar: () => usar().reiniciar(),
+  discos: () => usar().discos(),
+  cambiarDisco: (indice: number) => usar().cambiarDisco(indice),
+  ponerMando: (tipo: number) => usar().ponerMando(tipo),
   descargar: () => {
     soltarRitmo()
     motor?.descargar()

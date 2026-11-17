@@ -47,6 +47,7 @@ playwright-report
 *.mdf
 *.m3u
 !tests/fixtures/prueba-psx.bin
+!tests/fixtures/prueba-psx-2.bin
 !tests/fixtures/prueba-psx.cue
 !tests/fixtures/prueba-psx.chd
 juegos_locales/

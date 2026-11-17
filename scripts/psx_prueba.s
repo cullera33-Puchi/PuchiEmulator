@@ -5,6 +5,9 @@
 #   bloque 63).
 # - Verde con la X (y escribe la marca en la tarjeta de memoria), amarillo con la cruceta a la
 #   derecha, magenta con el triángulo y cian con R2.
+# - Con el mando DualShock (v0.38.0): lo pone en modo analógico, como los juegos que usan
+#   las palancas (a las 40 imágenes, pasado el reenchufe del mando). Blanco con la palanca izquierda a la derecha, negro con la derecha a la derecha y rojo
+#   con L3. Con el mando normal esas órdenes no hacen nada.
 # Ensamblado con llvm-mc -triple=mipsel -mcpu=mips2, con llamadas relativas (bal) para no tener que
 # enlazar. Solo instrucciones de MIPS I, con el hueco
 # después de cada salto y de cada carga (el procesador de la PlayStation no espera a la carga).
@@ -73,9 +76,10 @@ leer_marca:
 	nop
 	li	$s1, 0xFF0000          # azul (los colores van como BBGGRR)
 	li	$t0, 0x5A
-	bne	$s3, $t0, bucle
+	bne	$s3, $t0, 9f
 	nop
 	li	$s1, 0x0000FF          # rojo: ya estaba la marca
+9:	li	$s3, 40                # imágenes hasta pedir el modo analógico (pasado el reenchufe del mando)
 
 bucle:
 	# Un color por imagen, como un juego: espera al barrido vertical (bit 0 de I_STAT) y lo borra
@@ -89,7 +93,16 @@ espera:
 	sw	$t0, 0x1070($s0)
 	bal	leer_mando
 	nop
-	move	$t9, $s1               # sin botones, el color de arranque
+	# A las 40 imágenes se pide el modo analógico, una vez: al cambiar de mando, la consola tarda unas
+	# imágenes en verlo. Con el mando normal no hace nada
+	beqz	$s3, 8f
+	nop
+	addiu	$s3, $s3, -1
+	bnez	$s3, 8f
+	nop
+	bal	modo_analogico
+	nop
+8:	move	$t9, $s1               # sin botones, el color de arranque
 	andi	$t1, $v0, 0x4000       # X
 	beqz	$t1, 1f
 	nop
@@ -109,7 +122,23 @@ espera:
 	beqz	$t1, 4f
 	nop
 	li	$t9, 0xFFFF00          # cian
-4:	lui	$t0, 0x0200            # GP0 02: rectángulo relleno
+	# Palancas, solo si el mando contesta en modo analógico (0x73)
+4:	li	$t0, 0x73
+	bne	$s2, $t0, 7f
+	nop
+	sltiu	$t1, $s6, 0xC0         # palanca izquierda a la derecha
+	bnez	$t1, 5f
+	nop
+	li	$t9, 0xFFFFFF          # blanco
+5:	sltiu	$t1, $fp, 0xC0         # palanca derecha a la derecha
+	bnez	$t1, 6f
+	nop
+	move	$t9, $zero             # negro
+6:	andi	$t1, $s4, 0x0002       # L3
+	beqz	$t1, 7f
+	nop
+	li	$t9, 0x0000FF          # rojo
+7:	lui	$t0, 0x0200            # GP0 02: rectángulo relleno
 	or	$t0, $t0, $t9
 	sw	$t0, 0x1810($s0)
 	sw	$zero, 0x1810($s0)     # desde (0, 0)
@@ -130,6 +159,7 @@ leer_mando:
 	li	$a0, 0x01
 	bal	sio
 	li	$a0, 0x42
+	move	$s2, $v0               # tipo de mando: 0x41 normal, 0x73 analógico
 	bal	sio
 	move	$a0, $zero
 	bal	sio
@@ -142,6 +172,17 @@ leer_mando:
 	nor	$v0, $v0, $zero
 	andi	$v0, $v0, 0xFFFF
 	move	$s4, $v0
+	# En modo analógico, cuatro bytes más: palanca derecha (x, y) e izquierda (x, y)
+	bal	sio
+	move	$a0, $zero
+	move	$fp, $v0
+	bal	sio
+	move	$a0, $zero
+	bal	sio
+	move	$a0, $zero
+	move	$s6, $v0
+	bal	sio
+	move	$a0, $zero
 	bal	soltar
 	nop
 	move	$v0, $s4
@@ -183,6 +224,65 @@ final:
 	move	$a0, $zero
 	addiu	$s5, $s5, -1
 	bnez	$s5, final
+	nop
+	bal	soltar
+	nop
+	jr	$s7
+	nop
+
+# Pone el mando en modo analógico, como los juegos: entrar en configuración (0x43, 1), modo analógico
+# fijo (0x44, 1, 3) y salir (0x43, 0)
+modo_analogico:
+	move	$s7, $ra
+	bal	seleccionar
+	nop
+	bal	sio
+	li	$a0, 0x01
+	bal	sio
+	li	$a0, 0x43
+	bal	sio
+	move	$a0, $zero
+	bal	sio
+	li	$a0, 0x01
+	bal	sio
+	move	$a0, $zero
+	bal	soltar
+	nop
+	bal	seleccionar
+	nop
+	bal	sio
+	li	$a0, 0x01
+	bal	sio
+	li	$a0, 0x44
+	bal	sio
+	move	$a0, $zero
+	bal	sio
+	li	$a0, 0x01
+	bal	sio
+	li	$a0, 0x03
+	li	$s5, 4
+1:	bal	sio
+	move	$a0, $zero
+	addiu	$s5, $s5, -1
+	bnez	$s5, 1b
+	nop
+	bal	soltar
+	nop
+	bal	seleccionar
+	nop
+	bal	sio
+	li	$a0, 0x01
+	bal	sio
+	li	$a0, 0x43
+	bal	sio
+	move	$a0, $zero
+	bal	sio
+	move	$a0, $zero
+	li	$s5, 5
+2:	bal	sio
+	li	$a0, 0x5A
+	addiu	$s5, $s5, -1
+	bnez	$s5, 2b
 	nop
 	bal	soltar
 	nop

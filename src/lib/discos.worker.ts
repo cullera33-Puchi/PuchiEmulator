@@ -18,7 +18,7 @@ interface Orden {
   orden: 'copiar'
   carpeta: string
   ficheros: { fichero: File; nombre: string }[]
-  texto?: { nombre: string; contenido: string }
+  textos: { nombre: string; contenido: string }[]
 }
 
 async function escribir(carpeta: FileSystemDirectoryHandle, nombre: string, trozos: AsyncIterable<Uint8Array>): Promise<void> {
@@ -59,9 +59,9 @@ self.onmessage = async (e: MessageEvent<Orden>) => {
         })(),
       )
     }
-    if (o.texto) {
-      const contenido = new TextEncoder().encode(o.texto.contenido)
-      await escribir(carpeta, o.texto.nombre, (async function* () { yield contenido })())
+    for (const t of o.textos) {
+      const contenido = new TextEncoder().encode(t.contenido)
+      await escribir(carpeta, t.nombre, (async function* () { yield contenido })())
     }
     self.postMessage({ hecho: { sha1: resumen.resumen(), tam: hecho } })
   } catch (err) {

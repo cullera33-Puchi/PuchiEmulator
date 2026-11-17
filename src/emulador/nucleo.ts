@@ -39,6 +39,12 @@ interface Modulo {
   _pf_resultado?(): number
   // Desde la v0.37.0 (PlayStation): cargar por la ruta, sin copiar el juego a la memoria
   _pf_cargar_ruta?(ruta: number): number
+  // Desde la v0.38.0 (PlayStation): discos y tipo de mando
+  _pf_discos?(): number
+  _pf_disco_actual?(): number
+  _pf_cambiar_disco?(indice: number): number
+  _pf_disco_inicial?(indice: number, ruta: number): number
+  _pf_mando?(tipo: number): void
   specialHTMLTargets?: Record<string, unknown>
   /** Nintendo 64 (v0.32.1): el error original de un fallo dentro del núcleo, con su pila */
   errorOriginal?: unknown
@@ -342,16 +348,37 @@ export class Nucleo {
    * con WORKERFS, que los lee por trozos con FileReaderSync cuando el núcleo los pide. Solo en el hilo
    * del motor: en el hilo principal no hay lectura síncrona de ficheros.
    */
-  cargarDisco(ficheros: File[], principal: string): boolean {
+  cargarDisco(ficheros: File[], principal: string, inicial?: { indice: number; fichero: string }): boolean {
     const fs = this.m.FS
     if (!fs?.filesystems.WORKERFS || !this.m._pf_cargar_ruta) throw new Error('Este núcleo no puede abrir discos.')
     if (!('FileReaderSync' in globalThis)) throw new Error('La PlayStation solo funciona con la emulación en un hilo aparte (Ajustes, Acerca de).')
     fs.mkdirTree('/disco')
     fs.mount(fs.filesystems.WORKERFS, { files: ficheros }, '/disco')
+    // Varios discos (v0.38.0): el núcleo arranca con el que estaba puesto (se elige antes de cargar)
+    if (inicial && this.m._pf_disco_inicial) {
+      const r = this.texto(`/disco/${inicial.fichero}`)
+      this.m._pf_disco_inicial(inicial.indice, r)
+      this.m._free(r)
+    }
     const ruta = this.texto(`/disco/${principal}`)
     const ok = this.llamar(() => this.resultado(this.m._pf_cargar_ruta!(ruta))) === 1
     this.m._free(ruta)
     return ok
+  }
+
+  /** Discos del juego (v0.38.0): cuántos y cuál está puesto (desde 0); 0 si el núcleo no tiene */
+  discos(): { total: number; actual: number } {
+    return { total: this.m._pf_discos?.() ?? 0, actual: this.m._pf_disco_actual?.() ?? 0 }
+  }
+
+  /** Cambia de disco: lo expulsa, elige el otro y lo mete */
+  cambiarDisco(indice: number): boolean {
+    return this.m._pf_cambiar_disco?.(indice) === 1
+  }
+
+  /** Tipo de mando del puerto 1 (v0.38.0): RETRO_DEVICE_JOYPAD o una subclase, como el DualShock */
+  ponerMando(tipo: number): void {
+    this.m._pf_mando?.(tipo)
   }
 
   /** Deja un fichero en /sistema, donde el núcleo busca la BIOS (PlayStation, v0.37.0) */
@@ -395,6 +422,12 @@ export class Nucleo {
   palanca(x: number, y: number): void {
     const a = (v: number) => Math.max(-PALANCA_MAX, Math.min(PALANCA_MAX, Math.round(v * PALANCA_MAX)))
     this.m._pf_analogico?.(0, a(x), a(y))
+  }
+
+  /** Palanca derecha (PlayStation con DualShock, v0.38.0), de -1 a 1 en cada eje. */
+  palancaDerecha(x: number, y: number): void {
+    const a = (v: number) => Math.max(-PALANCA_MAX, Math.min(PALANCA_MAX, Math.round(v * PALANCA_MAX)))
+    this.m._pf_analogico?.(1, a(x), a(y))
   }
 
   /** La imagen del último fotograma está en `lienzoGL` y no en la memoria del núcleo. */

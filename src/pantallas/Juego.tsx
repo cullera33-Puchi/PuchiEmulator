@@ -3,12 +3,12 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { BedDouble, BookOpen, ChevronRight, RotateCw, Wind, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume1, Volume2, VolumeX, X } from 'lucide-react'
+import { BedDouble, BookOpen, Check, ChevronRight, Disc, RotateCw, Wind, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume1, Volume2, VolumeX, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
 import { bit, TECLAS } from '../emulador/botones'
-import { cargaAutoFallida, Sesion } from '../emulador/sesion'
+import { cargaAutoFallida, MANDO_DUALSHOCK, Sesion } from '../emulador/sesion'
 import { aplicarTema, cambiarAjustes, COLOR_NOCHE, leerAjustes, useAjustes } from '../lib/ajustes'
 import { nombreBiosPsx } from '../lib/bios'
 import { actualizarJuego, estadosDe, leerBiosPsx, leerEstado, leerJuego, leerRomGuardada, RANURAS_USUARIO, renombrarEstado, type Estado, type Ranura } from '../lib/almacen'
@@ -65,6 +65,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [hora, setHora] = useState(() => Date.now())
   const [dormir, setDormir] = useState(false)
   const [verSueno, setVerSueno] = useState(false)
+  // Varios discos (PlayStation, v0.38.0): cuántos hay y cuál está puesto; se lee al abrir el menú
+  const [discos, setDiscos] = useState<{ total: number; actual: number } | null>(null)
+  const [verDiscos, setVerDiscos] = useState(false)
 
   // DS: soplar al micrófono (mientras se mantiene) y la tapa cerrada (v0.20.0)
   const [soplando, setSoplando] = useState(false)
@@ -88,6 +91,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const tema = temaPara(sistema, ajustes.temas[sistema])
   // Mando de este juego (modo JRPG) y correr fijo
   const mando = mandoDe(ajustes.mandos, id, sistema)
+  const palancasPsx = !!SISTEMAS[sistema].psx && mando.palancas
+  // Al activar o quitar las palancas con el juego abierto, el mando cambia en marcha (v0.38.0)
+  useEffect(() => {
+    void sesion.current?.ponerPalancasPsx(palancasPsx)
+  }, [palancasPsx])
   // Pantalla y botones de este juego (los suyos o los generales)
   const controles = controlesDe(ajustes, id)
   // Filtro de imagen: «consola» es la rejilla en las portátiles y las líneas en la tele
@@ -152,7 +160,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
               mgba_color_correction: controlesDe(ajustesRef.current, juego.id).coloresConsola ? 'Auto' : 'OFF',
               // Nintendo 64 (v0.34.0): resolución con la que dibuja; el lienzo del núcleo se crea a esa medida
               ...(juego.sistema === 'n64' ? { 'mupen64plus-43screensize': controlesDe(ajustesRef.current, juego.id).resolucionN64 === 'normal' ? '320x240' : '640x480' } : {}),
+              // PlayStation (v0.38.0): L1, R1 y Select a la vez hacen de botón ANALOG del DualShock
+              ...(juego.sistema === 'psx' ? { pcsx_rearmed_analog_combo: 'l1+r1+select' } : {}),
             },
+            // Palancas analógicas de PlayStation, si el juego las tiene activadas (v0.38.0): mando DualShock
+            mando: juego.sistema === 'psx' && mandoDe(ajustesRef.current.mandos, juego.id, juego.sistema).palancas ? MANDO_DUALSHOCK : undefined,
             alCambiarTamano: (ancho, alto) => setNativo({ ancho, alto }),
             alInactividad: () => {
               if (cancelado) return
@@ -289,6 +301,16 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     sesion.current?.pausar()
     void sesion.current?.guardarPartidaSiCambia()
     setMenu(true)
+    if (SISTEMAS[sistema].psx) void sesion.current?.discos().then(setDiscos)
+  }
+
+  const cambiarDisco = async (indice: number) => {
+    setVerDiscos(false)
+    const ok = await sesion.current?.cambiarDisco(indice)
+    if (ok) {
+      setDiscos((d) => (d ? { ...d, actual: indice } : d))
+      avisar(`Disco ${indice + 1} puesto`)
+    } else avisar('No se ha podido cambiar de disco')
   }
 
   const cargarListaEstados = async () => setEstados(await estadosDe(id))
@@ -567,6 +589,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         sinSelect={SISTEMAS[sistema].sinSelect}
         n64={SISTEMAS[sistema].n64 ? { alPalanca: (x, y) => sesion.current?.ponerPalanca(x, y) } : undefined}
         psx={SISTEMAS[sistema].psx}
+        palancasPsx={palancasPsx ? { alMover: (lado, x, y) => sesion.current?.ponerPalanca(x, y, lado) } : undefined}
         colocaciones={colocaciones}
         editando={!!borrador}
         correr={mando.jrpg ? { activo: corriendo, boton: mando.correr, alCambiar: cambiarCorrer } : undefined}
@@ -748,7 +771,28 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         </button>
       </Hoja>
 
-      <Hoja oscura abierta={menu && !verEstados && !verTemas && !verMando && !verPantalla && !verSueno} alCerrar={seguir} titulo={nombre}>
+      <Hoja oscura abierta={menu && verDiscos} alCerrar={() => setVerDiscos(false)} titulo="Disco">
+        {discos && (
+          <div className="lista" role="radiogroup" aria-label="Disco">
+            {Array.from({ length: discos.total }, (_, i) => (
+              <div key={i}>
+                {i > 0 && <div className="separador" />}
+                <button className="fila" role="radio" aria-checked={discos.actual === i} onClick={() => void cambiarDisco(i)}>
+                  <Disc size={20} className="text-acento dark:text-acento-oscuro" />
+                  <span className="flex-1">Disco {i + 1}</span>
+                  {discos.actual === i && <Check size={20} className="text-acento dark:text-acento-oscuro" />}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="pie-grupo">Cámbialo cuando el juego te pida el siguiente disco. Se recuerda: al seguir donde lo dejaste, se pone ese disco.</p>
+        <button className="boton-texto mt-4 w-full py-2" onClick={() => setVerDiscos(false)}>
+          Volver al menú
+        </button>
+      </Hoja>
+
+      <Hoja oscura abierta={menu && !verEstados && !verTemas && !verMando && !verPantalla && !verSueno && !verDiscos} alCerrar={seguir} titulo={nombre}>
         <div className="lista">
           <button className="fila font-semibold text-acento dark:text-acento-oscuro" onClick={seguir}>
             <Play size={20} /> Seguir jugando
@@ -762,6 +806,19 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             <NotebookPen size={20} className="text-acento dark:text-acento-oscuro" /> Notas
           </button>
           <div className="separador" />
+          {discos && discos.total > 1 && (
+            <>
+              <button className="fila" onClick={() => setVerDiscos(true)}>
+                <Disc size={20} className="text-acento dark:text-acento-oscuro" />
+                <span className="flex-1">Disco</span>
+                <span className="text-zinc-500">
+                  {discos.actual + 1} de {discos.total}
+                </span>
+                <ChevronRight size={18} className="text-zinc-400" />
+              </button>
+              <div className="separador" />
+            </>
+          )}
           {sistema === 'nds' && (
             <>
               <div className="fila justify-between">

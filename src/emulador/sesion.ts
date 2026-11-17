@@ -12,7 +12,7 @@
  *   segundo), al pausar y al salir.
  * - Al salir o al pasar la app a segundo plano se guarda un estado «auto» para seguir donde se dejó.
  */
-import { guardarEstado, guardarPartida, guardarSesionJuego, leerEstado, leerPartida, type Juego, type Ranura } from '../lib/almacen'
+import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, leerEstado, leerPartida, type Juego, type Ranura } from '../lib/almacen'
 import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
@@ -27,6 +27,10 @@ import { abrirMotor, type ConexionMotor } from './conexion'
 import type { Imagenes, PreferenciaPintor, TipoPintor } from './pintor'
 
 const MAX_FOTOGRAMAS_SEGUIDOS = 4
+/** Tipos de mando de libretro: el normal y el DualShock de PCSX ReARMed (subclase 1 del analógico) */
+export const MANDO_NORMAL = 1
+export const MANDO_DUALSHOCK = (2 << 8) | 5
+
 /** Al rebobinar, un estado cada 50 ms: va unas tres veces más rápido que el juego */
 const MS_POR_ESTADO_ATRAS = 50
 /** Sin tocar ningún botón durante este tiempo, el reloj de tiempo jugado se para */
@@ -38,6 +42,8 @@ export interface OpcionesSesion {
   juego: Juego
   /** La ROM de un cartucho; los discos (PlayStation) los abre el motor desde los ficheros de la app */
   rom?: ArrayBuffer
+  /** Tipo de mando del puerto 1, si no es el normal (PlayStation con palancas: DualShock, v0.38.0) */
+  mando?: number
   /** Ficheros para el núcleo antes de cargar (la BIOS de PlayStation del usuario, v0.37.0) */
   sistema?: { nombre: string; datos: ArrayBuffer }[]
   lienzo: HTMLCanvasElement
@@ -137,8 +143,13 @@ export class Sesion {
   private frecuencia = 32768
   private botonesTactil = 0
   private botonesTeclado = 0
-  /** Nintendo 64 (v0.32.0): palanca de la pantalla, de -1 a 1 */
-  private palancaTactil: [number, number] = [0, 0]
+  /** Palancas de la pantalla (Nintendo 64, v0.32.0; PlayStation, la izquierda y la derecha, v0.38.0), de -1 a 1 */
+  private palancaTactil: [[number, number], [number, number]] = [
+    [0, 0],
+    [0, 0],
+  ]
+  /** PlayStation con las palancas activadas (mando DualShock, v0.38.0) */
+  private palancasPsx = false
   private readonly n64: boolean
   /**
    * Ritmo propio (v0.33.0, solo Nintendo 64 en el hilo aparte): el hilo hace los fotogramas a su
@@ -218,6 +229,7 @@ export class Sesion {
   private constructor(o: OpcionesSesion) {
     this.o = o
     this.n64 = !!SISTEMAS[o.juego.sistema].n64
+    this.palancasPsx = !!SISTEMAS[o.juego.sistema].psx && o.mando === MANDO_DUALSHOCK
     this.pantallas = o.pantallas ?? 'apiladas'
     this.principal = o.principal ?? 'abajo'
   }
@@ -258,6 +270,7 @@ export class Sesion {
         opciones: this.o.opciones ?? {},
         rom,
         disco: juego.disco,
+        mando: this.o.mando,
         sistema: this.o.sistema,
         extension: info.extension,
         partida: partida ? { datos: partida.datos, rtc: partida.rtc } : undefined,
@@ -357,7 +370,8 @@ export class Sesion {
       turbo: this.turbo,
       correr: this.correr,
       extra: this.extra,
-      palanca: this.n64 ? this.palanca() : undefined,
+      palanca: this.n64 || this.palancasPsx ? this.palanca(0) : undefined,
+      palancaDer: this.palancasPsx ? this.palanca(1) : undefined,
     }
   }
 
@@ -365,7 +379,7 @@ export class Sesion {
   private enviarEntrada(): void {
     if (!this.propio || !this.corriendo) return
     const e = this.entrada()
-    const clave = `${e.mascara}|${e.turbo}|${e.correr}|${e.extra}|${e.palanca?.[0] ?? 0}|${e.palanca?.[1] ?? 0}`
+    const clave = `${e.mascara}|${e.turbo}|${e.correr}|${e.extra}|${e.palanca?.[0] ?? 0}|${e.palanca?.[1] ?? 0}|${e.palancaDer?.[0] ?? 0}|${e.palancaDer?.[1] ?? 0}`
     if (clave === this.entradaEnviada) return
     this.entradaEnviada = clave
     this.motor.ritmo?.entrada(e)
@@ -453,12 +467,13 @@ export class Sesion {
     this.refresco.medir(dtPantalla)
     const mascara = this.botonesTactil | this.botonesTeclado | this.botonesMandos()
     // La palanca de un mando físico (N64) también cuenta como actividad (v0.36.0)
-    if (this.n64) {
-      const [px, py] = this.palanca()
-      const firma = `${Math.round(px * 8)},${Math.round(py * 8)}`
+    if (this.n64 || this.palancasPsx) {
+      const [px, py] = this.palanca(0)
+      const [qx, qy] = this.palancasPsx ? this.palanca(1) : [0, 0]
+      const firma = `${Math.round(px * 8)},${Math.round(py * 8)},${Math.round(qx * 8)},${Math.round(qy * 8)}`
       if (firma !== this.ultimaPalanca) {
         this.ultimaPalanca = firma
-        if (px || py) this.ultimaActividad = Date.now()
+        if (px || py || qx || qy) this.ultimaActividad = Date.now()
       }
     }
     // Si se acaba de pausar por no tocar, no se hace nada más en este refresco (v0.30.0)
@@ -569,7 +584,7 @@ export class Sesion {
   /** Pide `n` fotogramas al motor y, al volver, enseña la imagen, suena y guarda lo de rebobinar. */
   private enviar(n: number, mascara: number, frecuenciaSonido: number): void {
     this.enVuelo = true
-    this.motor.fotogramas({ n, mascara, turbo: this.turbo, correr: this.correr, extra: this.extra, palanca: this.n64 ? this.palanca() : undefined }).then(
+    this.motor.fotogramas({ n, mascara, turbo: this.turbo, correr: this.correr, extra: this.extra, palanca: this.n64 || this.palancasPsx ? this.palanca(0) : undefined, palancaDer: this.palancasPsx ? this.palanca(1) : undefined }).then(
       (r) => {
         this.enVuelo = false
         if (this.cerrada || this.roto) {
@@ -712,13 +727,14 @@ export class Sesion {
     this.altavoz.vaciar()
   }
 
-  /** Palanca de Nintendo 64: la de la pantalla o, si está suelta, la de un mando físico. */
-  private palanca(): [number, number] {
-    if (this.palancaTactil[0] || this.palancaTactil[1]) return this.palancaTactil
+  /** Una palanca (0, la izquierda; 1, la derecha): la de la pantalla o, si está suelta, la de un mando físico. */
+  private palanca(lado: 0 | 1 = 0): [number, number] {
+    const t = this.palancaTactil[lado]
+    if (t[0] || t[1]) return t
     try {
       for (const mando of navigator.getGamepads?.() ?? []) {
         if (!mando) continue
-        const p = palancaDeMando(mando)
+        const p = palancaDeMando(mando, lado)
         if (p[0] || p[1]) return p
       }
     } catch {
@@ -727,9 +743,9 @@ export class Sesion {
     return [0, 0]
   }
 
-  /** Palanca de la pantalla (Nintendo 64), de -1 a 1 en cada eje. */
-  ponerPalanca(x: number, y: number): void {
-    this.palancaTactil = [x, y]
+  /** Palanca de la pantalla, de -1 a 1 en cada eje (la derecha, solo PlayStation con palancas). */
+  ponerPalanca(x: number, y: number, lado: 0 | 1 = 0): void {
+    this.palancaTactil[lado] = [x, y]
     // Soltarla (también al pasar a segundo plano) no cuenta como tocar
     if (x || y) this.ultimaActividad = Date.now()
     this.enviarEntrada()
@@ -738,7 +754,7 @@ export class Sesion {
   private botonesMandos(): number {
     let m = 0
     try {
-      for (const mando of navigator.getGamepads?.() ?? []) if (mando) m |= botonesDeMando(mando, this.n64, !!SISTEMAS[this.o.juego.sistema].psx)
+      for (const mando of navigator.getGamepads?.() ?? []) if (mando) m |= botonesDeMando(mando, this.n64, !!SISTEMAS[this.o.juego.sistema].psx, this.palancasPsx)
     } catch {
       // sin mandos
     }
@@ -884,6 +900,41 @@ export class Sesion {
 
   get fallida(): boolean {
     return this.roto
+  }
+
+  /** Activa o quita las palancas de PlayStation en marcha (v0.38.0): el mando pasa a DualShock o vuelve al normal. */
+  async ponerPalancasPsx(activas: boolean): Promise<void> {
+    if (!this.motor || this.cerrada || activas === this.palancasPsx) return
+    this.palancasPsx = activas
+    this.palancaTactil = [
+      [0, 0],
+      [0, 0],
+    ]
+    await this.motor.ponerMando(activas ? MANDO_DUALSHOCK : MANDO_NORMAL)
+    this.enviarEntrada()
+    registrar('info', 'Palancas de PlayStation', { activas })
+  }
+
+  /** Discos del juego (PlayStation, v0.38.0): cuántos y cuál está puesto */
+  async discos(): Promise<{ total: number; actual: number }> {
+    if (!this.motor || this.cerrada) return { total: 0, actual: 0 }
+    return this.motor.discos()
+  }
+
+  /**
+   * Cambia de disco, cuando el juego lo pide. Se recuerda en el juego: al volver a abrirlo (también
+   * para seguir donde se dejó) se pone ese disco antes de arrancar.
+   */
+  async cambiarDisco(indice: number): Promise<boolean> {
+    if (!this.motor || this.cerrada || this.roto) return false
+    const ok = await this.motor.cambiarDisco(indice)
+    const disco = this.o.juego.disco
+    if (ok && disco) {
+      this.o.juego = { ...this.o.juego, disco: { ...disco, actual: indice } }
+      await actualizarJuego(this.o.juego)
+    }
+    registrar(ok ? 'info' : 'aviso', ok ? 'Disco cambiado' : 'No se pudo cambiar de disco', { disco: indice + 1 })
+    return ok
   }
 
   /** Al pasar a segundo plano: partida y estado «auto» al iPhone. */

@@ -12,17 +12,26 @@ export interface Disco {
   carpeta: string
   principal: string
   ficheros: string[]
+  /** Varios discos (v0.38.0): cuántos y cuál estaba puesto la última vez (desde 0) */
+  discos?: number
+  actual?: number
 }
 
-/** Lo que el usuario ha elegido para un disco, antes de copiarlo */
+/** Lo que el usuario ha elegido para un juego (uno o varios discos), listo para copiar */
 export interface GrupoDisco {
   /** Nombre para la biblioteca */
   nombre: string
+  /** El fichero del primer disco, como se eligió */
   nombreFichero: string
-  /** CHD o los BIN, en el orden del CUE: lo que se copia y forma el SHA-1 */
+  /** Los BIN, CHD o PBP de todos los discos, en orden: lo que se copia y forma el SHA-1 */
   datos: File[]
-  /** Hoja CUE ya con los nombres con los que se guardan los BIN (sin ella, es un CHD) */
-  cue?: string
+  /** Nombre con el que se guarda cada uno de `datos` */
+  nombres: string[]
+  /** Hojas que escribe la app: los CUE con los nombres nuevos y, con varios discos, la lista .m3u */
+  textos: { nombre: string; contenido: string }[]
+  /** El fichero que abre el núcleo */
+  principal: string
+  discos: number
 }
 
 export const CARPETA_DISCOS = 'discos'
@@ -37,6 +46,11 @@ export function esSectorCd(b: Uint8Array): boolean {
 /** Fichero CHD («MComprHD» al principio) */
 export function esChd(b: Uint8Array): boolean {
   return b.length >= 8 && String.fromCharCode(...b.subarray(0, 8)) === 'MComprHD'
+}
+
+/** Fichero PBP, el formato de PlayStation de la PSP (v0.38.0): «\0PBP» al principio */
+export function esPbp(b: Uint8Array): boolean {
+  return b.length >= 4 && b[0] === 0 && b[1] === 0x50 && b[2] === 0x42 && b[3] === 0x50
 }
 
 /** Ficheros que nombra una hoja CUE, en orden y sin repetir */
@@ -70,20 +84,74 @@ export function cueParaBin(nombre: string, modo: number): string {
   return `FILE "${nombre}" BINARY\r\n  TRACK 01 MODE${modo === 1 ? 1 : 2}/2352\r\n    INDEX 01 00:00:00\r\n`
 }
 
-/** Nombre del BIN número `i` dentro de la carpeta del disco */
-export const nombrePista = (i: number) => `pista${i + 1}.bin`
+/**
+ * Número de disco en el nombre («Juego (Disc 2)», «(Disco 2 de 3)», «[CD2]») y el nombre sin él, para
+ * juntar los discos de un mismo juego (v0.38.0).
+ */
+export function numeroDeDisco(nombre: string): { base: string; numero: number | null } {
+  const sinExtension = nombre.replace(/\.[^.]+$/, '')
+  const m = /\s*[([]\s*(?:disc|disco|disk|cd)\s*(\d+)(?:\s*(?:of|de|\/)\s*\d+)?\s*[)\]]/i.exec(sinExtension)
+  if (!m) return { base: sinExtension.trim(), numero: null }
+  return { base: (sinExtension.slice(0, m.index) + sinExtension.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim(), numero: Number(m[1]) }
+}
+
+/** Un disco suelto, antes de juntarlo con los demás de su juego */
+interface DiscoSuelto {
+  nombreFichero: string
+  tipo: 'cue' | 'chd' | 'pbp'
+  datos: File[]
+  /** Hoja CUE original (o la de un BIN suelto), con los nombres de los BIN de `datos` */
+  cue?: string
+  nombresCue?: string[]
+}
 
 async function cabecera(f: File, bytes = 16): Promise<Uint8Array> {
   return new Uint8Array(await f.slice(0, bytes).arrayBuffer())
 }
 
+/** Nombres de la copia: los de siempre con un disco; con varios, «disco2-pista1.bin», «disco2.cue»… */
+function montarGrupo(partes: DiscoSuelto[]): GrupoDisco {
+  const varios = partes.length > 1
+  const datos: File[] = []
+  const nombres: string[] = []
+  const textos: { nombre: string; contenido: string }[] = []
+  const principales: string[] = []
+  partes.forEach((p, i) => {
+    const prefijo = varios ? `disco${i + 1}` : 'disco'
+    if (p.tipo !== 'cue') {
+      datos.push(p.datos[0])
+      nombres.push(`${prefijo}.${p.tipo}`)
+      principales.push(`${prefijo}.${p.tipo}`)
+      return
+    }
+    const pistas = p.datos.map((_, n) => (varios ? `${prefijo}-pista${n + 1}.bin` : `pista${n + 1}.bin`))
+    datos.push(...p.datos)
+    nombres.push(...pistas)
+    const cambios = new Map(p.nombresCue!.map((n, k) => [n.toLowerCase(), pistas[k]]))
+    textos.push({ nombre: `${prefijo}.cue`, contenido: reescribirCue(p.cue!, cambios) })
+    principales.push(`${prefijo}.cue`)
+  })
+  if (varios) textos.push({ nombre: 'discos.m3u', contenido: principales.join('\n') + '\n' })
+  const primero = numeroDeDisco(partes[0].nombreFichero)
+  return {
+    nombre: nombreDesdeFichero(varios ? `${primero.base}.x` : partes[0].nombreFichero),
+    nombreFichero: partes[0].nombreFichero,
+    datos,
+    nombres,
+    textos,
+    principal: varios ? 'discos.m3u' : principales[0],
+    discos: partes.length,
+  }
+}
+
 /**
  * Separa los discos de PlayStation del resto de ficheros elegidos. Cada CUE se junta con sus BIN
  * (por el nombre, sin mayúsculas); si falta alguno, el disco va a `incompletos`. Un BIN sin CUE es un
- * disco si empieza como un sector de CD (si no, puede ser un juego de Mega Drive).
+ * disco si empieza como un sector de CD (si no, puede ser un juego de Mega Drive). Los discos de un
+ * mismo juego («(Disc 1)», «(Disc 2)»…) se juntan en uno (v0.38.0).
  */
 export async function agruparDiscos(ficheros: File[]): Promise<{ discos: GrupoDisco[]; resto: File[]; incompletos: string[] }> {
-  const discos: GrupoDisco[] = []
+  const sueltos: DiscoSuelto[] = []
   const incompletos: string[] = []
   const usados = new Set<File>()
   const porNombre = new Map(ficheros.map((f) => [f.name.toLowerCase(), f]))
@@ -98,33 +166,49 @@ export async function agruparDiscos(ficheros: File[]): Promise<{ discos: GrupoDi
       continue
     }
     datos.forEach((d) => usados.add(d!))
-    const nuevos = new Map(nombres.map((n, i) => [n.toLowerCase(), nombrePista(i)]))
-    discos.push({ nombre: nombreDesdeFichero(f.name), nombreFichero: f.name, datos: datos as File[], cue: reescribirCue(texto, nuevos) })
+    sueltos.push({ nombreFichero: f.name, tipo: 'cue', datos: datos as File[], cue: texto, nombresCue: nombres })
   }
   const resto: File[] = []
   for (const f of ficheros) {
     if (usados.has(f)) continue
     const ext = extensionDe(f.name)
-    if (ext === 'chd' || ext === 'bin') {
+    if (ext === 'chd' || ext === 'bin' || ext === 'pbp') {
       const b = await cabecera(f)
       if (esChd(b)) {
-        discos.push({ nombre: nombreDesdeFichero(f.name), nombreFichero: f.name, datos: [f] })
+        sueltos.push({ nombreFichero: f.name, tipo: 'chd', datos: [f] })
+        continue
+      }
+      if (esPbp(b)) {
+        sueltos.push({ nombreFichero: f.name, tipo: 'pbp', datos: [f] })
         continue
       }
       if (esSectorCd(b)) {
-        discos.push({ nombre: nombreDesdeFichero(f.name), nombreFichero: f.name, datos: [f], cue: cueParaBin(nombrePista(0), b[15]) })
+        sueltos.push({ nombreFichero: f.name, tipo: 'cue', datos: [f], cue: cueParaBin(f.name, b[15]), nombresCue: [f.name] })
         continue
       }
     }
     resto.push(f)
   }
+  // Los discos con número y el mismo nombre de juego van juntos, en orden; el resto, cada uno solo
+  const juntos = new Map<string, { numero: number; disco: DiscoSuelto }[]>()
+  const discos: GrupoDisco[] = []
+  for (const d of sueltos) {
+    const { base, numero } = numeroDeDisco(d.nombreFichero)
+    if (numero === null) {
+      discos.push(montarGrupo([d]))
+      continue
+    }
+    const clave = base.toLowerCase()
+    if (!juntos.has(clave)) juntos.set(clave, [])
+    juntos.get(clave)!.push({ numero, disco: d })
+  }
+  for (const lista of juntos.values()) discos.push(montarGrupo(lista.sort((a, b) => a.numero - b.numero).map((x) => x.disco)))
   return { discos, resto, incompletos }
 }
 
 /** Ficheros con los que se guarda un disco en su carpeta, y cuál se abre */
 export function ficherosDeGrupo(g: GrupoDisco): { nombres: string[]; principal: string } {
-  if (!g.cue) return { nombres: ['disco.chd'], principal: 'disco.chd' }
-  return { nombres: [...g.datos.map((_, i) => nombrePista(i)), 'disco.cue'], principal: 'disco.cue' }
+  return { nombres: [...g.nombres, ...g.textos.map((t) => t.nombre)], principal: g.principal }
 }
 
 /* ---- Copia en el iPhone, por el hilo de los discos ---- */
@@ -154,11 +238,11 @@ export async function copiarDisco(g: GrupoDisco, alProgreso?: (fraccion: number)
       hilo.postMessage({
         orden: 'copiar',
         carpeta,
-        ficheros: g.datos.map((f, i) => ({ fichero: f, nombre: nombres[i] })),
-        texto: g.cue ? { nombre: 'disco.cue', contenido: g.cue } : undefined,
+        ficheros: g.datos.map((f, i) => ({ fichero: f, nombre: g.nombres[i] })),
+        textos: g.textos,
       })
     })
-    return { disco: { carpeta, principal, ficheros: nombres }, ...r }
+    return { disco: { carpeta, principal, ficheros: nombres, ...(g.discos > 1 ? { discos: g.discos, actual: 0 } : {}) }, ...r }
   } catch (e) {
     await borrarCarpetaDisco(carpeta).catch(() => undefined)
     throw e

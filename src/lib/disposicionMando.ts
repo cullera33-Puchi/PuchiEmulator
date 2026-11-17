@@ -4,7 +4,7 @@
  * pantalla (así sirve en cualquier iPhone) y su escala. Desde la v0.35.0 también las herramientas:
  * guardar y cargar, las de la derecha (rebobinar, soplar y avance rápido) y el menú.
  */
-export const PIEZAS = ['cruceta', 'botones', 'l', 'r', 'select', 'start', 'guardar', 'herramientas', 'menu'] as const
+export const PIEZAS = ['cruceta', 'botones', 'l', 'r', 'select', 'start', 'guardar', 'herramientas', 'menu', 'palanca'] as const
 export type Pieza = (typeof PIEZAS)[number]
 
 export interface Colocacion {

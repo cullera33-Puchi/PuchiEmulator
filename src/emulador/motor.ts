@@ -23,6 +23,8 @@ export interface ConfigMotor {
   rom?: ArrayBuffer
   /** El disco en los ficheros de la app, para la PlayStation (v0.37.0): el motor lo abre él mismo */
   disco?: Disco
+  /** Tipo de mando del puerto 1, si no es el normal (PlayStation con palancas: DualShock, v0.38.0) */
+  mando?: number
   /** Ficheros para /sistema antes de cargar (la BIOS de PlayStation del usuario, v0.37.0) */
   sistema?: { nombre: string; datos: ArrayBuffer }[]
   extension: string
@@ -56,6 +58,8 @@ export interface PeticionFotogramas {
   extra: number
   /** Palanca analógica (Nintendo 64), de -1 a 1 en cada eje */
   palanca?: [number, number]
+  /** Palanca derecha (PlayStation con DualShock, v0.38.0) */
+  palancaDer?: [number, number]
   /** No hace falta imagen (ahorrar batería con el ritmo propio): no se pinta (v0.36.0) */
   sinImagen?: boolean
 }
@@ -71,6 +75,16 @@ export interface ResultadoFotogramas {
   msPintar: number
   /** Si el núcleo ha cambiado de ritmo o de frecuencia de sonido */
   tiempos?: { fps: number; frecuencia: number }
+}
+
+/**
+ * Con varios discos en una lista .m3u (v0.38.0), el disco con el que se arranca: el que estaba puesto
+ * la última vez, si no es el primero. Su fichero es «discoN.cue», «discoN.chd» o «discoN.pbp».
+ */
+export function discoInicial(d: Disco): { indice: number; fichero: string } | undefined {
+  if (!d.actual || !d.principal.endsWith('.m3u')) return undefined
+  const fichero = d.ficheros.find((f) => new RegExp(`^disco${d.actual! + 1}\\.(cue|chd|pbp)$`).test(f))
+  return fichero ? { indice: d.actual, fichero } : undefined
 }
 
 export class Motor {
@@ -107,12 +121,16 @@ export class Motor {
     paso('nucleo')
     const partida = c.partida ? { datos: new Uint8Array(c.partida.datos), rtc: c.partida.rtc ? new Uint8Array(c.partida.rtc) : undefined } : undefined
     for (const f of c.sistema ?? []) nucleo.escribirSistema(f.nombre, new Uint8Array(f.datos))
-    const cargado = c.disco ? nucleo.cargarDisco(await ficherosDelDisco(c.disco), c.disco.principal) : !!c.rom && nucleo.cargarJuego(new Uint8Array(c.rom), c.extension, partida)
+    const inicial = c.disco ? discoInicial(c.disco) : undefined
+    const cargado = c.disco ? nucleo.cargarDisco(await ficherosDelDisco(c.disco), c.disco.principal, inicial) : !!c.rom && nucleo.cargarJuego(new Uint8Array(c.rom), c.extension, partida)
     if (!cargado) {
       nucleo.descargar()
       throw new Error('El núcleo no ha podido abrir el juego.')
     }
     if (partida) nucleo.escribirPartida(partida.datos, partida.rtc)
+    // Varios discos en un PBP (v0.38.0): sin lista .m3u, el disco se cambia después de cargar
+    if (c.disco?.actual && !inicial) nucleo.cambiarDisco(c.disco.actual)
+    if (c.mando) nucleo.ponerMando(c.mando)
     // El primer fotograma aplica la partida guardada; después se puede cargar el estado
     nucleo.fotograma()
     // Nintendo 64 dibuja en su propio lienzo: el pintor no se usa y no se gasta otro contexto de WebGL
@@ -191,6 +209,7 @@ export class Motor {
     if (p.correr && p.mascara & p.correr && !(this.basePrevia & p.correr)) this.huecoCorrer = 3
     this.basePrevia = p.mascara
     if (p.palanca) this.nucleo.palanca(p.palanca[0], p.palanca[1])
+    if (p.palancaDer) this.nucleo.palancaDerecha(p.palancaDer[0], p.palancaDer[1])
     let hayImagen = false
     let muestras = 0
     const rebobinado: ResultadoFotogramas['rebobinado'] = []
@@ -269,6 +288,20 @@ export class Motor {
     this.antesDeCargar = null
     const ok = this.nucleo.cargarEstado(antes)
     return { ok, imagenes: this.imagenTrasCargar() }
+  }
+
+  /** Discos del juego (v0.38.0) */
+  discos(): { total: number; actual: number } {
+    return this.nucleo.discos()
+  }
+
+  cambiarDisco(indice: number): boolean {
+    return this.nucleo.cambiarDisco(indice)
+  }
+
+  /** Tipo de mando en marcha (PlayStation: DualShock al activar las palancas, v0.38.0) */
+  ponerMando(tipo: number): void {
+    this.nucleo.ponerMando(tipo)
   }
 
   /** Rebobinar: carga un estado anterior y hace un fotograma con los botones de entonces. */

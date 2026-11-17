@@ -88,6 +88,16 @@ static bool crearContextoGL(void) {
 }
 #endif
 
+/*
+ * Control de discos (v0.38.0, PlayStation con varios discos): el núcleo da sus funciones para
+ * expulsar, elegir y meter un disco. Con la versión antigua de la interfaz (sin la parte «ext»)
+ * valen las mismas cinco primeras.
+ */
+static struct retro_disk_control_callback discos;
+static bool hayDiscos = false;
+/* La versión nueva añade, entre otras, elegir el disco con el que se arranca (antes de cargar) */
+static retro_set_initial_image_t discoInicial = NULL;
+
 /* La imagen del último fotograma está en el lienzo de WebGL y no en `video` */
 static bool imagenGL = false;
 
@@ -235,6 +245,26 @@ static bool entorno(unsigned cmd, void *datos) {
 		*(unsigned *) datos = RETRO_HW_CONTEXT_OPENGLES3;
 		return true;
 #endif
+	case RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE:
+		discos = *(const struct retro_disk_control_callback *) datos;
+		hayDiscos = true;
+		return true;
+	case RETRO_ENVIRONMENT_GET_DISK_CONTROL_INTERFACE_VERSION:
+		*(unsigned *) datos = 1;
+		return true;
+	case RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE: {
+		const struct retro_disk_control_ext_callback *ext = (const struct retro_disk_control_ext_callback *) datos;
+		discos.set_eject_state = ext->set_eject_state;
+		discos.get_eject_state = ext->get_eject_state;
+		discos.get_image_index = ext->get_image_index;
+		discos.set_image_index = ext->set_image_index;
+		discos.get_num_images = ext->get_num_images;
+		discos.replace_image_index = ext->replace_image_index;
+		discos.add_image_index = ext->add_image_index;
+		discoInicial = ext->set_initial_image;
+		hayDiscos = true;
+		return true;
+	}
 	case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
 	case RETRO_ENVIRONMENT_SET_MEMORY_MAPS:
 	case RETRO_ENVIRONMENT_SET_SUPPORT_ACHIEVEMENTS:
@@ -463,6 +493,42 @@ void pf_descargar(void) {
 EMSCRIPTEN_KEEPALIVE
 void pf_reiniciar(void) {
 	retro_reset();
+}
+
+/* Discos (v0.38.0): cuántos hay, cuál está puesto y cambiar a otro (se expulsa, se elige y se mete) */
+EMSCRIPTEN_KEEPALIVE
+unsigned pf_discos(void) {
+	return hayDiscos && discos.get_num_images ? discos.get_num_images() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+unsigned pf_disco_actual(void) {
+	return hayDiscos && discos.get_image_index ? discos.get_image_index() : 0;
+}
+
+/* El disco con el que arranca el juego (antes de pf_cargar_ruta): el índice y su ruta, como en la lista */
+EMSCRIPTEN_KEEPALIVE
+bool pf_disco_inicial(unsigned indice, const char *ruta) {
+	return discoInicial ? discoInicial(indice, ruta) : false;
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool pf_cambiar_disco(unsigned indice) {
+	if (!hayDiscos || indice >= pf_discos()) {
+		return false;
+	}
+	if (!discos.set_eject_state(true)) {
+		return false;
+	}
+	bool ok = discos.set_image_index(indice);
+	discos.set_eject_state(false);
+	return ok;
+}
+
+/* Tipo de mando del puerto 1 (v0.38.0): el de libretro o una subclase (PlayStation: DualShock) */
+EMSCRIPTEN_KEEPALIVE
+void pf_mando(unsigned tipo) {
+	retro_set_controller_port_device(0, tipo);
 }
 
 EMSCRIPTEN_KEEPALIVE

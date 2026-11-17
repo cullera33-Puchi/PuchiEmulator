@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds, prueba.nes, prueba.md, prueba.sms, prueba.gg, prueba.z64, prueba.zip y el CD de PlayStation: prueba-psx.bin y .cue, y prueba-psx.chd).
+"""Genera las ROMs de prueba de tests/fixtures (prueba.gba, prueba.gb, prueba.sfc, prueba.nds, prueba.nes, prueba.md, prueba.sms, prueba.gg, prueba.z64, prueba.zip y el CD de PlayStation: prueba-psx.bin y .cue, y prueba-psx.chd, y prueba-psx-2.bin, un segundo disco).
 
 Son programas propios y mínimos, sin código ni gráficos de Nintendo: pintan la pantalla de un
 color y cambian de color mientras se pulsa A. Sirven para comprobar imagen, botones y partida guardada
@@ -470,31 +470,53 @@ PSX_CODIGO = bytes.fromhex(
     '801f103c141800ae0008083c01000835141808aec606083c60020835141808ae'
     '0407083c10000835141808ae0005083c141808ae0003083c141808ae00e1083c'
     '00040835101808ae00e3083c101808ae03e4083c3fbd0835101808ae00e5083c'
-    '101808ae0d000824481008a6880008244e1008a67e0011040000000083001104'
-    '8100042481001104520004247f001104252000007d001104252000007b001104'
-    '25200000790011043f000424050012247600110425200000ffff5226fcff4016'
-    '00000000259840006d00110400000000ff00113c5a0008240200681600000000'
-    'ff0011247010088e0000000001000831fcff001100000000feff0824701008ae'
-    '200011040000000025c820020040493005002011000000003200110400000000'
+    '101808ae0d000824481008a6880008244e1008a6d800110400000000dd001104'
+    '81000424db00110452000424d900110425200000d700110425200000d5001104'
+    '25200000d30011043f00042405001224d000110425200000ffff5226fcff4016'
+    '0000000025984000c700110400000000ff00113c5a0008240200681600000000'
+    'ff001124280013247010088e0000000001000831fcff001100000000feff0824'
+    '701008ae37001104000000000600601200000000ffff73260300601600000000'
+    '760011040000000025c820020040493005002011000000004d00110400000000'
     '00ff113425c82002200049300200201100000000ffff19340010493003002011'
     '00000000ff00193cff003937000249300300201100000000ff00193c00ff3937'
-    '0002083c25401901101808ae101800aef000083c40010835101808aed9ff0010'
-    '0000000025b8e00339001104000000003e001104010004243c00110442000424'
-    '3a00110425200000380011042520000025a04000350011042520000000120200'
-    '2510540027104000ffff423025a040002b00110400000000251080020800e002'
-    '0000000025b8e003210011040000000026001104810004242400110457000424'
-    '220011042520000020001104252000001e001104252000001c0011043f000424'
-    '1a0011045a0004247f0015241700110425200000ffffb526fcffa01600000000'
-    '1200110465000424030015240f00110425200000ffffb526fcffa01600000000'
-    '07001104000000000800e00200000000030008244a1008a60800e00300000000'
-    '4a1000a60800e00300000000401004a2401002920800e00300000000'
+    '730008240e00481600000000c000c92e0300201500000000ff00193cffff3937'
+    'c000c92f020020150000000025c80000020089320200201100000000ff001924'
+    '0002083c25401901101808ae101800aef000083c40010835101808aec2ff0010'
+    '0000000025b8e0037b0011040000000080001104010004247e00110442000424'
+    '259040007b00110425200000790011042520000025a040007600110425200000'
+    '001202002510540027104000ffff423025a040006f0011042520000025f04000'
+    '6c001104252000006a0011042520000025b04000670011042520000062001104'
+    '00000000251080020800e0020000000025b8e00358001104000000005d001104'
+    '810004245b001104570004245900110425200000570011042520000055001104'
+    '25200000530011043f000424510011045a0004247f0015244e00110425200000'
+    'ffffb526fcffa016000000004900110465000424030015244600110425200000'
+    'ffffb526fcffa016000000003e001104000000000800e0020000000025b8e003'
+    '35001104000000003a0011040100042438001104430004243600110425200000'
+    '340011040100042432001104252000002d001104000000002700110400000000'
+    '2c001104010004242a0011044400042428001104252000002600110401000424'
+    '2400110403000424040015242100110425200000ffffb526fcffa01600000000'
+    '1900110400000000130011040000000018001104010004241600110443000424'
+    '14001104252000001200110425200000050015240f0011045a000424ffffb526'
+    'fcffa0160000000007001104000000000800e00200000000030008244a1008a6'
+    '0800e003000000004a1000a60800e00300000000401004a2401002920800e003'
+    '00000000'
 )
 PSX_DIRECCION = 0x80010000
 
 
-def psx_exe() -> bytes:
+# Segundo disco (v0.38.0, para probar el cambio de disco): el mismo programa, pero arranca en amarillo.
+# Cambia «lui $s1, 0x00FF» (azul) por «ori $s1, $zero, 0xFFFF» (amarillo, en BBGGRR)
+PSX_AZUL = bytes.fromhex('ff00113c')
+PSX_AMARILLO = bytes.fromhex('ffff1134')
+
+
+def psx_exe(segundo: bool = False) -> bytes:
     """Ejecutable de PlayStation: cabecera de 2 KB y el código, en bloques de 2 KB."""
-    codigo = PSX_CODIGO.ljust((len(PSX_CODIGO) + 2047) // 2048 * 2048, b'\0')
+    codigo = PSX_CODIGO
+    if segundo:
+        assert codigo.count(PSX_AZUL) == 1
+        codigo = codigo.replace(PSX_AZUL, PSX_AMARILLO)
+    codigo = codigo.ljust((len(codigo) + 2047) // 2048 * 2048, b'\0')
     cabecera = bytearray(2048)
     cabecera[0:8] = b'PS-X EXE'
     cabecera[0x10:0x14] = PSX_DIRECCION.to_bytes(4, 'little')  # inicio
@@ -523,9 +545,9 @@ def _registro(nombre: bytes, sector: int, tam: int, carpeta: bool) -> bytes:
     return bytes(r)
 
 
-def psx_iso() -> bytes:
+def psx_iso(segundo: bool = False) -> bytes:
     """CD de datos en ISO 9660 (sectores de 2 KB) con SYSTEM.CNF y PSX.EXE en la raíz."""
-    exe = psx_exe()
+    exe = psx_exe(segundo)
     cnf = b'BOOT = cdrom:\\PSX.EXE;1\r\nTCB = 4\r\nEVENT = 10\r\nSTACK = 801FFFF0\r\n'
     RAIZ, CNF, EXE = 20, 21, 22
     total = EXE + len(exe) // 2048 + 8
@@ -565,10 +587,10 @@ def _bcd(n: int) -> int:
     return (n // 10) << 4 | n % 10
 
 
-def psx_bin() -> bytes:
+def psx_bin(segundo: bool = False) -> bytes:
     """El CD como imagen de 2352 bytes por sector (modo 2, forma 1), como las copias en BIN y CUE.
     Sin códigos de corrección, que el emulador no comprueba."""
-    iso = psx_iso()
+    iso = psx_iso(segundo)
     salida = bytearray()
     for lba in range(len(iso) // 2048):
         m, resto = divmod(lba + 150, 75 * 60)
@@ -597,6 +619,7 @@ def main() -> None:
     (SALIDA / 'prueba.z64').write_bytes(n64())
     (SALIDA / 'prueba-psx.bin').write_bytes(psx_bin())
     (SALIDA / 'prueba-psx.cue').write_text(PSX_CUE, newline='')
+    (SALIDA / 'prueba-psx-2.bin').write_bytes(psx_bin(segundo=True))
     # El mismo CD en CHD (comprimido), con chdman (de MAME), si está instalado
     if shutil.which('chdman'):
         chd = SALIDA / 'prueba-psx.chd'

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { agruparDiscos, cueParaBin, esChd, esSectorCd, ficherosDeGrupo, ficherosDelCue, reescribirCue } from './discos'
+import { agruparDiscos, cueParaBin, esChd, esPbp, esSectorCd, ficherosDeGrupo, ficherosDelCue, numeroDeDisco, reescribirCue } from './discos'
 import { Sha1 } from './sha1'
 
 const fixture = (n: string) => new Uint8Array(readFileSync(new URL(`../../tests/fixtures/${n}`, import.meta.url)))
@@ -65,15 +65,51 @@ describe('discos de PlayStation', () => {
       ['Otro', ['Otro.chd']],
       ['Suelto', ['Suelto.bin']],
     ])
-    expect(ficherosDelCue(discos[0].cue!)).toEqual(['pista1.bin'])
+    expect(ficherosDelCue(discos[0].textos[0].contenido)).toEqual(['pista1.bin'])
     expect(ficherosDeGrupo(discos[0])).toEqual({ nombres: ['pista1.bin', 'disco.cue'], principal: 'disco.cue' })
     expect(ficherosDeGrupo(discos[1])).toEqual({ nombres: ['disco.chd'], principal: 'disco.chd' })
-    expect(discos[2].cue).toContain('MODE2/2352')
+    expect(discos[2].textos[0].contenido).toContain('MODE2/2352')
+    expect(ficherosDelCue(discos[2].textos[0].contenido)).toEqual(['pista1.bin'])
+    expect(discos.every((d) => d.discos === 1)).toBe(true)
   })
 
   it('un CUE sin su BIN queda como incompleto', async () => {
     const { discos, incompletos } = await agruparDiscos([fichero('Solo.cue', 'FILE "falta.bin" BINARY\r\n  TRACK 01 MODE2/2352\r\n')])
     expect(discos).toEqual([])
     expect(incompletos).toEqual(['Solo.cue'])
+  })
+
+  it('número de disco en el nombre', () => {
+    expect(numeroDeDisco('Final Fantasy VII (Disc 2).cue')).toEqual({ base: 'Final Fantasy VII', numero: 2 })
+    expect(numeroDeDisco('Juego (Spain) (Disco 3 de 4).chd')).toEqual({ base: 'Juego (Spain)', numero: 3 })
+    expect(numeroDeDisco('Juego [CD1].bin')).toEqual({ base: 'Juego', numero: 1 })
+    expect(numeroDeDisco('Juego (Spain).chd')).toEqual({ base: 'Juego (Spain)', numero: null })
+  })
+
+  it('reconoce un PBP', () => {
+    expect(esPbp(new Uint8Array([0, 0x50, 0x42, 0x50, 0, 0]))).toBe(true)
+    expect(esPbp(fixture('prueba-psx.bin'))).toBe(false)
+  })
+
+  it('junta los discos de un mismo juego, en orden, con una lista .m3u', async () => {
+    const bin = fixture('prueba-psx.bin')
+    const cue2 = fichero('Juego (Disc 2).cue', 'FILE "Juego (Disc 2).bin" BINARY\r\n  TRACK 01 MODE2/2352\r\n    INDEX 01 00:00:00\r\n')
+    const { discos } = await agruparDiscos([
+      cue2,
+      fichero('Juego (Disc 2).bin', bin),
+      fichero('Juego (Disc 1).chd', fixture('prueba-psx.chd')),
+      fichero('Otro.chd', fixture('prueba-psx.chd')),
+    ])
+    expect(discos.map((d) => [d.nombre, d.discos])).toEqual([
+      ['Otro', 1],
+      ['Juego', 2],
+    ])
+    const juego = discos[1]
+    expect(juego.datos.map((f) => f.name)).toEqual(['Juego (Disc 1).chd', 'Juego (Disc 2).bin'])
+    expect(juego.nombres).toEqual(['disco1.chd', 'disco2-pista1.bin'])
+    expect(juego.principal).toBe('discos.m3u')
+    expect(juego.textos.map((t) => t.nombre)).toEqual(['disco2.cue', 'discos.m3u'])
+    expect(ficherosDelCue(juego.textos[0].contenido)).toEqual(['disco2-pista1.bin'])
+    expect(juego.textos[1].contenido).toBe('disco1.chd\ndisco2.cue\n')
   })
 })

@@ -21,6 +21,9 @@ export const BOTON = {
   R2: 13,
   /** DS: la tapa cerrada (L3 en melonDS), v0.20.0 */
   TAPA: 14,
+  /** PlayStation con palancas (v0.38.0): pulsar la palanca izquierda o la derecha */
+  L3: 14,
+  R3: 15,
   /**
    * Nintendo 64: botones C. No son de libretro: el núcleo los lee de la palanca derecha, y `Nucleo`
    * convierte estos bits en esa palanca antes de cada fotograma.
@@ -108,8 +111,9 @@ export function direccionCruceta(dx: number, dy: number, anterior = 0, cuatro = 
 const ZONA_PALANCA = 0.15
 
 /** Palanca izquierda de un mando físico (Nintendo 64), con zona muerta; [0, 0] si está suelta. */
-export function palancaDeMando(mando: Gamepad): [number, number] {
-  const [x = 0, y = 0] = mando.axes
+export function palancaDeMando(mando: Gamepad, lado: 0 | 1 = 0): [number, number] {
+  const x = mando.axes[lado * 2] ?? 0
+  const y = mando.axes[lado * 2 + 1] ?? 0
   return Math.hypot(x, y) < ZONA_PALANCA ? [0, 0] : [x, y]
 }
 
@@ -117,7 +121,7 @@ export function palancaDeMando(mando: Gamepad): [number, number] {
  * Mando físico con la distribución estándar (PlayStation, Xbox o MFi). En Nintendo 64 (v0.32.0), la
  * palanca izquierda va aparte (`palancaDeMando`), la derecha da los botones C y el gatillo izquierdo es Z.
  */
-export function botonesDeMando(mando: Gamepad, n64 = false, psx = false): number {
+export function botonesDeMando(mando: Gamepad, n64 = false, psx = false, palancas = false): number {
   const p = (i: number) => mando.buttons[i]?.pressed ?? false
   let m = 0
   // Distribución de Nintendo: el botón de abajo es B y el de la derecha es A
@@ -149,6 +153,12 @@ export function botonesDeMando(mando: Gamepad, n64 = false, psx = false): number
     if (cx > 0.5) m |= bit('C_DERECHA')
     if (cy < -0.5) m |= bit('C_ARRIBA')
     if (cy > 0.5) m |= bit('C_ABAJO')
+    return m
+  }
+  // PlayStation con palancas (v0.38.0): las palancas van aparte (`palancaDeMando`), y se pulsan (L3 y R3)
+  if (palancas) {
+    if (p(10)) m |= bit('L3')
+    if (p(11)) m |= bit('R3')
     return m
   }
   const [x = 0, y = 0] = mando.axes

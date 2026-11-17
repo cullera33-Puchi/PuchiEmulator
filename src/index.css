@@ -607,14 +607,14 @@
   border-radius: 9999px;
   opacity: var(--opacidad-mando);
 }
-.cruceta.palanca .aro {
+.palanca .aro {
   position: absolute;
   inset: 0;
   border-radius: 9999px;
   background: var(--cruceta, rgb(255 255 255 / 0.13));
   pointer-events: none;
 }
-.cruceta.palanca .pomo {
+.palanca .pomo {
   position: absolute;
   inset: 27%;
   border-radius: 9999px;
@@ -622,7 +622,7 @@
   box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
   pointer-events: none;
 }
-.cruceta.palanca .pomo.pulsado {
+.palanca .pomo.pulsado {
   filter: brightness(1.2);
 }
 
@@ -655,6 +655,28 @@
 }
 .hombro.r {
   right: calc(var(--seguro-der) + 16px);
+}
+
+/* PlayStation con palancas (v0.38.0): la derecha, más pequeña. En vertical, en la esquina de abajo a la
+   derecha, debajo de los botones; en horizontal, encima de los botones. Se mueve con el editor */
+.palanca-derecha {
+  --tam-palanca: calc(84px * var(--escala));
+  position: absolute;
+  width: var(--tam-palanca);
+  height: var(--tam-palanca);
+  right: calc(var(--seguro-der) + 16px);
+  bottom: calc(var(--seguro-abajo) + 6px);
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  opacity: var(--opacidad-mando);
+}
+@container juego (orientation: landscape) {
+  .palanca-derecha {
+    --tam-palanca: calc(58px * min(var(--escala), 1.15));
+    right: calc(var(--seguro-der) + 12px + (var(--tam-mando) - var(--tam-palanca)) / 2);
+    bottom: calc(var(--base-mando) + var(--tam-mando) + 4px);
+  }
 }
 
 /* PlayStation (v0.37.0): dos botones en cada hombro, L2 y L1 a la izquierda y R1 y R2 a la derecha */

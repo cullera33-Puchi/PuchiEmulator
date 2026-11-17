@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.39.0",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "PlayStation: elige todos los discos de un juego a la vez y quedan juntos, con una sola tarjeta de memoria. El disco se cambia en el menú del juego.",
+      "PlayStation: palancas analógicas por juego (en Mando). Un toque corto en una palanca es L3 o R3.",
+      "También se pueden añadir juegos de PlayStation en PBP."
+    ]
+  },
+  {
     "version": "0.38.0",
     "fecha": "17/11/2026",
     "cambios": [

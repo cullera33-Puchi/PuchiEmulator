@@ -1870,6 +1870,8 @@ async function tono(page: Page): Promise<string> {
   const [r, g, b] = await colorCentral(page)
   const alto = (v: number) => v > 180
   const bajo = (v: number) => v < 70
+  if (alto(r) && alto(g) && alto(b)) return 'blanco'
+  if (bajo(r) && bajo(g) && bajo(b)) return 'negro'
   if (alto(r) && alto(g) && bajo(b)) return 'amarillo'
   if (bajo(r) && alto(g) && alto(b)) return 'cian'
   if (alto(r) && bajo(g) && alto(b)) return 'magenta'
@@ -2151,4 +2153,98 @@ test('almacenamiento por juego: lo que ocupa, borrar sus estados y deshacer (v0.
   await expect(fila).not.toContainText(/estado/)
   await page.getByRole('button', { name: 'Deshacer' }).click()
   await expect(fila).toContainText(/estado/)
+})
+
+test('PlayStation: un juego de dos discos, juntos por el nombre, y cambio de disco desde el menú (v0.38.0)', async ({ page }) => {
+  await page.goto('/')
+  await selector(page).setInputFiles([
+    { name: 'Varios (Disc 1).bin', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba-psx.bin')) },
+    { name: 'Varios (Disc 2).bin', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba-psx-2.bin')) },
+  ])
+  await expect(page.getByText('Juego añadido a PlayStation')).toBeVisible({ timeout: 15_000 })
+  await entrar(page, 'PlayStation')
+  await expect(page.getByRole('button', { name: /^Varios, PlayStation/ })).toHaveCount(1)
+  await page.getByRole('button', { name: /^Varios, PlayStation/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  // Arranca con el disco 1 (azul)
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('azul')
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await expect(page.getByRole('button', { name: /^Disco 1 de 2/ })).toBeVisible()
+  await page.getByRole('button', { name: /^Disco 1 de 2/ }).click()
+  await page.getByRole('radio', { name: 'Disco 2' }).click()
+  await expect(page.getByText('Disco 2 puesto')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Disco 2 de 2/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Salir' }).click()
+
+  // Se recuerda: al arrancar de nuevo desde el principio, la consola arranca con el disco 2 (amarillo)
+  await page.getByRole('button', { name: /Opciones de Varios/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('amarillo')
+})
+
+test('PlayStation: palancas analógicas por juego, con L3 al tocar la palanca (v0.38.0)', async ({ page }) => {
+  await page.goto('/')
+  await selector(page).setInputFiles(rom('prueba-psx.chd'))
+  await expect(page.getByText('Juego añadido a PlayStation')).toBeVisible({ timeout: 15_000 })
+  await entrar(page, 'PlayStation')
+  await page.getByRole('button', { name: /prueba-psx, PlayStation/ }).first().click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('azul')
+  await expect(page.getByTestId('palanca-derecha')).toHaveCount(0)
+
+  // Se activan en el apartado Mando del juego, con el juego abierto: el mando pasa a DualShock
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: /^Mando/ }).click()
+  await page.getByRole('switch', { name: 'Palancas analógicas' }).click()
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  await expect(page.getByTestId('palanca')).toBeVisible()
+  await expect(page.getByTestId('palanca-derecha')).toBeVisible()
+  await expect(page.getByTestId('mando').getByLabel('Cruceta')).toHaveCount(0)
+  // Como muchos juegos, la ROM de prueba pide el modo analógico al arrancar: se vuelve a abrir el juego
+  // (con él abierto, L1, R1 y Select a la vez hacen de botón ANALOG)
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: 'Salir' }).click()
+  await page.getByRole('button', { name: /Opciones de prueba-psx/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect(page.getByTestId('palanca-derecha')).toBeVisible()
+  await page.waitForTimeout(1500)
+
+  const arrastrar = async (testid: string, color: string) => {
+    const caja = (await page.getByTestId(testid).boundingBox())!
+    const [x, y] = [caja.x + caja.width / 2, caja.y + caja.height / 2]
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x + caja.width * 0.6, y, { steps: 5 })
+    await expect.poll(() => tono(page), { timeout: 10_000 }).toBe(color)
+    await page.mouse.up()
+    await expect.poll(() => tono(page)).toBe('azul')
+  }
+  await arrastrar('palanca', 'blanco')
+  await arrastrar('palanca-derecha', 'negro')
+
+  // Un toque corto en la palanca izquierda es L3 (rojo un momento)
+  const caja = (await page.getByTestId('palanca').boundingBox())!
+  await page.evaluate(() => {
+    const w = window as unknown as { colores: string[] }
+    w.colores = []
+    const c = document.querySelector('[data-testid="pantalla"]') as HTMLCanvasElement
+    const t = document.createElement('canvas')
+    const leer = () => {
+      t.width = c.width
+      t.height = c.height
+      const g = t.getContext('2d')!
+      g.drawImage(c, 0, 0)
+      const d = g.getImageData(c.width >> 1, c.height >> 1, 1, 1).data
+      w.colores.push(`${d[0]},${d[1]},${d[2]}`)
+      if (w.colores.length < 90) requestAnimationFrame(leer)
+    }
+    requestAnimationFrame(leer)
+  })
+  await page.mouse.click(caja.x + caja.width / 2, caja.y + caja.height / 2)
+  await page.waitForTimeout(1600)
+  const colores = await page.evaluate(() => (window as unknown as { colores: string[] }).colores)
+  expect(colores.some((c) => c.startsWith('255,0,0'))).toBe(true)
 })

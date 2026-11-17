@@ -29,6 +29,10 @@ export interface ConexionMotor {
   puntero(x: number | null, y: number, pantallas: PantallasDS, principal: PrincipalDS): Promise<void>
   opcion(clave: string, valor: string): Promise<void>
   reiniciar(): Promise<void>
+  /** Discos del juego y cambiar de disco (PlayStation, v0.38.0) */
+  discos(): Promise<{ total: number; actual: number }>
+  cambiarDisco(indice: number): Promise<boolean>
+  ponerMando(tipo: number): Promise<void>
   descargar(): Promise<void>
   /** Ritmo propio (v0.33.0): solo en el hilo aparte */
   readonly ritmo?: RitmoConexion
@@ -78,6 +82,9 @@ class ConexionLocal implements ConexionMotor {
   puntero = async (x: number | null, y: number, pantallas: PantallasDS, principal: PrincipalDS) => this.usar().puntero(x, y, pantallas, principal)
   opcion = async (clave: string, valor: string) => this.usar().opcion(clave, valor)
   reiniciar = async () => this.usar().reiniciar()
+  discos = async () => this.usar().discos()
+  cambiarDisco = async (indice: number) => this.usar().cambiarDisco(indice)
+  ponerMando = async (tipo: number) => this.usar().ponerMando(tipo)
   descargar = async () => {
     this.motor?.descargar()
     this.motor = null
@@ -186,6 +193,9 @@ class ConexionHilo implements ConexionMotor {
   puntero = (x: number | null, y: number, pantallas: PantallasDS, principal: PrincipalDS) => this.h.llamar<void>('puntero', [x, y, pantallas, principal])
   opcion = (clave: string, valor: string) => this.h.llamar<void>('opcion', [clave, valor])
   reiniciar = () => this.h.llamar<void>('reiniciar')
+  discos = () => this.h.llamar<{ total: number; actual: number }>('discos')
+  cambiarDisco = (indice: number) => this.h.llamar<boolean>('cambiarDisco', [indice])
+  ponerMando = (tipo: number) => this.h.llamar<void>('ponerMando', [tipo])
   /** El manejador de eventos de esta partida: al descargar se quita solo si sigue siendo el suyo */
   private miEvento: ((e: EventoRitmo) => void) | null = null
   descargar = () => {

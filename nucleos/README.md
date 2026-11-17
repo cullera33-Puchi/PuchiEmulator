@@ -46,6 +46,8 @@ PCSX ReARMed (v0.37.0, PlayStation) se compila con la receta para Emscripten de 
 
 `puente.c` añade `pf_cargar_ruta` (v0.37.0): carga un juego que ya está en el sistema de ficheros del módulo. No cambia nada para el resto, que no se han recompilado.
 
+`puente.c` añade en la v0.39.0 el control de discos de libretro, en sus dos versiones (`pf_discos`, `pf_disco_actual`, `pf_disco_inicial`, que elige el disco con el que se arranca antes de cargar una lista .m3u, y `pf_cambiar_disco`), y el tipo de mando del puerto 1 (`pf_mando`, para el DualShock de PlayStation). Solo se ha recompilado PCSX ReARMed; el resto no lo usa. Al cambiar el tipo de mando, PCSX ReARMed lo «reenchufa»: durante 32 imágenes no contesta.
+
 El código fuente de cada núcleo está en el repositorio y el commit indicados; el binario se ha compilado de él sin cambios, con `nucleos/compilar.sh`.
 
 ## Compilar
