@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.42.5",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Arreglado: después de un guardado rápido, la imagen del juego podía quedarse parada aunque el juego siguiera en marcha."
+    ]
+  },
+  {
     "version": "0.42.4",
     "fecha": "17/11/2026",
     "cambios": [

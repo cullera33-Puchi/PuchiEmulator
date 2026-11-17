@@ -56,16 +56,28 @@ export abstract class Pintor {
     return { imagen, mini, ancho: w, alto: h }
   }
 
-  /** Captura en PNG del fotograma, para los estados guardados. */
+  /**
+   * Captura en PNG del fotograma, para los estados guardados. En su propio lienzo (v0.42.5): con el
+   * ritmo propio, el hilo sigue pintando fotogramas mientras se codifica el PNG, y compartir el lienzo
+   * de la imagen (dibujar en él y pedir el PNG mientras se transfieren fotogramas) podía dejar la
+   * imagen parada en el iPhone tras un guardado rápido, con el juego y el sonido en marcha.
+   */
   async captura(datos: Uint8Array, ancho: number, alto: number, d: Disposicion): Promise<ArrayBuffer | undefined> {
     try {
       const { ancho: w, alto: h } = recolocar(ancho, alto, d) ? tamanoSalida(d.pantallas) : { ancho, alto }
-      if (this.salida.width !== w || this.salida.height !== h) {
-        this.salida.width = w
-        this.salida.height = h
+      const lienzo = new OffscreenCanvas(w, h)
+      const contexto = lienzo.getContext('2d', { alpha: false })
+      if (!contexto) return undefined
+      const imagen = new ImageData(ancho, alto)
+      imagen.data.set(datos.subarray(0, ancho * alto * 4))
+      if (recolocar(ancho, alto, d)) {
+        const fuente = new OffscreenCanvas(ancho, alto)
+        fuente.getContext('2d')!.putImageData(imagen, 0, 0)
+        componer(contexto, fuente, d.pantallas, d.principal, null)
+      } else {
+        contexto.putImageData(imagen, 0, 0)
       }
-      this.dibujar(datos, ancho, alto, d, w, h)
-      const blob = await this.salida.convertToBlob({ type: 'image/png' })
+      const blob = await lienzo.convertToBlob({ type: 'image/png' })
       return await blob.arrayBuffer()
     } catch {
       return undefined

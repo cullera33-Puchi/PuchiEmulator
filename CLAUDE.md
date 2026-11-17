@@ -174,6 +174,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; FCEUmm
 
 ## Estado
 
+- v0.42.5 (17/11/2026): Super Nintendo «colgada» tras un guardado rápido (registro del usuario: el juego seguía a 60 imágenes por segundo, lo parado era la imagen). La captura de los estados va en su propio lienzo y no en el de la imagen, que el hilo sigue usando con el ritmo propio. Sin poder reproducirlo aquí: pendiente de que el usuario confirme que no se repite. 187 pruebas unitarias y 77 de navegador.
 - v0.42.4 (17/11/2026): botones movidos que pisaban la fila de herramientas en la DS (captura del usuario): las piezas de la mitad de abajo guardan su distancia al borde de abajo. En ese juego, el usuario tiene que tocar «Restablecer» en el editor (se movieron cuando la fila no se veía). 187 pruebas unitarias y 77 de navegador.
 - v0.42.3 (17/11/2026): registro del usuario con un juego real de PlayStation (arranca bien; la imagen se encogía al cambiar el juego de resolución): PlayStation siempre a 4:3. Ahorro automático con margen (32 y 45 refrescos; con 40 se encendía y apagaba en la DS). Un fallo de melonDS al seguir donde se dejó, salvado por la protección de la v0.13.1, sin reproducirse aquí: pendiente de ver si se repite.
 - v0.42.2 (17/11/2026): con el menú abierto en la ventana corta de iOS 26 asomaba el color del tema por debajo (captura del usuario con GBA): el fondo de la página toma el color de la hoja mientras hay una abierta en el juego.

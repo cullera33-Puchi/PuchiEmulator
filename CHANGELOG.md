@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.42.5 (17/11/2026)
+
+A partir del registro del usuario («la Super Nintendo se ha colgado»): guardado rápido a las 22:36:30 y, 20 segundos después, el juego cerrado. El registro muestra el juego a 60 fotogramas y 60 imágenes por segundo hasta el final, sin fallos: el núcleo seguía en marcha y lo que se paraba era la imagen.
+
+- Causa probable: la captura de cada estado (la miniatura de la ranura) se dibujaba en el mismo lienzo que la imagen del juego y se codificaba en PNG mientras, con el ritmo propio (v0.41.0, en todas las consolas), el hilo seguía pintando y transfiriendo fotogramas desde ese lienzo. Ahora la captura va en su propio lienzo 2D (`captura` en `Pintor`), con la misma colocación de las pantallas de DS. Afectaba también al punto de control (cada 5 minutos) y a los estados de las ranuras.
+- No se reproduce en el navegador de pruebas (Chromium), así que el arreglo no se puede comprobar aquí: pendiente de que el usuario confirme que no se repite. La prueba de guardar y cargar rápido comprueba ahora que la imagen sigue al juego después de varios guardados seguidos.
+- 187 pruebas unitarias y 77 de navegador.
+
 ## 0.42.4 (17/11/2026)
 
 A partir de una captura del usuario con un juego de DS en vertical (modo para juegos de rol y botones movidos con el editor): la cruceta y los botones pisaban la fila de herramientas.
