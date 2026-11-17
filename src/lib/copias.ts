@@ -203,8 +203,13 @@ export function nombreArchivo(fecha = new Date()): string {
 }
 
 /** Comparte el archivo con la hoja de compartir del iPhone (Guardar en Archivos) o lo descarga. */
-export async function compartirArchivo(contenido: string, nombre: string): Promise<'compartido' | 'descargado' | 'cancelado'> {
-  const fichero = new File([contenido], nombre, { type: 'application/json' })
+export function compartirArchivo(contenido: string, nombre: string): Promise<'compartido' | 'descargado' | 'cancelado'> {
+  return compartirFichero(contenido, nombre, 'application/json')
+}
+
+/** Cualquier fichero (v0.38.0: la partida de un juego, en binario) por la hoja de compartir o descargado. */
+export async function compartirFichero(contenido: BlobPart, nombre: string, tipo: string): Promise<'compartido' | 'descargado' | 'cancelado'> {
+  const fichero = new File([contenido], nombre, { type: tipo })
   if (navigator.canShare?.({ files: [fichero] })) {
     try {
       await navigator.share({ files: [fichero], title: nombre })

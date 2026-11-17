@@ -2067,3 +2067,88 @@ test('PlayStation: BIOS propia opcional en Ajustes, solo de 512 KB (v0.37.0)', a
   await page.getByRole('alertdialog').getByRole('button', { name: 'Quitar', exact: true }).click()
   await expect(page.getByTestId('bios')).toContainText('La libre del núcleo')
 })
+
+test('en vertical, L y R no pisan guardar, cargar, el menú, el avance rápido, la cruceta ni los botones (v0.38.0)', async ({ page }) => {
+  await page.goto('/')
+  for (const [fichero, consola, nombre] of [
+    ['prueba.sfc', 'Super Nintendo', /prueba, Super Nintendo/],
+    ['prueba-psx.chd', 'PlayStation', /prueba-psx, PlayStation/],
+  ] as const) {
+    await page.goto('/')
+    await selector(page).setInputFiles(rom(fichero))
+    await expect(page.getByText(/añadido|ya estaba/i)).toBeVisible({ timeout: 15_000 })
+    await entrar(page, consola)
+    await page.getByRole('button', { name: nombre }).first().click()
+    await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+    const cajas = async (selector: string) => page.locator(selector).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width, h: r.height })))
+    const hombros = await cajas('.mando .hombro')
+    // Ni las herramientas ni la cruceta y los botones
+    const herramientas = [...(await cajas('.herramientas .herramienta, .boton-menu')), ...(await cajas('.mando .cruceta, .botones-accion .control'))]
+    expect(hombros.length).toBe(2)
+    for (const a of hombros)
+      for (const b of herramientas) {
+        const cruzan = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+        expect(cruzan, `${consola}: un hombro pisa otra pieza`).toBe(false)
+      }
+    await page.getByRole('button', { name: 'Menú' }).click()
+    await page.getByRole('button', { name: 'Salir' }).click()
+  }
+})
+
+test('partida como fichero: importar un .sav, arrancar con ella, exportarla y deshacer (v0.38.0)', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  // Una partida de otro emulador con la marca que busca la ROM de prueba (rojo al arrancar)
+  const sav = Buffer.alloc(32 * 1024)
+  sav[0] = 0x5a
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  await page.getByRole('button', { name: 'Importar una partida desde Archivos' }).click()
+  await page.getByTestId('selector-partida').setInputFiles({ name: 'De otro emulador.sav', mimeType: 'application/octet-stream', buffer: sav })
+  await page.waitForTimeout(500)
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Importar' }).click()
+  await expect(page.getByText('Partida importada')).toBeVisible()
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(() => tono(page), { timeout: 10_000 }).toBe('rojo')
+  await page.getByRole('button', { name: 'Guardar rápido' }).click()
+  await expect(page.getByText('Guardado rápido', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: 'Salir' }).click()
+
+  // Exportarla: el mismo contenido, con la extensión de la consola
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  const descarga = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Exportar la partida (.sav)' }).click()
+  const d = await descarga
+  expect(d.suggestedFilename()).toBe('prueba.sav')
+  const exportada = readFileSync((await d.path())!)
+  expect(exportada[0]).toBe(0x5a)
+  expect(exportada.length).toBe(32 * 1024)
+})
+
+test('almacenamiento por juego: lo que ocupa, borrar sus estados y deshacer (v0.38.0)', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await page.getByRole('button', { name: 'Guardar rápido' }).click()
+  await expect(page.getByText('Guardado rápido', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: 'Salir' }).click()
+  await page.getByRole('button', { name: 'Consolas' }).click()
+
+  await page.getByRole('button', { name: 'Ajustes' }).click()
+  await page.getByRole('button', { name: /^Almacenamiento/ }).click()
+  const fila = page.getByTestId('ocupacion').getByRole('button', { name: /^prueba, Game Boy Advance/ })
+  await expect(fila).toBeVisible()
+  await expect(fila).toContainText(/estado/)
+  await fila.click()
+  await expect(page.getByTestId('ocupacion-juego')).toContainText('Estados guardados')
+  await page.getByRole('button', { name: 'Borrar los estados guardados' }).click()
+  await page.waitForTimeout(500)
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Borrar estados' }).click()
+  await expect(page.getByText(/estados? borrados?/)).toBeVisible()
+  await expect(fila).not.toContainText(/estado/)
+  await page.getByRole('button', { name: 'Deshacer' }).click()
+  await expect(fila).toContainText(/estado/)
+})

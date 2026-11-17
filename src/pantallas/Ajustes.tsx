@@ -14,7 +14,9 @@ import { temaPara } from '../lib/temas'
 import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
 import { aplicarTema, cambiarAjustes, useAjustes, type Ajustes as TipoAjustes } from '../lib/ajustes'
 import { problemaBiosPsx } from '../lib/bios'
-import { espacioUsado, guardarBiosPsx, listarJuegos, listarPartidas, pedirPersistencia, sustituirPartidas } from '../lib/almacen'
+import { quitarDeLaBiblioteca } from '../lib/biblioteca'
+import { guardadoSinJuego, ocupacionPorJuego, type OcupacionJuego } from '../lib/ocupacion'
+import { borrarEstadosDe, espacioUsado, guardarBiosPsx, listarJuegos, ocupacionGuardada, restaurarEstados, listarPartidas, pedirPersistencia, sustituirPartidas } from '../lib/almacen'
 import { ErrorArchivo, exportarCopia, importarArchivo } from '../lib/copias'
 import { cuando, plural, tamano } from '../lib/formato'
 import { borrarRegistro, copiarTexto, leerRegistro, registrar, suscribirRegistro, textoRegistro } from '../lib/registro'
@@ -68,6 +70,9 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   const [persistente, setPersistente] = useState<boolean | null>(null)
   const [copias, setCopias] = useState<MetaCopia[] | null>(null)
   const [copiaElegida, setCopiaElegida] = useState<MetaCopia | null>(null)
+  // Almacenamiento por juego (v0.38.0): se calcula al abrir el apartado
+  const [ocupacion, setOcupacion] = useState<{ juegos: OcupacionJuego[]; sinJuego: { juegos: number; bytes: number } } | null>(null)
+  const [ocupacionElegida, setOcupacionElegida] = useState<OcupacionJuego | null>(null)
   const [verRegistro, setVerRegistro] = useState(false)
   const [novedades, setNovedades] = useState<Novedad[] | null>(null)
   const [temaDe, setTemaDe] = useState<Sistema | null>(null)
@@ -187,6 +192,47 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
     } catch {
       avisar('No se ha podido crear la copia')
     }
+  }
+
+  const calcularOcupacion = useCallback(async () => {
+    const [juegos, guardado] = await Promise.all([listarJuegos(), ocupacionGuardada()])
+    setOcupacion({ juegos: ocupacionPorJuego(juegos, guardado), sinJuego: guardadoSinJuego(juegos, guardado) })
+  }, [])
+  useEffect(() => {
+    if (apartado === 'almacenamiento') void calcularOcupacion()
+  }, [apartado, calcularOcupacion])
+
+  const borrarEstadosDeJuego = async (o: OcupacionJuego) => {
+    const ok = await confirmar({
+      titulo: `¿Borrar los estados guardados de «${o.juego.nombre}»?`,
+      mensaje: 'La partida del juego no se toca. Podrás deshacerlo durante unos segundos.',
+      aceptar: 'Borrar estados',
+      destructivo: true,
+    })
+    if (!ok) return
+    setOcupacionElegida(null)
+    const borrados = await borrarEstadosDe(o.juego.id)
+    registrar('info', 'Estados de un juego borrados', { estados: borrados.length })
+    await calcularOcupacion()
+    void espacioUsado().then(setEspacio)
+    avisar(plural(borrados.length, 'estado borrado', 'estados borrados'), {
+      fn: async () => {
+        await restaurarEstados(borrados, [])
+        await calcularOcupacion()
+      },
+    })
+  }
+
+  const quitarJuegoDeAqui = async (o: OcupacionJuego) => {
+    setOcupacionElegida(null)
+    const deshacer = await quitarDeLaBiblioteca(o.juego)
+    await calcularOcupacion()
+    avisar('Juego quitado. La partida se conserva', {
+      fn: async () => {
+        await deshacer()
+        await calcularOcupacion()
+      },
+    })
   }
 
   // BIOS de PlayStation (v0.37.0): opcional, solo en el iPhone
@@ -549,6 +595,34 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
               </div>
             </div>
             <p className="pie-grupo">Instala la app en la pantalla de inicio (Compartir, Añadir a pantalla de inicio): así Safari no borra los datos aunque pases semanas sin jugar.</p>
+
+            <p className="cabecera-grupo mt-8">Por juego</p>
+            <div className="lista" data-testid="ocupacion">
+              {!ocupacion && <p className="fila text-zinc-500">Calculando…</p>}
+              {ocupacion?.juegos.length === 0 && <p className="fila text-zinc-500">Ningún juego</p>}
+              {ocupacion?.juegos.map((o, i) => (
+                <div key={o.juego.id}>
+                  {i > 0 && <div className="separador" />}
+                  <button className="fila gap-3" onClick={() => setOcupacionElegida(o)} aria-label={`${o.juego.nombre}, ${SISTEMAS[o.juego.sistema].nombre}, ${tamano(o.total)}`}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{o.juego.nombre}</span>
+                      <span className="block text-[13px] text-zinc-500">
+                        {SISTEMAS[o.juego.sistema].nombre}
+                        {o.estados ? `, ${plural(o.estados, 'estado', 'estados')}` : ''}
+                      </span>
+                    </span>
+                    <span className="text-zinc-500">{tamano(o.total)}</span>
+                    <ChevronRight size={18} className="text-zinc-400" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="pie-grupo">
+              Lo que ocupa cada juego: el juego, sus estados guardados y su partida.
+              {ocupacion?.sinJuego.juegos
+                ? ` Además, ${tamano(ocupacion.sinJuego.bytes)} de partidas y estados de ${plural(ocupacion.sinJuego.juegos, 'juego quitado', 'juegos quitados')}, que se conservan por si los vuelves a añadir.`
+                : ''}
+            </p>
           </>
         )
       case 'aspecto':
@@ -692,6 +766,43 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
               Borrar esta copia
             </button>
           </div>
+        )}
+      </Hoja>
+
+      <Hoja abierta={!!ocupacionElegida} alCerrar={() => setOcupacionElegida(null)} titulo={ocupacionElegida?.juego.nombre}>
+        {ocupacionElegida && (
+          <>
+            <div className="lista" data-testid="ocupacion-juego">
+              <div className="fila justify-between">
+                <span>{ocupacionElegida.juego.disco ? 'Disco' : 'Juego'}</span>
+                <span className="text-zinc-500">{tamano(ocupacionElegida.bytesJuego)}</span>
+              </div>
+              <div className="separador" />
+              <div className="fila justify-between">
+                <span>Estados guardados</span>
+                <span className="text-zinc-500">{ocupacionElegida.estados ? `${plural(ocupacionElegida.estados, 'estado', 'estados')}, ${tamano(ocupacionElegida.bytesEstados)}` : 'Ninguno'}</span>
+              </div>
+              <div className="separador" />
+              <div className="fila justify-between">
+                <span>Partida</span>
+                <span className="text-zinc-500">{ocupacionElegida.bytesPartida ? tamano(ocupacionElegida.bytesPartida) : 'Ninguna'}</span>
+              </div>
+            </div>
+            <div className="lista mt-6">
+              {ocupacionElegida.estados > 0 && (
+                <>
+                  <button className="fila text-red-600 dark:text-red-500" onClick={() => void borrarEstadosDeJuego(ocupacionElegida)}>
+                    Borrar los estados guardados
+                  </button>
+                  <div className="separador" />
+                </>
+              )}
+              <button className="fila text-red-600 dark:text-red-500" onClick={() => void quitarJuegoDeAqui(ocupacionElegida)}>
+                Quitar de la biblioteca
+              </button>
+            </div>
+            <p className="pie-grupo">Quitar el juego conserva su partida y sus estados: si lo vuelves a añadir, los encuentra.</p>
+          </>
         )}
       </Hoja>
 

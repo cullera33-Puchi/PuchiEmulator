@@ -152,6 +152,20 @@ Pedido por el usuario, con prioridad para el rendimiento y la usabilidad y el ma
 | 17 | Nintendo 64 (necesita el 5 y el 6) | Alto | Hecha en pruebas (v0.32.0, fila 7 de arriba) |
 | 18 | Ocultar los botones táctiles al conectar un mando Bluetooth | Bajo | Al final, por decisión del usuario |
 | 19 | Atajos y botones configurables en el mando Bluetooth | Medio | Al final, por decisión del usuario |
+| 20 | Pasada de validación en el iPhone con una lista de 15 minutos | Bajo | Propuesta el 17/11/2026, sin marcar |
+| 21 | Pruebas de navegador también con el motor de Safari (WebKit) en GitHub | Bajo | Propuesta el 17/11/2026, sin marcar |
+| 22 | Almacenamiento por juego: lo que ocupa cada uno, borrar sus estados y quitarlo | Bajo a medio | Hecha (v0.38.0) |
+| 23 | PlayStation: varios discos por juego (juntos por el nombre, cambio desde el menú) y PBP | Medio | Marcada por el usuario el 17/11/2026 |
+| 24 | PlayStation: palancas analógicas, por juego y opcionales (la izquierda en la cruceta, la derecha sobre los botones, L3 y R3) | Medio | Marcada por el usuario el 17/11/2026 |
+| 25 | Ritmo propio en la DS y después en el resto | Medio | Propuesta, sin marcar |
+| 26 | Exportar e importar la partida de un juego (.sav y .srm) | Bajo | Hecha (v0.38.0) |
+| 27 | En vertical, la fila de guardar y menú no pisa L y R | Bajo | Hecha (v0.38.0) |
+| 28 | «Ahorrar batería» general y tiempo en avance rápido en el registro | Bajo | Propuesta, sin marcar |
+| 29 | N64: parones al preparar gráficos nuevos | Medio | Marcada por el usuario el 17/11/2026 |
+| 30 | Mega CD con Genesis Plus GX (necesita BIOS del usuario) | Medio | Propuesta, sin marcar |
+| 31 | Arcade y Neo Geo | Medio | Propuesta, sin marcar |
+
+GameCube (consulta del usuario del 17/11/2026): descartada por ahora. Sin recompilador, el intérprete de WebAssembly no da el rendimiento (la N64 ya usa unos 4,5 ms de 20 por fotograma y la GameCube pide varias veces más), y necesitaría varios hilos, WebGPU y discos de 1,4 GB.
 
 Orden de las consolas nuevas acordado con el usuario el 15/11/2026: NES; Mega Drive, Master System y Game Gear; PC Engine; PlayStation 1; Nintendo 64. Descartadas por rendimiento (necesitan varios hilos): Saturn, Dreamcast, PSP y 3DS.
 
@@ -159,6 +173,7 @@ Las licencias de Snes9x y Genesis Plus GX solo permiten uso no comercial; FCEUmm
 
 ## Estado
 
+- v0.38.0 (17/11/2026): primera entrega de las mejoras marcadas por el usuario el 17/11/2026 (22, 23, 24, 26, 27 y 29): en vertical, L y R nunca por encima de la fila de herramientas (27); almacenamiento por juego en Ajustes, con borrar estados y quitar (22); exportar e importar la partida de cada juego como fichero .sav o .srm (26). 178 pruebas unitarias y 71 de navegador. Siguen la 23 y la 24 (PlayStation) y la 29 (N64).
 - v0.37.3 (17/11/2026): rebobinar desactivado por decisión del usuario (ajuste interno `rebobinado`, sin opción en pantalla; el código sigue) y el inicio y la lista de Ajustes siempre en su propia capa de pantalla, con las imágenes decodificadas al pintarlas, por el parpadeo al volver deslizando. 173 pruebas unitarias y 68 de navegador. Pendiente de que el usuario confirme el parpadeo.
 - v0.37.2 (17/11/2026): parpadeo al volver atrás, otra vez: al soltar el gesto, el cambio de pantalla se aplica antes de quitar sus estilos (`flushSync`), el inicio espera y arranca en la misma posición (30 %) y sin oscurecer con `filter`. Medido el trabajo con Super Nintendo y PlayStation (hilo principal un 3 %, el del juego un 6 %) por el calor que comenta el usuario. 173 pruebas unitarias y 68 de navegador. Pendiente: que el usuario confirme el parpadeo y elija qué hacer con el calor.
 - v0.37.1 (16/11/2026): parpadeo al volver atrás, informado otra vez por el usuario: la pantalla de debajo de una apilada ya no se oculta con `visibility: hidden` (iOS dejaba de tenerla pintada y la repintaba al volver); queda pintada y tapada. 173 pruebas unitarias y 68 de navegador. Pendiente de que el usuario confirme que ya no parpadea.

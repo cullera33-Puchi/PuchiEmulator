@@ -342,6 +342,61 @@ export async function restaurarEstados(previos: Estado[], nuevos: (readonly [str
   await terminar(tx)
 }
 
+/**
+ * Lo que ocupan los estados y la partida de cada juego (v0.38.0, Ajustes, Almacenamiento). Recorre
+ * los almacenes con un cursor, de uno en uno: los estados de N64 pesan 16 MB y no se cargan todos a
+ * la vez.
+ */
+export async function ocupacionGuardada(): Promise<Map<string, { estados: number; bytesEstados: number; partida: number }>> {
+  const bd = await abrir()
+  const mapa = new Map<string, { estados: number; bytesEstados: number; partida: number }>()
+  const de = (id: string) => {
+    let o = mapa.get(id)
+    if (!o) mapa.set(id, (o = { estados: 0, bytesEstados: 0, partida: 0 }))
+    return o
+  }
+  const recorrer = (almacen: 'estados' | 'partidas', alVer: (v: Estado | Partida) => void) =>
+    new Promise<void>((resolver, rechazar) => {
+      const peticion = bd.transaction(almacen).objectStore(almacen).openCursor()
+      peticion.onsuccess = () => {
+        const c = peticion.result
+        if (!c) return resolver()
+        alVer(c.value)
+        c.continue()
+      }
+      peticion.onerror = () => rechazar(peticion.error)
+    })
+  await recorrer('estados', (v) => {
+    const e = v as Estado
+    const o = de(e.id)
+    o.estados++
+    o.bytesEstados += e.datos.byteLength + (e.captura?.byteLength ?? 0)
+  })
+  await recorrer('partidas', (v) => {
+    const p = v as Partida
+    de(p.id).partida = p.datos.byteLength + (p.rtc?.byteLength ?? 0)
+  })
+  return mapa
+}
+
+/** Borra los estados de un juego (la partida no) y los devuelve, para «Deshacer» (v0.38.0). */
+export async function borrarEstadosDe(id: string): Promise<Estado[]> {
+  const estados = await estadosDe(id)
+  const bd = await abrir()
+  const tx = bd.transaction('estados', 'readwrite')
+  for (const e of estados) tx.objectStore('estados').delete(e.clave)
+  await terminar(tx)
+  return estados
+}
+
+/** Borra solo la partida de un juego, sin sus estados («Deshacer» al importar una, v0.38.0). */
+export async function borrarSoloPartida(id: string): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction('partidas', 'readwrite')
+  tx.objectStore('partidas').delete(id)
+  await terminar(tx)
+}
+
 /** Borra la partida guardada y todos los estados de un juego. */
 export async function borrarProgreso(id: string): Promise<void> {
   const estados = await estadosDe(id)

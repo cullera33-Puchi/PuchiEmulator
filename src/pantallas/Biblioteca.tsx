@@ -16,28 +16,29 @@ import { altavoz } from '../emulador/audio'
 import { cambiarAjustes, leerAjustes, useAjustes } from '../lib/ajustes'
 import {
   actualizarJuego,
-  borrarCaratula,
+  borrarEstado,
   borrarProgreso,
+  borrarSoloPartida,
   estadosDe,
-  guardarCaratula,
-  guardarJuego,
+  guardarPartida,
   importarProgreso,
   leerCaratula,
   leerEstado,
   leerNota,
   leerPartida,
-  leerRomGuardada,
   listarCaratulas,
   listarJuegos,
   listarSesiones,
-  quitarJuego,
   type EstadoJuego,
   type Juego,
 } from '../lib/almacen'
-import { conEstado as estadoNuevo, ESTADOS, estadoDe, NOMBRE_ESTADO, prepararBiblioteca, resumenEstados, type OrdenBiblioteca } from '../lib/biblioteca'
+import { conEstado as estadoNuevo, ESTADOS, estadoDe, NOMBRE_ESTADO, prepararBiblioteca, quitarDeLaBiblioteca, resumenEstados, type OrdenBiblioteca } from '../lib/biblioteca'
 import { duracion, porJuego } from '../lib/estadisticas'
 import { cuando, cuandoCorto, plural, tamano } from '../lib/formato'
 import { vibrar } from '../lib/vibracion'
+import { compartirFichero } from '../lib/copias'
+import { avisoTamano, extensionPartida, nombreFicheroPartida, problemaPartida } from '../lib/partidaFichero'
+import { crearCopia } from '../lib/seguridad'
 import { registrar } from '../lib/registro'
 import { CONSOLAS_APP, SISTEMAS, type Consola } from '../lib/sistemas'
 
@@ -141,7 +142,7 @@ function Ficha({ juego, caratula, tiempo, alJugar, alOpciones }: { juego: Juego;
 }
 
 export function Biblioteca({ consola, alJugar, alVolver }: Props) {
-  const { avisar } = useInterfaz()
+  const { avisar, confirmar } = useInterfaz()
   const [juegos, setJuegos] = useState<Juego[] | null>(null)
   const [conEstado, setConEstado] = useState<Set<string>>(new Set())
   const [caratulas, setCaratulas] = useState<Map<string, string>>(new Map())
@@ -218,17 +219,72 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
   }
 
   const quitar = async (j: Juego) => {
-    const [rom, caratula] = await Promise.all([leerRomGuardada(j.id), leerCaratula(j.id)])
-    await quitarJuego(j.id)
-    await borrarCaratula(j.id)
+    const deshacer = await quitarDeLaBiblioteca(j)
     setDetalle(null)
-    registrar('info', 'Juego quitado de la biblioteca')
     await recargar()
     avisar('Juego quitado. La partida se conserva', {
       fn: async () => {
-        if (rom || j.disco) await guardarJuego(j, rom)
-        if (caratula) await guardarCaratula(caratula)
-        registrar('info', 'Quitar juego deshecho')
+        await deshacer()
+        await recargar()
+      },
+    })
+  }
+
+  /* ---- La partida como fichero (v0.38.0) ---- */
+
+  const exportarPartida = async (j: Juego) => {
+    const p = await leerPartida(j.id)
+    if (!p) return
+    const r = await compartirFichero(p.datos, nombreFicheroPartida(j), 'application/octet-stream')
+    registrar('info', 'Partida de un juego exportada', { r, bytes: p.datos.byteLength })
+    if (r === 'descargado') avisar('Partida descargada')
+  }
+
+  const selectorPartida = useRef<HTMLInputElement>(null)
+  const importandoEn = useRef<Juego | null>(null)
+  const elegirPartida = (j: Juego) => {
+    importandoEn.current = j
+    selectorPartida.current?.click()
+  }
+  const importarPartida = async (f: File | undefined) => {
+    const j = importandoEn.current
+    if (selectorPartida.current) selectorPartida.current.value = ''
+    if (!f || !j) return
+    const problema = problemaPartida(f.size)
+    if (problema) {
+      avisar(problema)
+      return
+    }
+    const [anterior, auto] = await Promise.all([leerPartida(j.id), leerEstado(j.id, 'auto')])
+    const aviso = avisoTamano(f.size, anterior?.datos.byteLength)
+    const ok = await confirmar({
+      titulo: `¿Usar «${f.name}» como partida de «${j.nombre}»?`,
+      mensaje: [
+        aviso,
+        anterior ? 'Sustituye a la partida actual (antes se hace una copia de seguridad).' : null,
+        auto ? 'El juego arrancará desde el principio con esta partida, no donde lo dejaste.' : null,
+        'Podrás deshacerlo durante unos segundos.',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      aceptar: 'Importar',
+    })
+    if (!ok) return
+    // Copia de seguridad de todas las partidas, como al recuperar una copia
+    await crearCopia('previa').catch(() => undefined)
+    const datos = await f.arrayBuffer()
+    await guardarPartida({ id: j.id, datos, rtc: anterior?.rtc, fecha: Date.now() })
+    // El estado de seguir donde se dejó lleva dentro la partida anterior: al cargarlo, el juego volvería
+    // a ella y la guardaría encima de la importada. Se aparta (vuelve con «Deshacer»)
+    if (auto) await borrarEstado(j.id, 'auto')
+    setDetalle(null)
+    registrar('info', 'Partida de un juego importada', { bytes: datos.byteLength, sustituye: !!anterior })
+    await recargar()
+    avisar('Partida importada', {
+      fn: async () => {
+        if (!anterior) await borrarSoloPartida(j.id)
+        await importarProgreso(anterior ? [anterior] : [], auto ? [auto] : [])
+        registrar('info', 'Importar partida deshecho')
         await recargar()
       },
     })
@@ -435,6 +491,22 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
               <Dato titulo="Tiempo jugado" valor={detalle.tiempo?.ms ? `${duracion(detalle.tiempo.ms)} en ${plural(detalle.tiempo.sesiones, 'partida', 'partidas')}` : 'Aún nada'} />
             </div>
 
+            <p className="cabecera-grupo mt-5">Partida en un fichero</p>
+            <div className="lista">
+              {detalle.partida && (
+                <>
+                  <button className="fila text-acento dark:text-acento-oscuro" onClick={() => void exportarPartida(detalle.juego)}>
+                    Exportar la partida (.{extensionPartida(detalle.juego.sistema)})
+                  </button>
+                  <div className="separador" />
+                </>
+              )}
+              <button className="fila text-acento dark:text-acento-oscuro" onClick={() => elegirPartida(detalle.juego)}>
+                Importar una partida desde Archivos
+              </button>
+            </div>
+            <p className="pie-grupo">La partida que guardas dentro del juego, en el formato de la mayoría de emuladores: para llevarla a otro o traerla de otro. Los estados guardados no van en el fichero.</p>
+
             <div className="lista mt-5">
               <button className="fila text-red-600 dark:text-red-500" onClick={() => void quitar(detalle.juego)}>
                 Quitar de la biblioteca
@@ -456,6 +528,8 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
       <Hoja abierta={!!notasDe} alCerrar={() => setNotasDe(null)} titulo={notasDe ? `Notas de ${notasDe.nombre}` : undefined}>
         {notasDe && <EditorNotas juegoId={notasDe.id} />}
       </Hoja>
+
+      <input ref={selectorPartida} type="file" className="hidden" data-testid="selector-partida" onChange={(e) => void importarPartida(e.target.files?.[0])} />
 
       <HojaCaratula juego={eligiendoCaratula} alCerrar={() => setEligiendoCaratula(null)} alCambiar={() => void recargar()} />
     </div>

@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.38.0",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Ajustes, Almacenamiento: cuánto ocupa cada juego, con sus estados, y borrar sus estados o quitarlo desde ahí.",
+      "En las opciones de cada juego: exportar la partida a un fichero o importar la de otro emulador (.sav o .srm).",
+      "En pantallas bajas, L y R ya no se montan sobre guardar, cargar y el menú."
+    ]
+  },
+  {
     "version": "0.37.3",
     "fecha": "17/11/2026",
     "cambios": [

@@ -3,7 +3,7 @@
  * La ROM se copia en el iPhone (IndexedDB) para no tener que elegirla cada vez; el fichero original
  * se queda donde estaba.
  */
-import { guardarJuego, leerJuego, listarJuegos, type EstadoJuego, type Juego } from './almacen'
+import { borrarCaratula, guardarCaratula, guardarJuego, leerCaratula, leerJuego, leerRomGuardada, listarJuegos, quitarJuego, type EstadoJuego, type Juego } from './almacen'
 import { borrarCarpetaDisco, copiarDisco, limpiarDiscosHuerfanos, type GrupoDisco } from './discos'
 import { registrar } from './registro'
 import { CONSOLAS, CONSOLAS_APP, consolaDe, leerRom, nombreDesdeFichero, tituloInterno, type Consola, type Sistema } from './sistemas'
@@ -58,6 +58,22 @@ export async function anadirDisco(g: GrupoDisco, alProgreso?: (fraccion: number)
     throw e
   }
   return { tipo: 'nuevo', juego }
+}
+
+/**
+ * Quita un juego de la biblioteca (su ROM y su carátula; la partida y los estados se conservan) y
+ * devuelve cómo deshacerlo. El disco de un juego de PlayStation se queda hasta la siguiente apertura.
+ */
+export async function quitarDeLaBiblioteca(j: Juego): Promise<() => Promise<void>> {
+  const [rom, caratula] = await Promise.all([leerRomGuardada(j.id), leerCaratula(j.id)])
+  await quitarJuego(j.id)
+  await borrarCaratula(j.id)
+  registrar('info', 'Juego quitado de la biblioteca')
+  return async () => {
+    if (rom || j.disco) await guardarJuego(j, rom)
+    if (caratula) await guardarCaratula(caratula)
+    registrar('info', 'Quitar juego deshecho')
+  }
 }
 
 let discosLimpios = false

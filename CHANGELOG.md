@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.38.0 (17/11/2026)
+
+Primera entrega de las mejoras que ha marcado el usuario (22, 23, 24, 26, 27 y 29 de la hoja de ruta): las de la interfaz.
+
+- 27, en vertical, L y R ya no pisan guardar, cargar, el menú ni el avance rápido: los hombros nunca suben por encima de la fila de herramientas y, en pantallas bajas, la cruceta y los botones bajan lo justo (hasta 26 puntos) para dejarles sitio. En un iPhone 17 no cambia nada (ya cabían); pasaba en pantallas más bajas, como la del navegador de pruebas. Prueba de navegador que mide que ningún hombro pisa otra pieza, en Super Nintendo y PlayStation (con el CSS anterior, falla).
+- 22, almacenamiento por juego (Ajustes, Almacenamiento): cada juego con lo que ocupa (el juego o el disco, sus estados y su partida), de más a menos, y lo guardado de juegos quitados. Desde cada uno, borrar sus estados (la partida no) o quitarlo de la biblioteca, las dos con «Deshacer». Los estados se recorren de uno en uno (`ocupacionGuardada`), sin cargarlos todos. `quitarDeLaBiblioteca` es ahora una sola función para la biblioteca y Ajustes.
+- 26, la partida como fichero (opciones de cada juego, «Partida en un fichero»): exportarla (.sav en Game Boy, GBA y DS; .srm en el resto, el formato de RetroArch y de la mayoría de emuladores) e importar una desde Archivos. Antes de importar se hace una copia de seguridad; si el tamaño no coincide con la partida actual, se avisa. El estado de seguir donde se dejó se aparta, porque lleva dentro la partida anterior y, al cargarlo, el juego la guardaría encima de la importada. Todo con «Deshacer».
+- Pruebas: 178 unitarias y 71 de navegador (nuevas: ocupación por juego, nombre y validación de la partida; solape en vertical, importar y exportar una partida de GBA que la ROM de prueba reconoce, y borrar estados con «Deshacer»).
+
 ## 0.37.3 (17/11/2026)
 
 Dos peticiones del usuario: el parpadeo al volver deslizando sigue («se ven las carátulas de fondo y desaparecen») y desactivar el rebobinado, que no usa, sin quitarlo del código.
