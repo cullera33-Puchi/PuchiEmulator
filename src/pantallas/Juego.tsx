@@ -92,6 +92,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   // Mando de este juego (modo JRPG) y correr fijo
   const mando = mandoDe(ajustes.mandos, id, sistema)
   const palancasPsx = !!SISTEMAS[sistema].psx && mando.palancas
+  const esMgba = SISTEMAS[sistema].nucleo === 'mgba'
   // Al activar o quitar las palancas con el juego abierto, el mando cambia en marcha (v0.38.0)
   useEffect(() => {
     void sesion.current?.ponerPalancasPsx(palancasPsx)
@@ -209,6 +210,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           ritmo: creada.ritmoPropio ? 'propio' : 'pantalla',
           ...(creada.pintorMs ? { pintorMs: { webgl: Math.round(creada.pintorMs.webgl * 100) / 100, '2d': Math.round(creada.pintorMs['2d'] * 100) / 100 } } : {}),
           ...(creada.motivoLocal ? { motivo: creada.motivoLocal } : {}),
+          // Nintendo 64: si había lista de sombreadores de la vez anterior (v0.40.0)
+          ...(creada.juego.sistema === 'n64' ? { sombreadores: creada.sombreadoresAlAbrir > 0 } : {}),
           ms: { leer: msLeer, ...creada.tiempos, total: Math.round(performance.now() - t0) },
         })
         if (creada.motivoLocal && ajustesRef.current.emulacionEnHilo !== false) registrar('aviso', 'La emulación va en el hilo principal', creada.motivoLocal)
@@ -245,12 +248,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     // En la app instalada, iOS deja a veces una franja abajo con el fondo de la página: del color del tema
     document.documentElement.style.background = tema.abajo
     document.body.style.background = tema.abajo
-    sesion.current?.opcion('mgba_gb_colors', paletaPara(tema, ajustes.paletaGb))
-  }, [tema, ajustes.paletaGb])
+    // Solo a mGBA: en otro núcleo, una opción que no es suya le hace releer todas en mitad de la partida
+    // (v0.40.0; antes el puente no la guardaba porque su lista estaba llena)
+    if (esMgba) sesion.current?.opcion('mgba_gb_colors', paletaPara(tema, ajustes.paletaGb))
+  }, [tema, ajustes.paletaGb, esMgba])
 
   useEffect(() => {
-    sesion.current?.opcion('mgba_color_correction', controles.coloresConsola ? 'Auto' : 'OFF')
-  }, [controles.coloresConsola])
+    if (esMgba) sesion.current?.opcion('mgba_color_correction', controles.coloresConsola ? 'Auto' : 'OFF')
+  }, [controles.coloresConsola, esMgba])
 
   // Segundo plano: pausa y guardado
   useEffect(() => {

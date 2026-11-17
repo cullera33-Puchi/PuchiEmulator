@@ -1,3 +1,19 @@
+diff --git a/GLideN64/src/Combiner.cpp b/GLideN64/src/Combiner.cpp
+index 7cadc5e..1185a55 100644
+--- a/GLideN64/src/Combiner.cpp
++++ b/GLideN64/src/Combiner.cpp
+@@ -302,6 +302,11 @@ void CombinerInfo::setCombine(u64 _mux )
+ 		m_pCurrent = Combiner_Compile(key);
+ 		m_pCurrent->update(true);
+ 		m_combiners[m_pCurrent->getKey()] = m_pCurrent;
++		// PuchiEmulator: la lista de combinadores se escribe en cuanto sale uno nuevo, no solo al
++		// descargar el juego (en el iPhone la app se cierra sin avisar). La app la guarda por juego y
++		// la deja antes de cargar, para compilarlos al abrir y no en mitad de la partida
++		if (config.generalEmulation.enableShadersStorage != 0)
++			gfxContext.saveShadersStorage(m_combiners);
+ 	}
+ 	m_bChanged = true;
+ }
 diff --git a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp b/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp
 index ffbcde6..59a5e01 100644
 --- a/GLideN64/src/Graphics/OpenGLContext/opengl_BufferManipulationObjectFactory.cpp

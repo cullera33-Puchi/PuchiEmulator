@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.40.0 (17/11/2026)
+
+Última de las mejoras marcadas por el usuario: 29, los parones de la Nintendo 64 al preparar gráficos nuevos (en los registros, fotogramas sueltos de 83 a 90 ms).
+
+- Lista de sombreadores por juego: GLideN64 prepara un sombreador cada vez que el juego pide una combinación de colores nueva, y eso se nota como un parón. Ahora el núcleo apunta cada combinación en una lista (`EnableShadersStorage` y parche en `CombinerInfo::setCombine`, porque el núcleo solo la escribía al descargar el juego y en el iPhone la app se cierra sin avisar). La app la recoge cada 10 segundos de juego y al salir (`sombreadoresSiCambian` en el motor, `guardarSombreadores` en el almacén, con la clave `sombreadores:<juego>` junto a las ROM) y, al volver a abrir el juego, la deja en `/sistema/Mupen64plus/shaders` antes de cargar: el núcleo prepara todos esos sombreadores al arrancar y no en mitad de la partida. La primera vez que se ve cada zona sigue habiendo parones; las siguientes, no. Se borra al quitar el juego y no va en las copias (se rehace sola).
+- Opciones de los núcleos: la app las fija ahora antes de iniciar el núcleo. El puente guarda 64 y, al iniciarse, el núcleo apunta las suyas por defecto; la N64 declara 85 y la PlayStation 76, así que una opción de la app que no estuviera ya en la lista se perdía sin aviso. En la N64 era justo la de los sombreadores (el resto de las nuestras ya estaban). Se probó a subir el límite a 256, pero cambiaba cómo se ve en la N64 una imagen dibujada por el procesador después de cargar un estado (la ROM de prueba lo detecta): se deja en 64 y el puente no cambia.
+- Las opciones de mGBA (paleta de Game Boy y colores como en la consola) solo se mandan a mGBA. Antes iban a todos los núcleos y, en los que tienen pocas opciones, hacían que el núcleo releyera todas en mitad de la partida.
+- Registro: «Rendimiento» lleva `parones` (tandas de más de 50 ms) y «Juego abierto», en la N64, `sombreadores` (si había lista de la vez anterior).
+- Solo se ha recompilado el núcleo de N64 (parche de GLideN64). La prueba de rendimiento fija las opciones antes de iniciar, como la app.
+- Pruebas: 181 unitarias y 74 de navegador (nueva: la lista se guarda tras dibujar con el RDP y está al volver a abrir el juego).
+
 ## 0.39.0 (17/11/2026)
 
 Segunda entrega de las mejoras marcadas por el usuario: PlayStation (23 y 24). Decisiones del usuario: discos juntos por el nombre y palancas por juego, opcionales.

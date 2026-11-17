@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.40.0",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Nintendo 64: menos parones. Cada juego recuerda los gráficos que ha ido preparando y los prepara al abrirse, no en mitad de la partida.",
+      "La primera vez que ves una zona puede haber algún parón; las siguientes, no.",
+      "Los parones quedan anotados en el registro, para seguir afinando."
+    ]
+  },
+  {
     "version": "0.39.0",
     "fecha": "17/11/2026",
     "cambios": [

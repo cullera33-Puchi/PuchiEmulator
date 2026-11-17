@@ -53,6 +53,7 @@ interface Modulo {
     writeFile(ruta: string, datos: Uint8Array): void
     readFile(ruta: string): Uint8Array
     analyzePath(ruta: string): { exists: boolean }
+    readdir(ruta: string): string[]
     mount(tipo: unknown, opciones: { files: File[] }, ruta: string): void
     filesystems: { WORKERFS?: unknown }
   }
@@ -126,6 +127,17 @@ const MEMORIA_RELOJ = 1
  * Núcleos que guardan la partida en un fichero en lugar de en memoria (melonDS): la app lo deja ahí
  * antes de arrancar y lo lee después. El nombre sale de la ruta que el puente da al juego.
  */
+/**
+ * Donde GLideN64 deja la lista de sombreadores (Nintendo 64): su carpeta de caché, que en libretro cuelga
+ * de la carpeta del sistema
+ */
+const CARPETA_SOMBREADORES = '/sistema/Mupen64plus/shaders'
+
+export interface FicheroSombreadores {
+  nombre: string
+  datos: Uint8Array
+}
+
 const PARTIDA_EN_FICHERO: Partial<Record<NombreNucleo, string>> = { melonds: '/sistema/juego.sav' }
 
 /** Opciones fijas de cada núcleo. */
@@ -168,7 +180,7 @@ export const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     genesis_plus_gx_region_detect: 'auto',
   },
   // Nintendo 64 (v0.32.0): GLideN64 con WebGL 2, el RSP de alto nivel y el intérprete con caché (en
-  // WebAssembly no hay recompilador); todo en un hilo y sin guardar los sombreadores en ficheros
+  // WebAssembly no hay recompilador), todo en un hilo
   n64: {
     'mupen64plus-rdp-plugin': 'gliden64',
     'mupen64plus-rsp-plugin': 'hle',
@@ -176,7 +188,9 @@ export const OPCIONES: Record<NombreNucleo, Record<string, string>> = {
     'mupen64plus-ThreadedRenderer': 'False',
     'mupen64plus-43screensize': '640x480',
     'mupen64plus-aspect': '4:3',
-    'mupen64plus-EnableShadersStorage': 'False',
+    // v0.40.0: la lista de sombreadores se guarda por juego y se preparan todos al abrir (parche en
+    // nucleos/n64_webgl.patch: la escribe en cuanto sale uno nuevo)
+    'mupen64plus-EnableShadersStorage': 'True',
     'mupen64plus-pak1': 'memory',
     // v0.32.1: sin copiar la imagen ni la profundidad a la memoria de la consola. La copia de la imagen
     // lee de la tarjeta gráfica con glMapBufferRange, que WebGL no tiene (copiaba memoria cualquiera), y
@@ -304,13 +318,16 @@ export class Nucleo {
       lienzoGL = new OffscreenCanvas(medida ? Number(medida[1]) : gl.ancho, medida ? Number(medida[2]) : gl.alto)
       m.specialHTMLTargets['!lienzo'] = lienzoGL
     }
-    m._pf_iniciar()
     const n = new Nucleo(m, nombre, lienzoGL)
+    // Las opciones de la app, antes de iniciar el núcleo (v0.40.0): el puente guarda 64 y al iniciar el
+    // núcleo apunta las suyas por defecto. La N64 declara 85 y la PlayStation 76: con las de la app
+    // después, las que no estaban ya en la lista se perdían sin aviso (la de los sombreadores de la N64)
+    for (const [k, v] of Object.entries({ ...OPCIONES[nombre], ...extra })) n.opcion(k, v)
+    m._pf_iniciar()
     // Si el iPhone se lleva la tarjeta gráfica (memoria, segundo plano), el núcleo seguiría dibujando en
     // un contexto muerto y la pantalla se quedaría en negro sin aviso: el siguiente fotograma falla con
     // su explicación y la sesión se para (v0.36.0)
     lienzoGL?.addEventListener('webglcontextlost', n.alPerderContexto)
-    for (const [k, v] of Object.entries({ ...OPCIONES[nombre], ...extra })) n.opcion(k, v)
     return n
   }
 
@@ -379,6 +396,32 @@ export class Nucleo {
   /** Tipo de mando del puerto 1 (v0.38.0): RETRO_DEVICE_JOYPAD o una subclase, como el DualShock */
   ponerMando(tipo: number): void {
     this.m._pf_mando?.(tipo)
+  }
+
+  /**
+   * Lista de los sombreadores de GLideN64 (Nintendo 64, v0.40.0): el núcleo la escribe en cuanto prepara
+   * uno nuevo y, si está al cargar el juego, los prepara todos al abrir y no en mitad de la partida
+   */
+  leerSombreadores(): FicheroSombreadores[] {
+    const fs = this.m.FS
+    if (!fs?.analyzePath(CARPETA_SOMBREADORES).exists) return []
+    const lista: FicheroSombreadores[] = []
+    for (const nombre of fs.readdir(CARPETA_SOMBREADORES)) {
+      if (!nombre.endsWith('.keys')) continue
+      try {
+        lista.push({ nombre, datos: fs.readFile(`${CARPETA_SOMBREADORES}/${nombre}`).slice() })
+      } catch {
+        /* sin el fichero, nada */
+      }
+    }
+    return lista
+  }
+
+  escribirSombreadores(lista: FicheroSombreadores[]): void {
+    const fs = this.m.FS
+    if (!fs || !lista.length) return
+    fs.mkdirTree(CARPETA_SOMBREADORES)
+    for (const f of lista) if (/^[\w.-]+\.keys$/.test(f.nombre)) fs.writeFile(`${CARPETA_SOMBREADORES}/${f.nombre}`, f.datos)
   }
 
   /** Deja un fichero en /sistema, donde el núcleo busca la BIOS (PlayStation, v0.37.0) */

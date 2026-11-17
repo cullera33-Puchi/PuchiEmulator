@@ -199,6 +199,28 @@ export async function guardarBiosPsx(datos: ArrayBuffer | null): Promise<void> {
   await terminar(tx)
 }
 
+/**
+ * Lista de sombreadores de un juego de Nintendo 64 (v0.40.0): en el almacén de las ROM, con su propia
+ * clave. Se rehace sola si se pierde; no va en las copias de partidas
+ */
+export interface Sombreadores {
+  nombre: string
+  datos: ArrayBuffer
+}
+
+const claveSombreadores = (id: string) => `sombreadores:${id}`
+
+export function leerSombreadores(id: string): Promise<Sombreadores[] | undefined> {
+  return leer<Sombreadores[]>('roms', claveSombreadores(id))
+}
+
+export async function guardarSombreadores(id: string, lista: Sombreadores[]): Promise<void> {
+  const bd = await abrir()
+  const tx = bd.transaction(['roms'], 'readwrite')
+  tx.objectStore('roms').put(lista, claveSombreadores(id))
+  await terminar(tx)
+}
+
 export function leerRomGuardada(id: string): Promise<ArrayBuffer | undefined> {
   return leer<ArrayBuffer>('roms', id)
 }
@@ -209,6 +231,7 @@ export async function quitarJuego(id: string): Promise<void> {
   const tx = bd.transaction(['juegos', 'roms'], 'readwrite')
   tx.objectStore('juegos').delete(id)
   tx.objectStore('roms').delete(id)
+  tx.objectStore('roms').delete(claveSombreadores(id))
   await terminar(tx)
 }
 

@@ -9,9 +9,20 @@ import type { Disco } from '../lib/discos'
 import { ficherosDelDisco } from '../lib/discos'
 import type { NombreNucleo } from '../lib/sistemas'
 import { mascaraConCorrer, mascaraConTurbo } from './mascaras'
-import { Nucleo } from './nucleo'
+import { Nucleo, type FicheroSombreadores } from './nucleo'
 import { aNucleo, type PantallasDS, type PrincipalDS } from './pantallasDS'
 import { elegirPintor, Pintor2D, type Disposicion, type Imagenes, type Pintor, type PreferenciaPintor, type TipoPintor } from './pintor'
+
+/** Firma corta de la lista de sombreadores, para saber si ha cambiado sin guardarla entera */
+function firmaSombreadores(lista: Uint8Array[]): string {
+  let h = 0
+  let n = 0
+  for (const d of lista) {
+    n += d.length
+    for (let i = 0; i < d.length; i++) h = (Math.imul(h, 31) + d[i]) | 0
+  }
+  return `${n}:${h}`
+}
 
 /** Cada cuántos fotogramas se guarda un estado para rebobinar (unos 6 por segundo) */
 const FOTOGRAMAS_POR_ESTADO = 10
@@ -28,6 +39,8 @@ export interface ConfigMotor {
   /** Ficheros para /sistema antes de cargar (la BIOS de PlayStation del usuario, v0.37.0) */
   sistema?: { nombre: string; datos: ArrayBuffer }[]
   extension: string
+  /** Lista de sombreadores de la Nintendo 64 que se preparan al abrir (v0.40.0) */
+  sombreadores?: { nombre: string; datos: ArrayBuffer }[]
   partida?: { datos: ArrayBuffer; rtc?: ArrayBuffer }
   /** Estado donde se dejó, si se sigue desde ahí */
   estadoAuto?: ArrayBuffer
@@ -98,6 +111,7 @@ export class Motor {
   private contadorFotogramas = 0
   private ultimaPartida: Uint8Array | null = null
   private antesDeCargar: Uint8Array | null = null
+  private ultimosSombreadores = ''
   private audio = new Int16Array(8192)
   /** Nintendo 64: hay un fotograma nuevo en el lienzo de WebGL que aún no se ha enseñado */
   private glNuevo = false
@@ -121,6 +135,7 @@ export class Motor {
     paso('nucleo')
     const partida = c.partida ? { datos: new Uint8Array(c.partida.datos), rtc: c.partida.rtc ? new Uint8Array(c.partida.rtc) : undefined } : undefined
     for (const f of c.sistema ?? []) nucleo.escribirSistema(f.nombre, new Uint8Array(f.datos))
+    if (c.sombreadores) nucleo.escribirSombreadores(c.sombreadores.map((f) => ({ nombre: f.nombre, datos: new Uint8Array(f.datos) })))
     const inicial = c.disco ? discoInicial(c.disco) : undefined
     const cargado = c.disco ? nucleo.cargarDisco(await ficherosDelDisco(c.disco), c.disco.principal, inicial) : !!c.rom && nucleo.cargarJuego(new Uint8Array(c.rom), c.extension, partida)
     if (!cargado) {
@@ -145,6 +160,7 @@ export class Motor {
     }
     paso('estado')
     motor.ultimaPartida = nucleo.leerPartida()?.datos ?? null
+    motor.ultimosSombreadores = firmaSombreadores(c.sombreadores?.map((f) => new Uint8Array(f.datos)) ?? [])
     return {
       motor,
       info: {
@@ -245,6 +261,16 @@ export class Motor {
       msPintar: t2 - t1,
       tiempos: cambio ? { fps: this.nucleo.fps, frecuencia: this.nucleo.frecuenciaAudio } : undefined,
     }
+  }
+
+  /** La lista de sombreadores de la Nintendo 64, si ha cambiado desde la última vez (v0.40.0) */
+  sombreadoresSiCambian(): FicheroSombreadores[] | null {
+    const lista = this.nucleo.leerSombreadores()
+    if (!lista.length) return null
+    const firma = firmaSombreadores(lista.map((f) => f.datos))
+    if (firma === this.ultimosSombreadores) return null
+    this.ultimosSombreadores = firma
+    return lista
   }
 
   /** La partida del juego, si ha cambiado desde la última vez que se pidió. */

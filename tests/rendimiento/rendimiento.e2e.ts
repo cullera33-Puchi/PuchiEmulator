@@ -45,8 +45,9 @@ test('rendimiento de los núcleos', async ({ page }) => {
           const mm = m as unknown as { specialHTMLTargets?: Record<string, unknown> }
           const lienzo = nucleo === 'n64' ? new OffscreenCanvas(640, 480) : null
           if (lienzo && mm.specialHTMLTargets) mm.specialHTMLTargets['!lienzo'] = lienzo
-          m._pf_iniciar()
+          // Las opciones, antes de iniciar el núcleo, como en la app (v0.40.0)
           for (const [k, v] of Object.entries(opciones)) m._pf_opcion(m.stringToNewUTF8(k), m.stringToNewUTF8(v))
+          m._pf_iniciar()
           m.FS?.mkdirTree('/sistema')
           let cargado: number
           if (cue !== null && m.FS) {

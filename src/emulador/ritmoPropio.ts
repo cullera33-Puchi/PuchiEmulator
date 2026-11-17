@@ -28,9 +28,14 @@ export interface MedidaRitmo {
   pintar: number
   maximo: number
   largos: number
+  /** Tandas de más de 50 ms: parones que se notan (N64 al preparar gráficos nuevos, v0.40.0) */
+  parones: number
   /** Fotogramas que tocaban y no se han hecho porque el motor iba atrasado (el juego se frena) */
   perdidos: number
 }
+
+/** Una tanda que tarda más que esto se nota como un parón */
+const MS_PARON = 50
 
 /** Como mucho, fotogramas seguidos para recuperar (por velocidad); lo que pase se pierde */
 const MAX_SEGUIDOS = 4
@@ -71,7 +76,7 @@ export class SonidoHilo {
   }
 }
 
-const medidaVacia = (): MedidaRitmo => ({ ms: 0, tandas: 0, fotogramas: 0, imagenes: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, perdidos: 0 })
+const medidaVacia = (): MedidaRitmo => ({ ms: 0, tandas: 0, fotogramas: 0, imagenes: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, parones: 0, perdidos: 0 })
 
 export class RitmoPropio {
   private activo = false
@@ -212,6 +217,7 @@ export class RitmoPropio {
     m.pintar += r.msPintar
     if (r.msTrabajo > m.maximo) m.maximo = r.msTrabajo
     if (r.msTrabajo > paso * 0.8) m.largos++
+    if (r.msTrabajo > MS_PARON) m.parones++
     if (!r.imagenes) return
     this.ultimaImagen = performance.now()
     m.imagenes++

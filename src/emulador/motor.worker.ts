@@ -59,6 +59,7 @@ const metodos: Record<string, (...args: never[]) => unknown> = {
   },
   fotogramas: (p: PeticionFotogramas) => usar().fotogramas(p),
   partidaSiCambia: () => usar().partidaSiCambia(),
+  sombreadoresSiCambian: () => usar().sombreadoresSiCambian(),
   guardarEstado: () => usar().guardarEstado(),
   cargarEstado: (datos: Uint8Array) => usar().cargarEstado(datos),
   deshacerCarga: () => usar().deshacerCarga(),

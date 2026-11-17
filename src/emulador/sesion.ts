@@ -12,7 +12,7 @@
  *   segundo), al pausar y al salir.
  * - Al salir o al pasar la app a segundo plano se guarda un estado «auto» para seguir donde se dejó.
  */
-import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, leerEstado, leerPartida, type Juego, type Ranura } from '../lib/almacen'
+import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, guardarSombreadores, leerEstado, leerPartida, leerSombreadores, type Juego, type Ranura } from '../lib/almacen'
 import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
@@ -195,6 +195,8 @@ export class Sesion {
   private msDesdeControl = 0
   private fotogramasJugados = 0
   private temporizadorGuardado = 0
+  /** Ficheros con la lista de sombreadores de la vez anterior al abrir (N64, para el registro) */
+  sombreadoresAlAbrir = 0
   private guardando: Promise<void> = Promise.resolve()
   private cerrada = false
   private velocidad = 1
@@ -261,6 +263,9 @@ export class Sesion {
     if (!contexto) throw new Error('Sin lienzo para la imagen.')
     this.contexto = contexto
     const partida = await leerPartida(juego.id)
+    // Nintendo 64: la lista de sombreadores de la vez anterior, para prepararlos al abrir (v0.40.0)
+    const sombreadores = info.n64 ? await leerSombreadores(juego.id).catch(() => undefined) : undefined
+    this.sombreadoresAlAbrir = sombreadores?.length ?? 0
     const estadoAuto = this.o.reanudar ? await leerEstado(juego.id, 'auto') : undefined
     if (estadoAuto) marcarCargaAuto(juego.id)
     else if (cargaAutoFallida(juego.id)) marcarCargaAuto(null)
@@ -273,6 +278,7 @@ export class Sesion {
         mando: this.o.mando,
         sistema: this.o.sistema,
         extension: info.extension,
+        sombreadores,
         partida: partida ? { datos: partida.datos, rtc: partida.rtc } : undefined,
         estadoAuto: estadoAuto?.datos,
         // Rebobinar, desactivado salvo que se active en los ajustes (v0.37.3)
@@ -294,7 +300,11 @@ export class Sesion {
     // Ritmo propio (v0.33.0 en N64; v0.37.0, PlayStation desde el principio): el hilo lleva el ritmo
     this.propio = !!info.ritmoPropio && !!conexion.ritmo
     conexion.ritmo?.alEvento(this.propio ? (e) => this.alEventoRitmo(e) : null)
-    this.temporizadorGuardado = window.setInterval(() => void this.guardarPartidaSiCambia(), 1000)
+    let segundos = 0
+    this.temporizadorGuardado = window.setInterval(() => {
+      void this.guardarPartidaSiCambia()
+      if (this.n64 && ++segundos % 10 === 0) void this.guardarSombreadoresSiCambian()
+    }, 1000)
   }
 
   private ponerTiempos(fps: number, frecuencia: number): void {
@@ -676,6 +686,7 @@ export class Sesion {
           pintarMs: h.tandas ? Math.round((h.pintar / h.tandas) * 100) / 100 : 0,
           maxMs: Math.round(h.maximo * 10) / 10,
           largos: h.largos,
+          parones: h.parones,
           // Fotogramas que tocaban y no se hicieron (el juego se frena)
           perdidos: h.perdidos,
           refrescos: m.refrescos,
@@ -838,6 +849,24 @@ export class Sesion {
     return this.guardando
   }
 
+  /**
+   * Nintendo 64 (v0.40.0): la lista de sombreadores que ha ido preparando el núcleo, por juego, para
+   * prepararlos todos al abrir la próxima vez en lugar de en mitad de la partida (los parones)
+   */
+  guardarSombreadoresSiCambian(): Promise<void> {
+    if (!this.n64 || this.cerrada || this.roto || !this.motor) return this.guardando
+    const id = this.o.juego.id
+    this.guardando = this.guardando
+      .then(async () => {
+        if (this.cerrada || this.roto) return
+        const lista = await this.motor.sombreadoresSiCambian()
+        if (!lista || this.roto) return
+        await guardarSombreadores(id, lista.map((f) => ({ nombre: f.nombre, datos: f.datos.slice().buffer as ArrayBuffer })))
+      })
+      .catch((e) => registrar('aviso', 'No se pudo guardar la lista de sombreadores', (e as Error)?.message))
+    return this.guardando
+  }
+
   async guardarEstado(ranura: Ranura): Promise<boolean> {
     if (this.roto || this.cerrada || !this.motor) return false
     const r = await this.motor.guardarEstado()
@@ -940,7 +969,7 @@ export class Sesion {
   /** Al pasar a segundo plano: partida y estado «auto» al iPhone. */
   async guardarTodo(): Promise<void> {
     if (this.cerrada) return
-    await Promise.all([this.guardarPartidaSiCambia(), this.guardarEstado('auto').catch(() => false), this.guardarTiempo()])
+    await Promise.all([this.guardarPartidaSiCambia(), this.guardarSombreadoresSiCambian(), this.guardarEstado('auto').catch(() => false), this.guardarTiempo()])
   }
 
   cerrar(): Promise<void> {

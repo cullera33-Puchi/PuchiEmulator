@@ -1971,6 +1971,56 @@ test('Nintendo 64: resolución normal (320 x 240) por juego, y el RDP dibuja igu
   await page.mouse.up()
 })
 
+test('Nintendo 64: la lista de sombreadores se guarda por juego y se prepara al abrir (v0.40.0)', async ({ page }) => {
+  await page.goto('/')
+  await anadir(page, 'prueba.z64')
+  await page.getByRole('button', { name: /prueba, Nintendo 64/ }).first().click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  const abierto = () => page.evaluate(() => (JSON.parse(localStorage.getItem('puchiemulator-registro') ?? '[]') as { m: string; x?: string }[]).filter((e) => e.m === 'Juego abierto').pop()?.x ?? '')
+  expect(await abierto()).toContain('"sombreadores":false')
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('azul')
+  // Con B, la ROM dibuja con el RDP: GLideN64 prepara sombreadores nuevos
+  await pulsar(page, 'B')
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('cian')
+  await page.mouse.up()
+  const guardada = () =>
+    page.evaluate(
+      () =>
+        new Promise<{ nombre: string; texto: string }[]>((resolver) => {
+          const r = indexedDB.open('puchiemulator')
+          r.onsuccess = () => {
+            const tienda = r.result.transaction('roms').objectStore('roms')
+            const c = tienda.getAllKeys()
+            c.onsuccess = () => {
+              const clave = (c.result as string[]).find((k) => String(k).startsWith('sombreadores:'))
+              if (!clave) return resolver([])
+              const g = tienda.get(clave)
+              g.onsuccess = () => resolver((g.result as { nombre: string; datos: ArrayBuffer }[]).map((f) => ({ nombre: f.nombre, texto: new TextDecoder().decode(f.datos) })))
+            }
+          }
+        }),
+    )
+  // Se guarda cada 10 segundos de juego
+  await expect.poll(guardada, { timeout: 25_000 }).toHaveLength(1)
+  const [lista] = await guardada()
+  expect(lista.nombre).toMatch(/^GLideN64\.[0-9a-f]+\..*\.keys$/)
+  // Versión, número de combinadores y uno por línea
+  const lineas = lista.texto.trim().split('\n')
+  expect(Number(lineas[1])).toBeGreaterThan(1)
+  expect(lineas).toHaveLength(Number(lineas[1]) + 2)
+
+  // Al volver a abrirlo, la lista está antes de cargar y el juego dibuja igual
+  await page.reload()
+  await entrar(page, 'Nintendo 64')
+  await page.getByRole('button', { name: /Opciones de/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  expect(await abierto()).toContain('"sombreadores":true')
+  await pulsar(page, 'B')
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('cian')
+  await page.mouse.up()
+})
+
 test('PlayStation (en pruebas): disco en BIN y CUE, botones, tarjeta de memoria, estados y CHD (v0.37.0)', async ({ page }) => {
   await page.goto('/')
   // El CUE con su BIN, elegidos juntos; el disco se copia a los ficheros de la app, no a la memoria

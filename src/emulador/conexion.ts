@@ -5,7 +5,7 @@
  */
 import type { NombreNucleo } from '../lib/sistemas'
 import { Motor, type ConfigMotor, type InfoMotor, type PeticionFotogramas, type ResultadoFotogramas } from './motor'
-import { prepararNucleo } from './nucleo'
+import { prepararNucleo, type FicheroSombreadores } from './nucleo'
 import type { PantallasDS, PrincipalDS } from './pantallasDS'
 import type { Disposicion, Imagenes } from './pintor'
 import type { EntradaRitmo, EventoRitmo, MedidaRitmo } from './ritmoPropio'
@@ -21,6 +21,7 @@ export interface ConexionMotor {
   crear(c: ConfigMotor): Promise<InfoMotor>
   fotogramas(p: PeticionFotogramas): Promise<ResultadoFotogramas>
   partidaSiCambia(): Promise<{ datos: Uint8Array; rtc?: Uint8Array } | null>
+  sombreadoresSiCambian(): Promise<FicheroSombreadores[] | null>
   guardarEstado(): Promise<{ datos: Uint8Array; captura?: ArrayBuffer } | null>
   cargarEstado(datos: Uint8Array): Promise<{ ok: boolean; imagenes: Imagenes | null }>
   deshacerCarga(): Promise<{ ok: boolean; imagenes: Imagenes | null }>
@@ -74,6 +75,7 @@ class ConexionLocal implements ConexionMotor {
 
   fotogramas = async (p: PeticionFotogramas) => this.usar().fotogramas(p)
   partidaSiCambia = async () => this.usar().partidaSiCambia()
+  sombreadoresSiCambian = async () => this.usar().sombreadoresSiCambian()
   guardarEstado = async () => this.usar().guardarEstado()
   cargarEstado = async (datos: Uint8Array) => this.usar().cargarEstado(datos)
   deshacerCarga = async () => this.usar().deshacerCarga()
@@ -185,6 +187,7 @@ class ConexionHilo implements ConexionMotor {
 
   fotogramas = (p: PeticionFotogramas) => this.h.llamar<ResultadoFotogramas>('fotogramas', [p])
   partidaSiCambia = () => this.h.llamar<{ datos: Uint8Array; rtc?: Uint8Array } | null>('partidaSiCambia')
+  sombreadoresSiCambian = () => this.h.llamar<FicheroSombreadores[] | null>('sombreadoresSiCambian')
   guardarEstado = () => this.h.llamar<{ datos: Uint8Array; captura?: ArrayBuffer } | null>('guardarEstado')
   cargarEstado = (datos: Uint8Array) => this.h.llamar<{ ok: boolean; imagenes: Imagenes | null }>('cargarEstado', [datos])
   deshacerCarga = () => this.h.llamar<{ ok: boolean; imagenes: Imagenes | null }>('deshacerCarga')
