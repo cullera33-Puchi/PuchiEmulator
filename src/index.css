@@ -109,28 +109,26 @@
 .giro.girada.izquierda {
   transform: translateY(100dvh) rotate(-90deg);
 }
-/* App instalada en el iPhone (v0.35.0): en iOS 26, lo que va fijado a la pantalla se quedaba unos 62
-   puntos por encima del borde de abajo (lo que mide la franja de la hora), y debajo quedaba una franja
-   negra sin usar. El alto grande de la pantalla (lvh) sí llega hasta abajo */
+/* App instalada en el iPhone (v0.35.0; v0.42.1): en iOS 26, unas veces la ventana tiene todo el alto de
+   la pantalla y otras 62 puntos menos (la franja de abajo queda fuera de la app). Con «inset: 0», lo
+   fijado se quedaba corto aunque la ventana fuera entera; con el alto grande (lvh, v0.35.0), sobresalía
+   y se cortaba cuando la ventana era la corta (la fila de abajo de la DS). Ahora mide la ventana de
+   verdad (`--alto-ventana`, de `zonaSegura.ts`) */
 @media (display-mode: standalone) {
   .giro:not(.girada),
-  .giro:not(.girada) .juego {
-    bottom: auto;
-    height: max(100%, 100lvh);
-  }
-  /* La capa del juego, igual de alta (v0.41.2): se quedaba con el alto corto y, mientras dura (o se
-     queda) su animación de entrada, es la que contiene al recuadro y recorta lo que sobresale. En la
-     DS en vertical se cortaba por la mitad la fila de abajo (guardar, Select, Start y el menú) */
+  .giro:not(.girada) .juego,
   .capa.capa-juego {
     bottom: auto;
-    height: max(100%, 100lvh);
+    height: var(--alto-ventana, 100%);
+  }
+  .capa.capa-juego {
     overflow: hidden;
   }
   .giro.girada {
-    width: max(100dvh, 100lvh);
+    width: var(--alto-ventana, 100dvh);
   }
   .giro.girada.izquierda {
-    transform: translateY(max(100dvh, 100lvh)) rotate(-90deg);
+    transform: translateY(var(--alto-ventana, 100dvh)) rotate(-90deg);
   }
 }
 

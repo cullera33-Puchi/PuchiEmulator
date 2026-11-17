@@ -98,6 +98,11 @@ function actualizar(): void {
   raiz.setProperty('--zona-abajo', `${recordada.abajo}px`)
   raiz.setProperty('--zona-izquierda', `${recordada.izquierda}px`)
   raiz.setProperty('--zona-derecha', `${recordada.derecha}px`)
+  // Alto de la ventana de verdad (v0.42.1): en la app instalada, iOS 26 la abre unas veces con todo el
+  // alto de la pantalla (874 en el iPhone 17) y otras con 62 puntos menos (812); lo que pase de ella
+  // no se ve. El juego mide esto, ni más (se cortaba) ni menos (quedaba una franja)
+  raiz.setProperty('--alto-ventana', `${window.innerHeight}px`)
+  raiz.setProperty('--ancho-ventana', `${window.innerWidth}px`)
   // En el registro, para ver en el iPhone si iOS falla al girar (solo cuando cambia algo)
   const firma = `${o}:${JSON.stringify(medida)}:${JSON.stringify(recordada)}`
   if (firma !== ultimaRegistrada) {
@@ -117,4 +122,7 @@ export function vigilarZonaSegura(): void {
   }
   window.addEventListener('resize', despues)
   window.addEventListener('orientationchange', despues)
+  // Al volver de segundo plano, iOS puede haber cambiado el alto de la ventana (v0.42.1)
+  window.addEventListener('pageshow', despues)
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && despues())
 }

@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.42.1 (17/11/2026)
+
+A partir de otra captura del usuario con la DS en vertical (v0.42.0): la fila de abajo seguía cortada a unos 62 puntos del borde. El arreglo de la v0.41.2 no era el bueno.
+
+- Causa, en el registro del usuario («Zona segura», `alto`): en la app instalada, iOS 26 abre la ventana unas veces con todo el alto de la pantalla (`ventana` 874 en el iPhone 17) y otras con 62 puntos menos (812). Lo que queda por debajo de la ventana no es de la app. Desde la v0.35.0, el juego usaba el alto grande de la pantalla (`100lvh`, 874): con la ventana corta sobresalía y se cortaba la fila de abajo.
+- Arreglo: el juego mide la ventana de verdad (`--alto-ventana`, que pone `zonaSegura.ts` con `innerHeight` al abrir, al girar, al cambiar de tamaño y al volver de segundo plano). Con la ventana entera, llega hasta abajo; con la corta, todo cabe y queda la franja que iOS deja fuera de la app. Sustituye al `100lvh` de la v0.35.0 y al alto de la capa de la v0.41.2.
+- Sin poder reproducirlo aquí (el navegador de pruebas no imita la app instalada): pendiente de que el usuario lo confirme. 186 pruebas unitarias y 77 de navegador.
+
 ## 0.42.0 (17/11/2026)
 
 Mejora 28 de la hoja de ruta, pedida por el usuario por el calor del iPhone jugando a Super Nintendo. Su registro de la v0.41.1 enseña la Super Nintendo a 60 imágenes por segundo justas, con 1 ms de trabajo por fotograma y ninguno perdido: el emulador apenas trabaja; lo que más calienta es la pantalla a 60 imágenes y el avance rápido (ratos a x2 y x4).

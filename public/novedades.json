@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.42.1",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "La pantalla del juego se ajusta al alto que da el iPhone a la app: la fila de abajo de la DS ya no se corta."
+    ]
+  },
+  {
     "version": "0.42.0",
     "fecha": "17/11/2026",
     "cambios": [
