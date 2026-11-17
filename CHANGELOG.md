@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.41.1 (17/11/2026)
+
+Lo que ha enseñado la primera pasada con WebKit (21): 60 de 74 pruebas bien a la primera.
+
+- Estadísticas: con ratón, tocar una columna del gráfico la dejaba sin elegir (al pasar por encima ya se elegía y el clic la quitaba). Con el dedo no pasaba; ahora tampoco con ratón.
+- Pruebas con WebKit: se saltan, con su motivo, las que el WebKit de Linux de las pruebas no puede hacer y el Safari del iPhone sí: los toques de varios dedos (se simulan con CDP, solo en Chromium), la N64 (WebGL 2 en el hilo) y la PlayStation (copiar el disco a los ficheros privados con acceso síncrono). El pulso de la pantalla y la medida de los dos pintores solo se comprueban donde hay pantalla regular y WebGL 2 en el hilo.
+- Prueba nueva, «capacidades del navegador»: deja en el informe qué tiene cada navegador (OffscreenCanvas, WebGL 2 y WebGL en el hilo, OPFS con acceso síncrono, SIMD), para saber por qué se salta cada prueba.
+
 ## 0.41.0 (17/11/2026)
 
 Mejoras 25 y 21 de la hoja de ruta, marcadas por el usuario.

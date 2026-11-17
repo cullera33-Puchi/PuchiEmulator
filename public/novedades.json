@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.41.1",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Estadísticas: tocar una barra del gráfico vuelve a enseñar su tiempo siempre.",
+      "Por dentro: más pruebas con el motor de Safari."
+    ]
+  },
+  {
     "version": "0.41.0",
     "fecha": "17/11/2026",
     "cambios": [

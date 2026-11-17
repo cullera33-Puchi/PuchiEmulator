@@ -29,6 +29,13 @@ async function colorCentral(page: Page): Promise<[number, number, number]> {
 
 const CONSOLA: Record<string, string> = { 'prueba.gba': 'Game Boy Advance', 'prueba.gb': 'Game Boy y Game Boy Color', 'prueba.sfc': 'Super Nintendo', 'prueba.nds': 'Nintendo DS', 'prueba.nes': 'NES', 'prueba.md': 'Mega Drive', 'prueba.sms': 'Master System y Game Gear', 'prueba.gg': 'Master System y Game Gear', 'prueba.z64': 'Nintendo 64' }
 
+/**
+ * Lo que el WebKit de Linux de las pruebas no tiene y el Safari del iPhone sí (v0.41.0; lo comprueba la
+ * prueba «capacidades del navegador», que lo deja en el informe)
+ */
+const SIN_WEBGL_HILO = 'La N64 dibuja con WebGL 2 en el hilo del motor, que el WebKit de Linux de las pruebas no tiene'
+const SIN_OPFS = 'Los discos de PlayStation se copian a los ficheros privados (OPFS) con acceso síncrono, que el WebKit de Linux de las pruebas no deja usar'
+
 /** Abre la biblioteca de una consola desde el inicio. */
 /** Selector de ficheros de la pantalla de arriba: el inicio se queda montado debajo de las apiladas (v0.26.1) */
 const selector = (page: Page) => page.locator('.capa:not(.fondo)').getByTestId('selector')
@@ -1603,7 +1610,8 @@ async function deslizarDesdeBorde(page: Page, hasta: number, soltar = true) {
   }
 }
 
-test('volver deslizando: debajo se ve la pantalla anterior y al volver está al día (v0.26.1)', async ({ page }) => {
+test('volver deslizando: debajo se ve la pantalla anterior y al volver está al día (v0.26.1)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Los toques de varios puntos se simulan con CDP, que solo tiene Chromium')
   await page.goto('/')
   await entrar(page, 'NES')
   await selector(page).setInputFiles(rom('prueba.nes'))
@@ -1674,7 +1682,7 @@ test('apertura: el núcleo se prepara al abrir la app y el registro anota lo que
   await expect.poll(async () => (await registro()).filter((e) => e.m === 'Juego abierto').at(-1)?.x ?? '').toMatch(/"nucleoPreparado":true/)
 })
 
-test('ahorrar batería: 30 imágenes por segundo con el juego a su velocidad, por juego (v0.28.0)', async ({ page }) => {
+test('ahorrar batería: 30 imágenes por segundo con el juego a su velocidad, por juego (v0.28.0)', async ({ page, browserName }) => {
   const registro = () => page.evaluate(() => JSON.parse(localStorage.getItem('puchiemulator-registro') ?? '[]') as { m: string; x?: string }[])
   await page.goto('/')
   await anadir(page, 'prueba.gba')
@@ -1702,7 +1710,8 @@ test('ahorrar batería: 30 imágenes por segundo con el juego a su velocidad, po
   expect(r.juegoSeg).toBeGreaterThan(54)
   // Los fotogramas los hace el hilo, casi todos al pulso de la pantalla
   expect(r.ritmo).toBe('propio')
-  expect(r.pulsos).toBeGreaterThan(r.tandas * 0.8)
+  // En el WebKit sin pantalla de las pruebas, el refresco no es regular y el hilo va con su reloj
+  if (browserName !== 'webkit') expect(r.pulsos).toBeGreaterThan(r.tandas * 0.8)
   // Es solo de este juego: el ajuste general sigue apagado
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('puchiemulator-ajustes') ?? '{}').limite30 ?? false)).toBe(false)
 })
@@ -1747,7 +1756,8 @@ test.describe('gestos con animaciones (v0.30.0)', () => {
   const desplazamiento = (page: Page, selector: string) =>
     page.locator(selector).first().evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).m41)
 
-  test('en un apartado de Ajustes, la pantalla sigue al dedo y vuelve a su sitio si no se suelta del todo', async ({ page }) => {
+  test('en un apartado de Ajustes, la pantalla sigue al dedo y vuelve a su sitio si no se suelta del todo', async ({ page, browserName }) => {
+    test.skip(browserName === 'webkit', 'Los toques de varios puntos se simulan con CDP, que solo tiene Chromium')
     await page.goto('/')
     await page.getByRole('button', { name: 'Ajustes' }).click()
     await page.waitForTimeout(700)
@@ -1766,7 +1776,8 @@ test.describe('gestos con animaciones (v0.30.0)', () => {
     expect(await desplazamiento(page, '.apartado-entra')).toBe(0)
   })
 
-  test('un segundo dedo a mitad del gesto lo cancela y no deja nada movido', async ({ page }) => {
+  test('un segundo dedo a mitad del gesto lo cancela y no deja nada movido', async ({ page, browserName }) => {
+    test.skip(browserName === 'webkit', 'Los toques de varios puntos se simulan con CDP, que solo tiene Chromium')
     await page.goto('/')
     await entrar(page, 'NES')
     await page.waitForTimeout(700)
@@ -1802,8 +1813,11 @@ test('motor en un hilo aparte con la tarjeta gráfica, y en el principal si se d
   await expect.poll(abierto).toMatchObject({ hilo: true })
   const datos = await abierto()
   expect(['webgl', '2d']).toContain(datos.pintor)
-  expect(datos.pintorMs.webgl).toBeGreaterThan(0)
-  expect(datos.pintor).toBe(datos.pintorMs.webgl <= datos.pintorMs['2d'] ? 'webgl' : '2d')
+  // Sin WebGL 2 en el hilo (el WebKit de Linux de las pruebas), no hay nada que medir: va en 2D
+  if (datos.pintorMs) {
+    expect(datos.pintorMs.webgl).toBeGreaterThan(0)
+    expect(datos.pintor).toBe(datos.pintorMs.webgl <= datos.pintorMs['2d'] ? 'webgl' : '2d')
+  } else expect(datos.pintor).toBe('2d')
   // La imagen llega del hilo: el lienzo enseña las dos pantallas
   await expect.poll(() => page.getByTestId('pantalla').evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([256, 384])
   await page.getByRole('button', { name: 'Menú', exact: true }).click()
@@ -1886,7 +1900,8 @@ async function tono(page: Page): Promise<string> {
   return `otro (${r}, ${g}, ${b})`
 }
 
-test('Nintendo 64 (en pruebas): palanca, A, botones C, Z, estados y partida guardada (v0.32.0)', async ({ page }) => {
+test('Nintendo 64 (en pruebas): palanca, A, botones C, Z, estados y partida guardada (v0.32.0)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', SIN_WEBGL_HILO)
   await page.goto('/')
   await anadir(page, 'prueba.z64')
   await expect(page.getByRole('heading', { name: 'Nintendo 64' })).toBeVisible()
@@ -1963,7 +1978,8 @@ test('Nintendo 64 (en pruebas): palanca, A, botones C, Z, estados y partida guar
   await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('rojo')
 })
 
-test('Nintendo 64: resolución normal (320 x 240) por juego, y el RDP dibuja igual (v0.34.0)', async ({ page }) => {
+test('Nintendo 64: resolución normal (320 x 240) por juego, y el RDP dibuja igual (v0.34.0)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', SIN_WEBGL_HILO)
   await page.addInitScript(() => localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ bienvenidaVista: true, coloresConsola: false, ultimaCopia: Date.now(), resolucionN64: 'normal' })))
   await page.goto('/')
   await anadir(page, 'prueba.z64')
@@ -1976,7 +1992,8 @@ test('Nintendo 64: resolución normal (320 x 240) por juego, y el RDP dibuja igu
   await page.mouse.up()
 })
 
-test('Nintendo 64: la lista de sombreadores se guarda por juego y se prepara al abrir (v0.40.0)', async ({ page }) => {
+test('Nintendo 64: la lista de sombreadores se guarda por juego y se prepara al abrir (v0.40.0)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', SIN_WEBGL_HILO)
   await page.goto('/')
   await anadir(page, 'prueba.z64')
   await page.getByRole('button', { name: /prueba, Nintendo 64/ }).first().click()
@@ -2026,7 +2043,8 @@ test('Nintendo 64: la lista de sombreadores se guarda por juego y se prepara al 
   await page.mouse.up()
 })
 
-test('PlayStation (en pruebas): disco en BIN y CUE, botones, tarjeta de memoria, estados y CHD (v0.37.0)', async ({ page }) => {
+test('PlayStation (en pruebas): disco en BIN y CUE, botones, tarjeta de memoria, estados y CHD (v0.37.0)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', SIN_OPFS)
   await page.goto('/')
   // El CUE con su BIN, elegidos juntos; el disco se copia a los ficheros de la app, no a la memoria
   await selector(page).setInputFiles([rom('prueba-psx.cue'), rom('prueba-psx.bin')])
@@ -2085,7 +2103,8 @@ test('PlayStation (en pruebas): disco en BIN y CUE, botones, tarjeta de memoria,
   await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('rojo')
 })
 
-test('PlayStation: CHD, BIN suelto y CUE sin su BIN (v0.37.0)', async ({ page }) => {
+test('PlayStation: CHD, BIN suelto y CUE sin su BIN (v0.37.0)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', SIN_OPFS)
   await page.goto('/')
   await selector(page).setInputFiles(rom('prueba-psx.cue'))
   await expect(page.getByText(/falta su \.bin/)).toBeVisible()
@@ -2125,12 +2144,14 @@ test('PlayStation: BIOS propia opcional en Ajustes, solo de 512 KB (v0.37.0)', a
   await expect(page.getByTestId('bios')).toContainText('La libre del núcleo')
 })
 
-test('en vertical, L y R no pisan guardar, cargar, el menú, el avance rápido, la cruceta ni los botones (v0.38.0)', async ({ page }) => {
+test('en vertical, L y R no pisan guardar, cargar, el menú, el avance rápido, la cruceta ni los botones (v0.38.0)', async ({ page, browserName }) => {
   await page.goto('/')
-  for (const [fichero, consola, nombre] of [
+  const casos = [
     ['prueba.sfc', 'Super Nintendo', /prueba, Super Nintendo/],
     ['prueba-psx.chd', 'PlayStation', /prueba-psx, PlayStation/],
-  ] as const) {
+  ] as const
+  // PlayStation, solo donde se pueden copiar los discos (ver SIN_OPFS)
+  for (const [fichero, consola, nombre] of casos.filter((c) => browserName !== 'webkit' || c[1] !== 'PlayStation')) {
     await page.goto('/')
     await selector(page).setInputFiles(rom(fichero))
     await expect(page.getByText(/añadido|ya estaba/i)).toBeVisible({ timeout: 15_000 })
@@ -2210,7 +2231,8 @@ test('almacenamiento por juego: lo que ocupa, borrar sus estados y deshacer (v0.
   await expect(fila).toContainText(/estado/)
 })
 
-test('PlayStation: un juego de dos discos, juntos por el nombre, y cambio de disco desde el menú (v0.38.0)', async ({ page }) => {
+test('PlayStation: un juego de dos discos, juntos por el nombre, y cambio de disco desde el menú (v0.38.0)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', SIN_OPFS)
   await page.goto('/')
   await selector(page).setInputFiles([
     { name: 'Varios (Disc 1).bin', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba-psx.bin')) },
@@ -2238,7 +2260,8 @@ test('PlayStation: un juego de dos discos, juntos por el nombre, y cambio de dis
   await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('amarillo')
 })
 
-test('PlayStation: palancas analógicas por juego, con L3 al tocar la palanca (v0.38.0)', async ({ page }) => {
+test('PlayStation: palancas analógicas por juego, con L3 al tocar la palanca (v0.38.0)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', SIN_OPFS)
   await page.goto('/')
   await selector(page).setInputFiles(rom('prueba-psx.chd'))
   await expect(page.getByText('Juego añadido a PlayStation')).toBeVisible({ timeout: 15_000 })
@@ -2302,4 +2325,33 @@ test('PlayStation: palancas analógicas por juego, con L3 al tocar la palanca (v
   await page.waitForTimeout(1600)
   const colores = await page.evaluate(() => (window as unknown as { colores: string[] }).colores)
   expect(colores.some((c) => c.startsWith('255,0,0'))).toBe(true)
+})
+
+test('capacidades del navegador: lo que necesitan los hilos, la N64 y la PlayStation (v0.41.0)', async ({ page }, info) => {
+  await page.goto('/')
+  const capacidades = await page.evaluate(async () => {
+    const codigo = `
+      const r = { offscreen: typeof OffscreenCanvas !== 'undefined', webgl2: false, webgl: false, opfs: false, accesoSincrono: false, simd: false }
+      try { r.webgl2 = !!new OffscreenCanvas(4, 4).getContext('webgl2') } catch {}
+      try { r.webgl = !!new OffscreenCanvas(4, 4).getContext('webgl') } catch {}
+      try { r.simd = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])) } catch {}
+      ;(async () => {
+        try {
+          const raiz = await navigator.storage.getDirectory()
+          r.opfs = true
+          const f = await raiz.getFileHandle('prueba-capacidades', { create: true })
+          const a = await f.createSyncAccessHandle()
+          r.accesoSincrono = true
+          await a.close()
+          await raiz.removeEntry('prueba-capacidades')
+        } catch (e) { r.errorOpfs = String(e && e.name || e) }
+        postMessage(r)
+      })()`
+    const w = new Worker(URL.createObjectURL(new Blob([codigo], { type: 'text/javascript' })))
+    return new Promise<Record<string, unknown>>((resolver) => (w.onmessage = (e) => resolver(e.data)))
+  })
+  // Solo informa: lo que falte explica las pruebas que se saltan en este navegador
+  info.annotations.push({ type: 'capacidades', description: JSON.stringify(capacidades) })
+  console.log(`Capacidades (${info.project.name}):`, JSON.stringify(capacidades))
+  expect(capacidades.offscreen).toBe(true)
 })

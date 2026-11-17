@@ -64,6 +64,7 @@ function Cifra({ icono: Icono, valor, texto }: { icono: typeof Clock; valor: str
 /** Columnas de un solo tono con detalle al tocar o pasar por encima de cada una. */
 function GraficoColumnas({ datos, etiquetaCada = 1, resumen, testid }: { datos: Columna[]; etiquetaCada?: number; resumen: string; testid?: string }) {
   const [elegida, setElegida] = useState<number | null>(null)
+  const tipoToque = useRef('')
   const max = Math.max(...datos.map((d) => d.ms), 1)
   const detalle = elegida !== null ? datos[elegida] : null
   return (
@@ -90,7 +91,10 @@ function GraficoColumnas({ datos, etiquetaCada = 1, resumen, testid }: { datos: 
               className="flex h-full min-w-0 flex-1 items-end justify-center"
               aria-label={`${d.titulo}: ${d.ms ? duracion(d.ms) : 'sin jugar'}`}
               onPointerEnter={(e) => e.pointerType === 'mouse' && setElegida(i)}
-              onClick={() => setElegida(elegida === i ? null : i)}
+              onPointerDown={(e) => (tipoToque.current = e.pointerType)}
+              // Con el dedo, tocar la elegida la quita; con el ratón ya se eligió al pasar por encima y el
+              // clic la dejaba sin elegir (v0.41.0, visto con WebKit)
+              onClick={() => setElegida(tipoToque.current === 'mouse' ? i : elegida === i ? null : i)}
             >
               <span
                 className={`block w-full max-w-6 rounded-t-[4px] transition-opacity ${elegida === null || elegida === i ? 'opacity-100' : 'opacity-40'} bg-acento dark:bg-acento-oscuro`}
