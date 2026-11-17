@@ -35,10 +35,11 @@ export interface InfoSistema {
    */
   psx?: boolean
   /**
-   * El hilo del motor lleva el ritmo de los fotogramas, los botones y el sonido (v0.33.0 en N64; desde
-   * la v0.37.0, también PlayStation, desde el principio)
+   * El hilo marca el ritmo con su reloj, sin el pulso de la pantalla (v0.41.0; N64 y PlayStation, que
+   * pueden cargar tanto el iPhone que la pantalla no refresca a tiempo). Todas las consolas llevan el
+   * ritmo propio en el hilo; el resto, al pulso de la pantalla cuando van casi a su ritmo
    */
-  ritmoPropio?: boolean
+  relojHilo?: boolean
 }
 
 export const SISTEMAS: Record<Sistema, InfoSistema> = {
@@ -48,9 +49,9 @@ export const SISTEMAS: Record<Sistema, InfoSistema> = {
   nes: { nombre: 'NES', corto: 'NES', nucleo: 'fceumm', extension: 'nes', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#C8102E' },
   snes: { nombre: 'Super Nintendo', corto: 'SNES', nucleo: 'snes9x', extension: 'sfc', hombros: true, cuatroBotones: true, rebobinado: true, tactil: false, color: '#6E6E80' },
   // Nintendo 64 (v0.32.0), con Mupen64Plus-Next: sin rebobinado (cada estado pesa 16 MB)
-  n64: { nombre: 'Nintendo 64', corto: 'N64', nucleo: 'n64', extension: 'z64', hombros: true, cuatroBotones: false, rebobinado: false, tactil: false, color: '#3A3A42', sinSelect: true, n64: true, ritmoPropio: true },
+  n64: { nombre: 'Nintendo 64', corto: 'N64', nucleo: 'n64', extension: 'z64', hombros: true, cuatroBotones: false, rebobinado: false, tactil: false, color: '#3A3A42', sinSelect: true, n64: true, relojHilo: true },
   // PlayStation (v0.37.0), con PCSX ReARMed: sin rebobinado (estados de varios megas), como la N64
-  psx: { nombre: 'PlayStation', corto: 'PS1', nucleo: 'psx', extension: 'cue', hombros: true, cuatroBotones: true, rebobinado: false, tactil: false, color: '#8A8A93', psx: true, ritmoPropio: true, etiquetas: { A: '○', B: '✕', X: '△', Y: '□' } },
+  psx: { nombre: 'PlayStation', corto: 'PS1', nucleo: 'psx', extension: 'cue', hombros: true, cuatroBotones: true, rebobinado: false, tactil: false, color: '#8A8A93', psx: true, relojHilo: true, etiquetas: { A: '○', B: '✕', X: '△', Y: '□' } },
   nds: { nombre: 'Nintendo DS', corto: 'DS', nucleo: 'melonds', extension: 'nds', hombros: true, cuatroBotones: true, rebobinado: false, tactil: true, color: '#34343C' },
   // Sega (v0.24.0), con Genesis Plus GX
   sms: { nombre: 'Master System', corto: 'SMS', nucleo: 'genesis', extension: 'sms', hombros: false, cuatroBotones: false, rebobinado: true, tactil: false, color: '#1C1C1E', etiquetas: { B: '1', A: '2', START: 'Pausa' }, sinSelect: true },

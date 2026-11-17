@@ -152,10 +152,16 @@ export class Sesion {
   private palancasPsx = false
   private readonly n64: boolean
   /**
-   * Ritmo propio (v0.33.0, solo Nintendo 64 en el hilo aparte): el hilo hace los fotogramas a su
-   * ritmo y manda las imágenes; aquí solo se le pasan los botones en cuanto cambian
+   * Ritmo propio (v0.33.0 en Nintendo 64; desde la v0.41.0, todas las consolas con el motor en el hilo
+   * y sin rebobinar): el hilo hace los fotogramas y manda las imágenes; aquí solo se le pasan los
+   * botones en cuanto cambian y, si la consola va casi al ritmo de la pantalla, el pulso de cada refresco
    */
   private propio = false
+  /** Al pulso de la pantalla (v0.41.0): todas salvo las de `relojHilo` (N64 y PlayStation) */
+  private conPulso = false
+  /** Pulso acumulado con «Ahorrar batería»: se manda cada unos 33 ms */
+  private pulsoPendiente = 0
+  private dtPulso = 0
   /** Última entrada mandada al hilo, para no repetirla */
   private entradaEnviada = ''
   /** Canal del sonido directo del hilo al procesador, si ya lo hay (su número, para soltar solo el suyo) */
@@ -269,6 +275,8 @@ export class Sesion {
     const estadoAuto = this.o.reanudar ? await leerEstado(juego.id, 'auto') : undefined
     if (estadoAuto) marcarCargaAuto(juego.id)
     else if (cargaAutoFallida(juego.id)) marcarCargaAuto(null)
+    // Rebobinar, desactivado salvo que se active en los ajustes (v0.37.3)
+    const conRebobinado = info.rebobinado && leerAjustes().rebobinado
     const { conexion, info: m, motivoLocal } = await abrirMotor(
       {
         nucleo: info.nucleo,
@@ -281,8 +289,7 @@ export class Sesion {
         sombreadores,
         partida: partida ? { datos: partida.datos, rtc: partida.rtc } : undefined,
         estadoAuto: estadoAuto?.datos,
-        // Rebobinar, desactivado salvo que se active en los ajustes (v0.37.3)
-        conRebobinado: info.rebobinado && leerAjustes().rebobinado,
+        conRebobinado,
         disposicion: { pantallas: this.pantallas, principal: this.principal, conMini: false },
         pintor: pintorElegido(),
       },
@@ -297,8 +304,10 @@ export class Sesion {
     this.cargaAutoPendiente = m.autoCargado
     this.ponerTiempos(m.fps, m.frecuencia)
     this.mostrar(m.imagenes)
-    // Ritmo propio (v0.33.0 en N64; v0.37.0, PlayStation desde el principio): el hilo lleva el ritmo
-    this.propio = !!info.ritmoPropio && !!conexion.ritmo
+    // Ritmo propio (v0.33.0 en N64; v0.37.0, PlayStation; v0.41.0, todas): el hilo lleva el ritmo. Rebobinar
+    // necesita que la página pida cada tanda (guarda los estados al volver): con él, como antes
+    this.propio = !conRebobinado && !!conexion.ritmo
+    this.conPulso = this.propio && !info.relojHilo
     conexion.ritmo?.alEvento(this.propio ? (e) => this.alEventoRitmo(e) : null)
     let segundos = 0
     this.temporizadorGuardado = window.setInterval(() => {
@@ -395,9 +404,14 @@ export class Sesion {
     this.motor.ritmo?.entrada(e)
   }
 
-  /** El hilo hace los fotogramas a su ritmo (v0.33.0, Nintendo 64) */
+  /** El hilo hace los fotogramas a su ritmo (v0.33.0, Nintendo 64; v0.41.0, todas) */
   get ritmoPropio(): boolean {
     return this.propio
+  }
+
+  /** Con ritmo propio, al pulso de la pantalla cuando la consola va casi a su ritmo (v0.41.0) */
+  get alPulso(): boolean {
+    return this.conPulso
   }
 
   get enMarcha(): boolean {
@@ -570,6 +584,7 @@ export class Sesion {
    */
   private avanzarPropio(dt: number): void {
     this.enviarEntrada()
+    if (this.conPulso) this.mandarPulso(dt)
     if (this.canalSonido === null && this.altavoz.activo) {
       const canal = this.altavoz.canalParaHilo()
       if (canal) {
@@ -589,6 +604,31 @@ export class Sesion {
     this.medida.refrescos++
     this.medida.modo = 'propio'
     if (this.medida.tiempo >= 30_000) this.anotarRendimiento()
+  }
+
+  /**
+   * Pulso de la pantalla (v0.41.0): si la consola va casi a su ritmo, los fotogramas que tocan en este
+   * refresco, contados como en el ritmo de la pantalla (`planRitmo`); si no, el hilo sigue con su reloj.
+   * Con «Ahorrar batería», se juntan y se mandan cada unos 33 ms.
+   */
+  private mandarPulso(dt: number): void {
+    const plan = planRitmo(1000 / this.paso, this.refresco.ms)
+    if (plan.modo !== 'sincronizado' || dt >= this.refresco.ms * 4.5) {
+      this.pulsoPendiente = 0
+      this.dtPulso = 0
+      return
+    }
+    const antes = Math.floor(this.refrescos / plan.cadaRefrescos)
+    this.refrescos += refrescosPasados(dt, this.refresco.ms)
+    this.pulsoPendiente += (Math.floor(this.refrescos / plan.cadaRefrescos) - antes) * plan.porRefresco
+    this.dtPulso += dt
+    const objetivo = this.limite30 && this.refresco.ms > 0 && this.refresco.ms < 1000 / 30 - 2 ? 1000 / 30 : 0
+    if (objetivo && this.dtPulso < objetivo - this.refresco.ms / 2) return
+    this.dtPulso = 0
+    if (this.pulsoPendiente <= 0) return
+    const ritmoReal = ((1000 / this.refresco.ms) * plan.porRefresco) / plan.cadaRefrescos / (1000 / this.paso)
+    this.motor.ritmo?.pulso(this.pulsoPendiente * this.velocidad, ritmoReal)
+    this.pulsoPendiente = 0
   }
 
   /** Pide `n` fotogramas al motor y, al volver, enseña la imagen, suena y guarda lo de rebobinar. */
@@ -689,6 +729,9 @@ export class Sesion {
           parones: h.parones,
           // Fotogramas que tocaban y no se hicieron (el juego se frena)
           perdidos: h.perdidos,
+          // Tandas al pulso de la pantalla; el resto, con el reloj del hilo (v0.41.0)
+          pulsos: h.pulsos,
+          tandas: h.tandas,
           refrescos: m.refrescos,
           refrescosSeg: Math.round((m.refrescos / (m.tiempo / 1000 || 1)) * 10) / 10,
           imagenesSeg: Math.round((h.imagenes / seg) * 10) / 10,

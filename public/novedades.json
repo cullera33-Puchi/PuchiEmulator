@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.41.0",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Todas las consolas emulan en su propio hilo, como la N64 y la PlayStation: los botones llegan antes y el sonido va más estable.",
+      "El juego sigue el ritmo de la pantalla para que el movimiento sea regular.",
+      "Por dentro: la app se prueba también con el motor de Safari."
+    ]
+  },
+  {
     "version": "0.40.0",
     "fecha": "17/11/2026",
     "cambios": [

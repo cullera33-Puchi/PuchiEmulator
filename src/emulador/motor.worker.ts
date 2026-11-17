@@ -10,7 +10,7 @@ import type { NombreNucleo } from '../lib/sistemas'
 import type { PantallasDS, PrincipalDS } from './pantallasDS'
 
 let motor: Motor | null = null
-/** Ritmo propio (v0.33.0): el bucle de fotogramas del hilo, si la página lo pide (Nintendo 64) */
+/** Ritmo propio (v0.33.0; todas las consolas desde la v0.41.0): el bucle de fotogramas del hilo */
 let ritmo: RitmoPropio | null = null
 
 const emitir = (e: EventoRitmo, transferir: Transferable[]) => (self as unknown as Worker).postMessage(e, transferir)
@@ -79,6 +79,7 @@ const metodos: Record<string, (...args: never[]) => unknown> = {
   ritmoArrancar: (entrada: EntradaRitmo, velocidad: number, limite30: boolean) => conRitmo().arrancar(entrada, velocidad, limite30),
   ritmoParar: () => ritmo?.parar(),
   ritmoEntrada: (entrada: EntradaRitmo) => ritmo?.ponerEntrada(entrada),
+  ritmoPulso: (n: number, ritmoReal: number) => ritmo?.pulso(n, ritmoReal),
   ritmoVelocidad: (v: number) => conRitmo().ponerVelocidad(v),
   ritmoLimite30: (activo: boolean) => conRitmo().ponerLimite30(activo),
   ritmoSonido: (puerto: MessagePort, frecuenciaSalida: number, objetivo: number) => conRitmo().ponerSonido(new SonidoHilo(puerto, frecuenciaSalida, objetivo)),

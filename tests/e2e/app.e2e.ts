@@ -1680,6 +1680,8 @@ test('ahorrar batería: 30 imágenes por segundo con el juego a su velocidad, po
   await anadir(page, 'prueba.gba')
   await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
   await expect(page.getByText('Cargando…')).toBeHidden()
+  // Ritmo propio al pulso de la pantalla (v0.41.0): GBA, a 59,73, va casi al ritmo de una de 60 Hz
+  expect((await registro()).filter((e) => e.m === 'Juego abierto').at(-1)?.x).toContain('"ritmo":"propio-pulso"')
   await page.getByRole('button', { name: 'Menú', exact: true }).click()
   await page.getByRole('button', { name: /^Pantalla/ }).click()
   await page.getByRole('switch', { name: 'Ahorrar batería (30 imágenes por segundo)' }).click()
@@ -1698,6 +1700,9 @@ test('ahorrar batería: 30 imágenes por segundo con el juego a su velocidad, po
   expect(r.imagenesSeg).toBeGreaterThan(24)
   expect(r.imagenesSeg).toBeLessThan(36)
   expect(r.juegoSeg).toBeGreaterThan(54)
+  // Los fotogramas los hace el hilo, casi todos al pulso de la pantalla
+  expect(r.ritmo).toBe('propio')
+  expect(r.pulsos).toBeGreaterThan(r.tandas * 0.8)
   // Es solo de este juego: el ajuste general sigue apagado
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('puchiemulator-ajustes') ?? '{}').limite30 ?? false)).toBe(false)
 })

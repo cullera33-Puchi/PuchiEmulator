@@ -1,0 +1,24 @@
+name: Pruebas con WebKit
+
+# Las pruebas de navegador con WebKit, el motor de Safari (v0.41.0), en cada envío. Van aparte de la
+# publicación: un fallo aquí avisa (cruz roja en GitHub) pero no la para. Es el WebKit de Linux, no el
+# Safari del iPhone; lo que no puede hacer, la prueba lo salta con su motivo.
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps webkit
+      - run: npm run e2e:webkit -- --trace off

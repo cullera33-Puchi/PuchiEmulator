@@ -1,12 +1,19 @@
 /**
- * Ritmo propio (v0.33.0, de momento solo Nintendo 64): el hilo del motor hace los fotogramas a su
- * ritmo, con su reloj, sin esperar a que se los pida la página. Antes, cada tanda la pedía el refresco
+ * Ritmo propio (v0.33.0 en Nintendo 64; desde la v0.41.0, todas las consolas con el motor en el hilo):
+ * el hilo del motor hace los fotogramas a su ritmo, sin esperar a que se los pida la página. Antes, cada tanda la pedía el refresco
  * de la pantalla (requestAnimationFrame) del hilo principal; con la N64, el iPhone lo bajaba a unas 25
  * veces por segundo con parones, y el juego daba tirones, el sonido se cortaba y los botones llegaban
  * tarde. Aquí:
  * - Los botones y la palanca llegan en cuanto cambian (`entrada`) y valen desde el fotograma siguiente.
  * - El sonido va directo del hilo al procesador de audio por su propio canal (`SonidoHilo`).
  * - Cada imagen nueva se manda a la página como evento; la página solo la enseña.
+ *
+ * Pulso de la pantalla (v0.41.0): en las consolas que van casi al ritmo de la pantalla (GBA a 59,73
+ * imágenes por segundo en una de 60), la página manda en cada refresco cuántos fotogramas tocan
+ * (`pulso`), como hacía antes con todo el trabajo. Así cada imagen cae en su refresco y el movimiento
+ * es regular; con solo el reloj, cada pocos segundos se repetiría una imagen. El trabajo sigue en el
+ * hilo y el pulso es un aviso sin respuesta. Si los pulsos dejan de llegar (la página va cargada), el
+ * hilo sigue con su reloj. La N64 y la PlayStation van siempre con el reloj (`relojHilo`).
  */
 import type { Motor, PeticionFotogramas } from './motor'
 import type { Imagenes } from './pintor'
@@ -32,6 +39,8 @@ export interface MedidaRitmo {
   parones: number
   /** Fotogramas que tocaban y no se han hecho porque el motor iba atrasado (el juego se frena) */
   perdidos: number
+  /** Tandas hechas al pulso de la pantalla (v0.41.0); el resto, con el reloj del hilo */
+  pulsos: number
 }
 
 /** Una tanda que tarda más que esto se nota como un parón */
@@ -39,6 +48,9 @@ const MS_PARON = 50
 
 /** Como mucho, fotogramas seguidos para recuperar (por velocidad); lo que pase se pierde */
 const MAX_SEGUIDOS = 4
+
+/** Sin pulso de la pantalla en este tiempo, el hilo vuelve a su reloj (v0.41.0) */
+export const MS_SIN_PULSO = 100
 
 /** El sonido del hilo, directo al procesador de audio (`public/procesador-audio.js`). */
 export class SonidoHilo {
@@ -76,7 +88,7 @@ export class SonidoHilo {
   }
 }
 
-const medidaVacia = (): MedidaRitmo => ({ ms: 0, tandas: 0, fotogramas: 0, imagenes: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, parones: 0, perdidos: 0 })
+const medidaVacia = (): MedidaRitmo => ({ ms: 0, tandas: 0, fotogramas: 0, imagenes: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, parones: 0, perdidos: 0, pulsos: 0 })
 
 export class RitmoPropio {
   private activo = false
@@ -93,6 +105,9 @@ export class RitmoPropio {
   /** Tiempo con el bucle en marcha (v0.36.0): las pausas no cuentan en las medidas */
   private msActivos = 0
   private desdeActivo = 0
+  /** Último pulso de la pantalla y cuánto más rápido va el juego con él (para el sonido) */
+  private ultimoPulso = -Infinity
+  private ritmoPulso = 1
 
   private readonly motor: Motor
   private fps: number
@@ -121,6 +136,7 @@ export class RitmoPropio {
   parar(): void {
     if (this.activo) this.msActivos += performance.now() - this.desdeActivo
     this.activo = false
+    this.ultimoPulso = -Infinity
     clearTimeout(this.temporizador)
     this.sonido?.vaciar()
   }
@@ -142,6 +158,27 @@ export class RitmoPropio {
   ponerSonido(sonido: SonidoHilo): void {
     this.sonido?.cerrar()
     this.sonido = sonido
+  }
+
+  /**
+   * Pulso de la pantalla (v0.41.0): `n` fotogramas, ya multiplicados por la velocidad, y lo rápido que
+   * va el juego así frente a la consola (`ritmoReal`, por ejemplo 60 / 59,73), para el sonido.
+   */
+  pulso(n: number, ritmoReal: number): void {
+    if (!this.activo) return
+    this.ultimoPulso = performance.now()
+    this.ritmoPulso = ritmoReal > 0 ? ritmoReal : 1
+    const maximo = MAX_SEGUIDOS * this.velocidad
+    if (n > maximo) this.medida.perdidos += n - maximo
+    const toca = Math.min(n, maximo)
+    if (toca <= 0) return
+    try {
+      this.hacer(toca, 1000 / this.fps, true)
+    } catch (e) {
+      this.activo = false
+      clearTimeout(this.temporizador)
+      this.emitir({ evento: 'fallo', mensaje: (e as Error)?.message ?? String(e) }, [])
+    }
   }
 
   /** Tras cargar un estado o reiniciar: el sonido de antes ya no vale y el reloj empieza de nuevo. */
@@ -176,6 +213,13 @@ export class RitmoPropio {
     if (!this.activo) return
     const paso = 1000 / this.fps
     const ahora = performance.now()
+    // La pantalla marca el ritmo: el reloj solo vigila. Si deja de marcarlo, sigue desde el último pulso
+    if (ahora - this.ultimoPulso < MS_SIN_PULSO) {
+      this.base = this.ultimoPulso
+      this.hechos = 0
+      this.temporizador = setTimeout(this.tick, MS_SIN_PULSO / 2)
+      return
+    }
     let toca = Math.floor(((ahora - this.base) * this.velocidad) / paso) - this.hechos
     const maximo = MAX_SEGUIDOS * this.velocidad
     if (toca > maximo) {
@@ -186,7 +230,7 @@ export class RitmoPropio {
     }
     if (toca > 0) {
       try {
-        this.hacer(toca, paso)
+        this.hacer(toca, paso, false)
       } catch (e) {
         this.activo = false
         this.emitir({ evento: 'fallo', mensaje: (e as Error)?.message ?? String(e) }, [])
@@ -197,7 +241,7 @@ export class RitmoPropio {
     this.temporizador = setTimeout(this.tick, Math.max(0, siguiente - performance.now()))
   }
 
-  private hacer(n: number, paso: number): void {
+  private hacer(n: number, paso: number, porPulso: boolean): void {
     // Ahorrar batería: si aún no toca imagen, no se pinta ni se saca del lienzo (v0.36.0)
     const quiereImagen = !this.limite30 || performance.now() - this.ultimaImagen >= 1000 / 30 - 3
     const r = this.motor.fotogramas({ n, ...this.entrada, sinImagen: !quiereImagen })
@@ -209,9 +253,10 @@ export class RitmoPropio {
       this.fps = fps
       this.frecuencia = r.tiempos.frecuencia || this.frecuencia
     }
-    this.sonido?.enviar(r.audio, this.frecuencia * this.velocidad)
+    this.sonido?.enviar(r.audio, this.frecuencia * this.velocidad * (porPulso ? this.ritmoPulso : 1))
     const m = this.medida
     m.tandas++
+    if (porPulso) m.pulsos++
     m.fotogramas += n
     m.trabajo += r.msTrabajo
     m.pintar += r.msPintar

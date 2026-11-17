@@ -47,6 +47,8 @@ export interface RitmoConexion {
   arrancar(entrada: EntradaRitmo, velocidad: number, limite30: boolean): void
   parar(): void
   entrada(e: EntradaRitmo): void
+  /** Pulso de la pantalla (v0.41.0): los fotogramas que tocan en este refresco */
+  pulso(n: number, ritmoReal: number): void
   velocidad(v: number): void
   limite30(activo: boolean): void
   /** Canal directo al procesador de audio, con su frecuencia y la cola que se busca */
@@ -209,6 +211,7 @@ class ConexionHilo implements ConexionMotor {
     arrancar: (entrada, velocidad, limite30) => this.h.avisar('ritmoArrancar', [entrada, velocidad, limite30]),
     parar: () => this.h.avisar('ritmoParar'),
     entrada: (e) => this.h.avisar('ritmoEntrada', [e]),
+    pulso: (n, ritmoReal) => this.h.avisar('ritmoPulso', [n, ritmoReal]),
     velocidad: (v) => this.h.avisar('ritmoVelocidad', [v]),
     limite30: (activo) => this.h.avisar('ritmoLimite30', [activo]),
     sonido: (puerto, frecuenciaSalida, objetivo) => this.h.avisar('ritmoSonido', [puerto, frecuenciaSalida, objetivo], [puerto]),

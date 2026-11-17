@@ -207,7 +207,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           hilo: creada.enHilo,
           pintor: creada.pintor,
           // Quién marca el ritmo de los fotogramas: el hilo (Nintendo 64, v0.33.0) o la pantalla
-          ritmo: creada.ritmoPropio ? 'propio' : 'pantalla',
+          ritmo: creada.ritmoPropio ? (creada.alPulso ? 'propio-pulso' : 'propio') : 'pantalla',
           ...(creada.pintorMs ? { pintorMs: { webgl: Math.round(creada.pintorMs.webgl * 100) / 100, '2d': Math.round(creada.pintorMs['2d'] * 100) / 100 } } : {}),
           ...(creada.motivoLocal ? { motivo: creada.motivoLocal } : {}),
           // Nintendo 64: si había lista de sombreadores de la vez anterior (v0.40.0)

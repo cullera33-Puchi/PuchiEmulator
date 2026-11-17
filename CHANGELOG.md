@@ -1,5 +1,17 @@
 # Cambios
 
+## 0.41.0 (17/11/2026)
+
+Mejoras 25 y 21 de la hoja de ruta, marcadas por el usuario.
+
+- 25, ritmo propio en todas las consolas: el hilo del motor hace los fotogramas, recibe los botones en cuanto cambian y manda el sonido directo al procesador de audio, como ya hacían la N64 y la PlayStation. Antes, en el resto, la página pedía cada tanda en cada refresco de la pantalla y esperaba la respuesta; si la página iba cargada, el juego lo notaba.
+- Pulso de la pantalla (`pulso` en `RitmoPropio`): en las consolas que van casi al ritmo de la pantalla (GBA a 59,73 en una de 60 o 120 Hz, NES, Super Nintendo, Mega Drive, DS…), la página manda en cada refresco cuántos fotogramas tocan, contados como antes (`planRitmo`). Así cada imagen cae en su refresco y no se repite una cada pocos segundos, que es lo que pasaría con solo el reloj del hilo. El trabajo sigue en el hilo y el pulso es un aviso sin respuesta. Si los pulsos dejan de llegar 100 ms, el hilo sigue con su reloj desde el último. «Ahorrar batería» junta los pulsos cada unos 33 ms. El sonido se ajusta a lo que va de más el juego en sincronía (por ejemplo, 60 frente a 59,73).
+- La N64 y la PlayStation siguen con el reloj del hilo (`relojHilo` en `SISTEMAS`; sustituye a `ritmoPropio`): pueden cargar tanto el iPhone que la pantalla no refresca a tiempo.
+- Con rebobinar activado (ajuste interno, desactivado desde la v0.37.3) y sin el hilo, todo sigue como antes: rebobinar necesita que la página pida cada tanda.
+- Registro: «Juego abierto» dice `propio-pulso`, `propio` o `pantalla`; «Rendimiento» lleva `pulsos` y `tandas`.
+- 21, pruebas de navegador también con WebKit, el motor de Safari: proyecto `webkit` en `playwright.config.ts` (`npm run e2e:webkit`) y flujo propio en GitHub (`webkit.yml`), en cada envío y aparte de la publicación (un fallo avisa pero no la para). Es el WebKit de Linux, no el Safari del iPhone. `npm run e2e` sigue siendo solo Chromium.
+- Pruebas: 186 unitarias (nuevas: reloj, pulso, vuelta al reloj y recorte del ritmo del hilo) y 74 de navegador (la de «Ahorrar batería» comprueba que GBA va al pulso de la pantalla).
+
 ## 0.40.0 (17/11/2026)
 
 Última de las mejoras marcadas por el usuario: 29, los parones de la Nintendo 64 al preparar gráficos nuevos (en los registros, fotogramas sueltos de 83 a 90 ms).
