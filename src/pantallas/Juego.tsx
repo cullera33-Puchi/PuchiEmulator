@@ -527,8 +527,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const estadoDe = (r: Ranura) => estados?.find((e) => e.ranura === r)
 
   // Proporción de la imagen: la del núcleo; en Super Nintendo, la de la televisión (4:3) salvo que
-  // se elija el píxel exacto. 256 x 224 a 4:3 ocupa en horizontal un 17 % más de ancho.
-  const aspecto = sistema === 'snes' && controles.snesAspecto === 'tv' ? 4 / 3 : nativo.ancho / nativo.alto
+  // se elija el píxel exacto. 256 x 224 a 4:3 ocupa en horizontal un 17 % más de ancho. PlayStation,
+  // siempre 4:3 (v0.42.3): sus juegos cambian de resolución en marcha (320 x 240, 512 x 240, 368 x 480…)
+  // y con la proporción de cada una la imagen se estrechaba o encogía; en la tele, siempre 4:3
+  const aspecto = (sistema === 'snes' && controles.snesAspecto === 'tv') || sistema === 'psx' ? 4 / 3 : nativo.ancho / nativo.alto
   const proporcion = 1 / aspecto
 
   // El lienzo se dimensiona a mano para poder estirar la imagen a otra proporción; ocupa lo máximo que

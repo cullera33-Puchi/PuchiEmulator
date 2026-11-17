@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.42.3",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "PlayStation: la imagen se ve siempre a 4:3, aunque el juego cambie de resolución; ya no se encoge.",
+      "El ahorro automático de batería solo salta con la pantalla del iPhone a 30, sin encenderse y apagarse a cada momento."
+    ]
+  },
+  {
     "version": "0.42.2",
     "fecha": "17/11/2026",
     "cambios": [

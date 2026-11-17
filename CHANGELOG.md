@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.42.3 (17/11/2026)
+
+A partir del registro del usuario con un juego real de PlayStation («arranca bien, pero la pantalla se ha quedado más pequeña») y con la DS.
+
+- PlayStation, siempre a 4:3: la imagen tomaba la proporción de la resolución del momento, y los juegos de PlayStation la cambian en marcha (320 x 240, 512 x 240, 368 x 480…); con 368 x 480 se quedaba estrecha y pequeña. En la tele, la PlayStation se veía siempre a 4:3, sea cual sea su resolución.
+- Ahorro automático con margen: se activa con la pantalla a 32 refrescos o menos (el modo de bajo consumo la deja a 30) y se quita al volver a 45 o más. Con el límite de 40 de la v0.42.0, en la DS se encendía y apagaba cada segundo, con la pantalla del iPhone entre 40 y 80.
+- Visto en el registro y sin cambios: en la PlayStation, el juego va a 60 fotogramas por segundo y enseña de 12 a 22 imágenes nuevas, las que dibuja el propio juego (muchos dibujan a 30 o a 20). En la DS, un fallo del núcleo («Out of bounds memory access») al seguir donde se dejó, 5 segundos después de haber abierto el juego; la protección de la v0.13.1 lo abrió con la partida guardada y no se perdió nada. No se reproduce aquí: pendiente de ver si se repite.
+- 186 pruebas unitarias y 77 de navegador.
+
 ## 0.42.2 (17/11/2026)
 
 A partir de otra captura del usuario (GBA con el menú abierto, en la ventana corta de iOS 26): debajo de la hoja del menú asomaba el color del tema.

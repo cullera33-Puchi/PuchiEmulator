@@ -496,8 +496,11 @@ export class Sesion {
     const dtPantalla = Math.min(ahora - this.ultimo, 250)
     this.ultimo = ahora
     this.refresco.medir(dtPantalla)
-    // Ahorro automático (v0.42.0): la pantalla a 40 refrescos o menos, con la medida ya hecha
-    const lenta = this.refresco.ms >= 1000 / 40
+    // Ahorro automático (v0.42.0): la pantalla a 32 refrescos o menos (modo de bajo consumo); se quita
+    // al volver a 45 o más. Con margen (v0.42.3): con 40 se encendía y apagaba cada segundo en la DS,
+    // con la pantalla del iPhone entre 40 y 80
+    const hz = this.refresco.ms ? 1000 / this.refresco.ms : 60
+    const lenta = this.pantallaLenta ? hz < 45 : hz <= 32
     if (lenta !== this.pantallaLenta) {
       this.pantallaLenta = lenta
       registrar('info', 'Ahorro automático', { activo: lenta, pantallaHz: Math.round(1000 / (this.refresco.ms || 1000 / 60)) })
