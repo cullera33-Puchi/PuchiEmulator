@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.41.3",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "En vertical, la fila de guardar, cargar, menú y avance rápido vuelve a estar centrada en todas las consolas.",
+      "Con una mano, esos botones van juntos, sin el hueco que dejó rebobinar."
+    ]
+  },
+  {
     "version": "0.41.2",
     "fecha": "17/11/2026",
     "cambios": [

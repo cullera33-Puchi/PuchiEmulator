@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.41.3 (17/11/2026)
+
+A partir de una captura del usuario con Super Nintendo en vertical: la fila de guardar, cargar, el menú y el avance rápido había quedado descentrada desde que se quitó el botón de rebobinar (v0.37.3).
+
+- La fila se colocaba alrededor del centro contando con dos botones a cada lado del menú. Sin rebobinar, a la derecha queda solo el avance rápido: cuando el grupo de la derecha tiene un botón, toda la fila se corre media pieza (`--corre-fila`, con `:has`) y vuelve a quedar centrada. Si algún día se vuelve a activar rebobinar, o en la DS (que lleva «Soplar»), queda como estaba.
+- Una mano en vertical con la mano derecha: el menú y guardar y cargar se acercan, sin el hueco donde iba rebobinar. Revisadas el resto de disposiciones (horizontal, una mano en horizontal y las de la DS): no dependían del número de botones.
+- Prueba de navegador nueva: la fila centrada y con los mismos huecos en Game Boy, GBA, NES, Super Nintendo, Mega Drive, Master System y N64, y sin hueco con una mano (con el CSS anterior falla: 27 puntos descentrada). 186 pruebas unitarias y 76 de navegador.
+
 ## 0.41.2 (17/11/2026)
 
 A partir de una captura del usuario con la DS en vertical en la app instalada: la fila de abajo (guardar y cargar, Select, Start, avance rápido y menú) salía cortada por la mitad, con una franja negra debajo.

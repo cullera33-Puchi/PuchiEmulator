@@ -2355,3 +2355,42 @@ test('capacidades del navegador: lo que necesitan los hilos, la N64 y la PlaySta
   console.log(`Capacidades (${info.project.name}):`, JSON.stringify(capacidades))
   expect(capacidades.offscreen).toBe(true)
 })
+
+test('en vertical, la fila de guardar, cargar, el menú y el avance rápido queda centrada en todas las consolas (v0.41.3)', async ({ page, browserName }) => {
+  test.setTimeout(120_000)
+  // Centro de la fila y huecos entre sus botones, en el orden en que se ven
+  const fila = () =>
+    page.evaluate(() => {
+      const cajas = [...document.querySelectorAll('.herramientas .herramienta, .boton-menu')]
+        .map((e) => e.getBoundingClientRect())
+        .filter((r) => r.width > 0)
+        .sort((a, b) => a.left - b.left)
+      const huecos = cajas.slice(1).map((r, i) => Math.round(r.left - cajas[i].right))
+      return { centro: (cajas[0].left + cajas.at(-1)!.right) / 2, ancho: innerWidth, huecos, botones: cajas.length }
+    })
+  const roms = ['prueba.gba', 'prueba.gb', 'prueba.nes', 'prueba.sfc', 'prueba.md', 'prueba.sms', ...(browserName === 'webkit' ? [] : ['prueba.z64'])]
+  for (const fichero of roms) {
+    await page.goto('/')
+    await anadir(page, fichero)
+    await page.locator('.capa:not(.fondo)').getByRole('button', { name: /prueba/ }).first().click()
+    await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+    const f = await fila()
+    // Guardar, cargar, el menú y el avance rápido (sin rebobinar), con el mismo hueco y en el centro
+    expect(f.botones, fichero).toBe(4)
+    expect(Math.abs(f.centro - f.ancho / 2), fichero).toBeLessThanOrEqual(2)
+    expect(new Set(f.huecos).size, `${fichero}: ${f.huecos}`).toBe(1)
+  }
+  // Una mano, con la derecha: la fila junta, pegada al borde de la mano, sin hueco donde iba rebobinar
+  await page.evaluate(() => {
+    const a = JSON.parse(localStorage.getItem('puchiemulator-ajustes') ?? '{}')
+    localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ ...a, modoMando: 'una-mano', mano: 'derecha' }))
+  })
+  await page.goto('/')
+  await entrar(page, 'Game Boy Advance')
+  await page.locator('.capa:not(.fondo)').getByRole('button', { name: /prueba/ }).first().click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect(page.getByTestId('juego')).toHaveClass(/una-mano/)
+  const f = await fila()
+  expect(f.botones).toBe(4)
+  expect(Math.max(...f.huecos) - Math.min(...f.huecos), `${f.huecos}`).toBeLessThanOrEqual(2)
+})

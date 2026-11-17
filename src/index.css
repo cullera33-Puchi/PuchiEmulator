@@ -748,7 +748,12 @@
   opacity: 0.3;
 }
 
-/* Vertical: una fila debajo de la pantalla con guardar y cargar, el menú y rebobinar y avance rápido */
+/* Vertical: una fila debajo de la pantalla con guardar y cargar, el menú y rebobinar y avance rápido.
+   Sin rebobinar (desactivado desde la v0.37.3), a la derecha queda un solo botón: la fila se corre
+   media pieza para seguir centrada (v0.41.3, `--corre-fila`) */
+.juego:has(.herramientas.derecha > :only-child) {
+  --corre-fila: 27px;
+}
 .herramientas {
   position: absolute;
   z-index: 5;
@@ -757,15 +762,15 @@
   top: calc(var(--seguro-arriba) + 18px + min(calc(100cqw * var(--proporcion, 0.6667)), 50cqh));
 }
 .herramientas.izquierda {
-  right: calc(50% + 32px);
+  right: calc(50% + 32px - var(--corre-fila, 0px));
 }
 .herramientas.derecha {
-  left: calc(50% + 32px);
+  left: calc(50% + 32px + var(--corre-fila, 0px));
 }
 .boton-menu {
   position: absolute;
   z-index: 5;
-  left: calc(50% - 22px);
+  left: calc(50% - 22px + var(--corre-fila, 0px));
   top: calc(var(--seguro-arriba) + 18px + min(calc(100cqw * var(--proporcion, 0.6667)), 50cqh));
 }
 
@@ -805,11 +810,11 @@ body.en-juego .aviso {
   }
   .juego.una-mano[data-mano='derecha'] .boton-menu {
     left: auto;
-    right: calc(var(--seguro-der) + var(--lado) + 108px);
+    right: calc(var(--seguro-der) + var(--lado) + 108px - var(--corre-fila, 0px) * 2);
   }
   .juego.una-mano[data-mano='derecha'] .herramientas.izquierda {
     left: auto;
-    right: calc(var(--seguro-der) + var(--lado) + 162px);
+    right: calc(var(--seguro-der) + var(--lado) + 162px - var(--corre-fila, 0px) * 2);
   }
   .juego.una-mano[data-mano='izquierda'] .herramientas.izquierda {
     right: auto;
