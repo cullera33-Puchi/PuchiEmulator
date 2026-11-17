@@ -23,7 +23,11 @@ import { ControlRitmo, Remuestreador } from './remuestreo'
 export type EntradaRitmo = Omit<PeticionFotogramas, 'n'>
 
 /** Lo que el hilo manda a la página por su cuenta */
-export type EventoRitmo = { evento: 'imagen'; imagenes: Imagenes } | { evento: 'fallo'; mensaje: string }
+export type EventoRitmo =
+  | { evento: 'imagen'; imagenes: Imagenes }
+  | { evento: 'fallo'; mensaje: string }
+  /** La consola ha cambiado de ritmo (v0.43.0): la página cuenta los pulsos con él */
+  | { evento: 'tiempos'; fps: number; frecuencia: number }
 
 /** Medidas para el registro, acumuladas desde la última vez que se pidieron */
 export interface MedidaRitmo {
@@ -51,6 +55,19 @@ const MAX_SEGUIDOS = 4
 
 /** Sin pulso de la pantalla en este tiempo, el hilo vuelve a su reloj (v0.41.0) */
 export const MS_SIN_PULSO = 100
+
+/**
+ * Imágenes mandadas a la página que aún no ha recibido (v0.43.0). Si la página se atasca (al girar el
+ * iPhone, por ejemplo), el hilo deja de pintar en lugar de amontonar imágenes en la cola de mensajes:
+ * a 60 por segundo, en unos segundos son cientos de megas e iOS cierra la app.
+ */
+export const MAX_IMAGENES_EN_VUELO = 2
+
+/** Si la página no confirma ninguna imagen en este tiempo, se vuelve a probar con una (v0.43.0) */
+const MS_SIN_CONFIRMAR = 1000
+
+/** Hora común a la página y al hilo (cada uno tiene su propio origen de performance.now()) */
+export const horaComun = (): number => performance.timeOrigin + performance.now()
 
 /** El sonido del hilo, directo al procesador de audio (`public/procesador-audio.js`). */
 export class SonidoHilo {
@@ -108,6 +125,11 @@ export class RitmoPropio {
   /** Último pulso de la pantalla y cuánto más rápido va el juego con él (para el sonido) */
   private ultimoPulso = -Infinity
   private ritmoPulso = 1
+  /** Imágenes mandadas que la página aún no ha confirmado, y cuándo se mandó la última (v0.43.0) */
+  private enVuelo = 0
+  private ultimaEnviada = 0
+  /** El menor retraso visto de un pulso, de la página al hilo (v0.43.0) */
+  private menorRetraso = Infinity
 
   private readonly motor: Motor
   private fps: number
@@ -128,6 +150,8 @@ export class RitmoPropio {
     this.reiniciarReloj()
     this.sonido?.vaciar()
     if (this.activo) return
+    this.enVuelo = 0
+    this.menorRetraso = Infinity
     this.activo = true
     this.desdeActivo = performance.now()
     this.tick()
@@ -160,12 +184,27 @@ export class RitmoPropio {
     this.sonido = sonido
   }
 
+  /** La página ha recibido una imagen (v0.43.0) */
+  imagenVista(): void {
+    if (this.enVuelo > 0) this.enVuelo--
+  }
+
   /**
    * Pulso de la pantalla (v0.41.0): `n` fotogramas, ya multiplicados por la velocidad, y lo rápido que
    * va el juego así frente a la consola (`ritmoReal`, por ejemplo 60 / 59,73), para el sonido.
+   * `hora` (`horaComun`, v0.43.0): cuándo lo mandó la página. Si el hilo iba atrasado y los pulsos se
+   * han amontonado en la cola, los viejos se descartan (el juego se frena un poco) y manda el reloj; si
+   * no, se harían todos seguidos, con los botones y la pausa llegando cada vez más tarde.
    */
-  pulso(n: number, ritmoReal: number): void {
+  pulso(n: number, ritmoReal: number, hora?: number): void {
     if (!this.activo) return
+    if (hora !== undefined) {
+      // Retraso del pulso frente al menor visto: así no importa si los relojes de la página y del hilo
+      // no coinciden del todo. Los descartados no se cuentan aquí: si faltan, los pone el reloj
+      const retraso = horaComun() - hora
+      if (retraso < this.menorRetraso) this.menorRetraso = retraso
+      if (retraso - this.menorRetraso > MS_SIN_PULSO) return
+    }
     this.ultimoPulso = performance.now()
     this.ritmoPulso = ritmoReal > 0 ? ritmoReal : 1
     const maximo = MAX_SEGUIDOS * this.velocidad
@@ -242,16 +281,23 @@ export class RitmoPropio {
   }
 
   private hacer(n: number, paso: number, porPulso: boolean): void {
-    // Ahorrar batería: si aún no toca imagen, no se pinta ni se saca del lienzo (v0.36.0)
-    const quiereImagen = !this.limite30 || performance.now() - this.ultimaImagen >= 1000 / 30 - 3
+    // Ahorrar batería: si aún no toca imagen, no se pinta ni se saca del lienzo (v0.36.0). Tampoco si la
+    // página no ha recibido las anteriores (v0.43.0); si en un segundo no confirma ninguna, se prueba otra
+    const ahora = performance.now()
+    if (this.enVuelo >= MAX_IMAGENES_EN_VUELO && ahora - this.ultimaEnviada > MS_SIN_CONFIRMAR) this.enVuelo = MAX_IMAGENES_EN_VUELO - 1
+    // Al pulso, la página ya junta los fotogramas cada unos 33 ms con el ahorro: aquí no se vuelve a
+    // mirar el tiempo, que con unos milisegundos de retraso del mensaje se saltaba una imagen (v0.43.0)
+    const quiereImagen = this.enVuelo < MAX_IMAGENES_EN_VUELO && (!this.limite30 || porPulso || ahora - this.ultimaImagen >= 1000 / 30 - 3)
     const r = this.motor.fotogramas({ n, ...this.entrada, sinImagen: !quiereImagen })
     this.hechos += n
     if (r.tiempos) {
       const fps = r.tiempos.fps > 0 ? r.tiempos.fps : this.fps
       // Con otro ritmo de la consola, el reloj empieza de nuevo: si no, lo que toca saldría mal (v0.36.0)
+      const cambia = fps !== this.fps || (r.tiempos.frecuencia || this.frecuencia) !== this.frecuencia
       if (fps !== this.fps) this.reiniciarReloj()
       this.fps = fps
       this.frecuencia = r.tiempos.frecuencia || this.frecuencia
+      if (cambia) this.emitir({ evento: 'tiempos', fps: this.fps, frecuencia: this.frecuencia }, [])
     }
     this.sonido?.enviar(r.audio, this.frecuencia * this.velocidad * (porPulso ? this.ritmoPulso : 1))
     const m = this.medida
@@ -265,6 +311,8 @@ export class RitmoPropio {
     if (r.msTrabajo > MS_PARON) m.parones++
     if (!r.imagenes) return
     this.ultimaImagen = performance.now()
+    this.ultimaEnviada = this.ultimaImagen
+    this.enVuelo++
     m.imagenes++
     const transferir: Transferable[] = [r.imagenes.imagen]
     if (r.imagenes.mini) transferir.push(r.imagenes.mini)

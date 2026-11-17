@@ -115,6 +115,8 @@ export class Motor {
   private audio = new Int16Array(8192)
   /** Nintendo 64: hay un fotograma nuevo en el lienzo de WebGL que aún no se ha enseñado */
   private glNuevo = false
+  /** Hay una imagen nueva del núcleo que aún no se ha pintado (v0.43.0) */
+  private imagenPendiente = false
 
   private constructor(nucleo: Nucleo, pintor: Pintor, c: ConfigMotor) {
     this.nucleo = nucleo
@@ -133,15 +135,28 @@ export class Motor {
     }
     const nucleo = await Nucleo.cargar(c.nucleo, c.opciones)
     paso('nucleo')
+    // Si algo falla a partir de aquí, el núcleo no se queda en memoria (v0.43.0): la página vuelve a
+    // intentarlo enseguida con otro y se juntaban dos
+    try {
+      return await Motor.abrirEn(nucleo, c, tiempos, paso)
+    } catch (e) {
+      nucleo.descargar()
+      throw e
+    }
+  }
+
+  private static async abrirEn(
+    nucleo: Nucleo,
+    c: ConfigMotor,
+    tiempos: { nucleo: number; juego: number; estado: number },
+    paso: (k: 'nucleo' | 'juego' | 'estado') => void,
+  ): Promise<{ motor: Motor; info: InfoMotor }> {
     const partida = c.partida ? { datos: new Uint8Array(c.partida.datos), rtc: c.partida.rtc ? new Uint8Array(c.partida.rtc) : undefined } : undefined
     for (const f of c.sistema ?? []) nucleo.escribirSistema(f.nombre, new Uint8Array(f.datos))
     if (c.sombreadores) nucleo.escribirSombreadores(c.sombreadores.map((f) => ({ nombre: f.nombre, datos: new Uint8Array(f.datos) })))
     const inicial = c.disco ? discoInicial(c.disco) : undefined
     const cargado = c.disco ? nucleo.cargarDisco(await ficherosDelDisco(c.disco), c.disco.principal, inicial) : !!c.rom && nucleo.cargarJuego(new Uint8Array(c.rom), c.extension, partida)
-    if (!cargado) {
-      nucleo.descargar()
-      throw new Error('El núcleo no ha podido abrir el juego.')
-    }
+    if (!cargado) throw new Error('El núcleo no ha podido abrir el juego.')
     if (partida) nucleo.escribirPartida(partida.datos, partida.rtc)
     // Varios discos en un PBP (v0.38.0): sin lista .m3u, el disco se cambia después de cargar
     if (c.disco?.actual && !inicial) nucleo.cambiarDisco(c.disco.actual)
@@ -155,7 +170,9 @@ export class Motor {
     paso('juego')
     let autoCargado = false
     if (c.estadoAuto) {
-      nucleo.cargarEstado(new Uint8Array(c.estadoAuto))
+      // Si el núcleo no lo acepta, puede quedar a medio cargar (melonDS lo carga por partes): mejor no
+      // seguir con él. La página abre otra vez con la partida guardada (v0.43.0)
+      if (!nucleo.cargarEstado(new Uint8Array(c.estadoAuto))) throw new Error('No se ha podido cargar el punto donde se dejó.')
       autoCargado = true
     }
     paso('estado')
@@ -166,7 +183,8 @@ export class Motor {
       info: {
         fps: nucleo.fps,
         frecuencia: nucleo.frecuenciaAudio,
-        partida: motor.ultimaPartida ? { datos: motor.ultimaPartida } : null,
+        // Una copia: el original se compara después y, si viajara al hilo principal, se quedaría vacío (v0.43.0)
+        partida: motor.ultimaPartida ? { datos: motor.ultimaPartida.slice() } : null,
         tiempos,
         pintor: motor.tipoPintor,
         pintorMs,
@@ -248,8 +266,12 @@ export class Motor {
       }
     }
     const t1 = performance.now()
-    // Sin imagen pedida, en N64 la del lienzo se queda pendiente (glNuevo) para la próxima vez
-    const imagenes = hayImagen && !p.sinImagen ? this.pintar() : null
+    // Sin imagen pedida (ahorro de batería, o la página aún no ha recibido las anteriores), la imagen nueva
+    // se queda pendiente para la próxima vez (v0.43.0; en N64, glNuevo): si el juego no cambia después,
+    // la última que se ve sería la de antes y la pantalla parecería parada
+    if (hayImagen) this.imagenPendiente = true
+    const imagenes = this.imagenPendiente && !p.sinImagen ? this.pintar() : null
+    if (imagenes) this.imagenPendiente = false
     const t2 = performance.now()
     const cambio = this.nucleo.avCambiado()
     return {
@@ -294,6 +316,11 @@ export class Motor {
   cargarEstado(datos: Uint8Array): { ok: boolean; imagenes: Imagenes | null } {
     this.antesDeCargar = this.nucleo.guardarEstado()
     const ok = this.nucleo.cargarEstado(datos)
+    // Si no se ha podido cargar, puede quedar a medias: se vuelve a como estaba (v0.43.0)
+    if (!ok && this.antesDeCargar) {
+      this.nucleo.cargarEstado(this.antesDeCargar)
+      this.antesDeCargar = null
+    }
     return { ok, imagenes: this.imagenTrasCargar() }
   }
 

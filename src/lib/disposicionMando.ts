@@ -45,37 +45,34 @@ export function desdeRect(r: { left: number; top: number; width: number; height:
 
 /**
  * Alto del recuadro con el que se colocaron las piezas guardadas antes de la v0.42.4, que no lo
- * llevan: el de la pantalla (desde la v0.35.0 el recuadro la ocupaba entera)
+ * llevan: el de la pantalla en la orientación del recuadro (desde la v0.35.0 lo ocupaba entera). Con
+ * «Girar la pantalla», el recuadro va en horizontal aunque el iPhone esté en vertical (v0.43.0).
  */
-function altoAnterior(): number | undefined {
+export function altoSinDato(orientacion: Orientacion): number | undefined {
   if (typeof window === 'undefined' || !window.screen) return undefined
   const { width, height } = window.screen
-  return window.innerHeight >= window.innerWidth ? Math.max(width, height) : Math.min(width, height)
+  return orientacion === 'vertical' ? Math.max(width, height) : Math.min(width, height)
 }
 
 /**
- * Estilo en línea de una pieza colocada: centrada en su punto y escalada. Las de la mitad de arriba,
- * a su fracción del alto; las de la mitad de abajo, a la misma distancia del borde de abajo que
- * cuando se colocaron (v0.42.4)
+ * La colocación llevada al alto de ahora (v0.43.0), para que no salte al empezar a moverla: las de la
+ * mitad de abajo, a la misma distancia del borde de abajo; las de arriba, del de arriba.
  */
-export function estiloPieza(c: Colocacion, altoSinDato = altoAnterior()): Record<string, string> {
-  const alto = c.alto ?? altoSinDato
-  if (c.y > 0.5 && alto) {
-    return {
-      left: `${c.x * 100}cqw`,
-      top: 'auto',
-      right: 'auto',
-      bottom: `${Math.round((1 - c.y) * alto)}px`,
-      translate: '-50% 50%',
-      scale: String(c.escala),
-    }
-  }
-  return {
-    left: `${c.x * 100}cqw`,
-    top: `${c.y * 100}cqh`,
-    right: 'auto',
-    bottom: 'auto',
-    translate: '-50% -50%',
-    scale: String(c.escala),
-  }
+export function aAltoActual(c: Colocacion, altoActual: number, alto = c.alto): Colocacion {
+  if (!alto || !altoActual || alto === altoActual) return { ...c, alto: altoActual || alto }
+  const y = c.y > 0.5 ? 1 - ((1 - c.y) * alto) / altoActual : (c.y * alto) / altoActual
+  return { ...c, y: entre(y, 0.02, 0.98), alto: altoActual }
+}
+
+/**
+ * Estilo en línea de una pieza colocada: centrada en su punto y escalada. Con el alto del recuadro
+ * con el que se colocó (v0.42.4), las de la mitad de abajo, a la misma distancia del borde de abajo, y
+ * desde la v0.43.0 las de arriba, a la misma del de arriba (la imagen va pegada arriba en puntos: L y R
+ * sobre la pantalla táctil de la DS se movían respecto a ella). Sin alto, a su fracción del alto.
+ */
+export function estiloPieza(c: Colocacion, orientacion: Orientacion, alto = c.alto ?? altoSinDato(orientacion)): Record<string, string> {
+  const base = { left: `${c.x * 100}cqw`, right: 'auto', scale: String(c.escala) }
+  if (!alto) return { ...base, top: `${c.y * 100}cqh`, bottom: 'auto', translate: '-50% -50%' }
+  if (c.y > 0.5) return { ...base, top: 'auto', bottom: `${Math.round((1 - c.y) * alto)}px`, translate: '-50% 50%' }
+  return { ...base, top: `${Math.round(c.y * alto)}px`, bottom: 'auto', translate: '-50% -50%' }
 }

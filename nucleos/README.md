@@ -68,4 +68,6 @@ El script descarga el núcleo en `.nucleos/` (ignorado por git), lo compila como
 
 `puente.c` hace de «frontend» libretro mínimo: entorno (opciones, formato de píxel, registro), imagen convertida a RGBA, sonido por fotograma, botones como máscara de bits, partida guardada, reloj del cartucho y estados. Exporta funciones `pf_*` que usa `src/emulador/nucleo.ts`. Es el mismo para todos los núcleos. La ROM se conserva en memoria hasta `pf_descargar`: melonDS no hace copia y la vuelve a leer al reiniciar (v0.13.1). Con la tarjeta gráfica (`PF_GL`, Nintendo 64, v0.36.0) se libera al cargar, porque el núcleo copia la suya; `pf_descargar` destruye el contexto de WebGL y, si no lo hubo al cargar, no llama a `retro_deinit` (arrancaría el emulador sin la parte gráfica). Solo se recompiló el núcleo de N64: en el resto no cambia nada.
 
+Sin memoria (v0.43.0): si `malloc` no puede agrandar el búfer de la imagen (al subir la resolución, Super Nintendo en alta o PlayStation a 640 x 480), se conserva el de antes y ese fotograma no se convierte; antes se escribía desde la dirección 0, encima de los datos del núcleo. La app comprueba también lo que reserva para la ROM y los estados (`nucleo.ts`). Todos los núcleos recompilados.
+
 `libretro.h` es la cabecera pública de la API de libretro (licencia MIT).

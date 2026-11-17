@@ -12,7 +12,7 @@
  *   segundo), al pausar y al salir.
  * - Al salir o al pasar la app a segundo plano se guarda un estado «auto» para seguir donde se dejó.
  */
-import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, guardarSombreadores, leerEstado, leerPartida, leerSombreadores, type Juego, type Ranura } from '../lib/almacen'
+import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, guardarSombreadores, leerEstado, leerPartida, leerRomGuardada, leerSombreadores, type Juego, type Ranura } from '../lib/almacen'
 import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
@@ -270,7 +270,12 @@ export class Sesion {
   }
 
   private async preparar(): Promise<void> {
-    const { juego, rom, lienzo } = this.o
+    const { juego, lienzo } = this.o
+    // La ROM va al hilo sin copiarse (v0.43.0) y aquí se queda vacía: si se vuelve a abrir (por ejemplo,
+    // sin el punto donde se dejó), se lee otra vez
+    const releerRom = () => leerRomGuardada(juego.id)
+    const rom = this.o.rom && this.o.rom.byteLength === 0 ? await releerRom() : this.o.rom
+    this.o.rom = undefined
     const info = SISTEMAS[juego.sistema]
     const contexto = contextoDe(lienzo)
     if (!contexto) throw new Error('Sin lienzo para la imagen.')
@@ -301,6 +306,7 @@ export class Sesion {
         pintor: pintorElegido(),
       },
       leerAjustes().emulacionEnHilo !== false,
+      releerRom,
     )
     this.motor = conexion
     this.enHilo = conexion.enHilo
@@ -309,6 +315,7 @@ export class Sesion {
     this.motivoLocal = motivoLocal
     this.tiempos = m.tiempos
     this.cargaAutoPendiente = m.autoCargado
+    this.desdeAuto = m.autoCargado
     this.ponerTiempos(m.fps, m.frecuencia)
     this.mostrar(m.imagenes)
     // Ritmo propio (v0.33.0 en N64; v0.37.0, PlayStation; v0.41.0, todas): el hilo lleva el ritmo. Rebobinar
@@ -375,6 +382,10 @@ export class Sesion {
   private alEventoRitmo(e: EventoRitmo): void {
     if (e.evento === 'fallo') {
       this.fallar(new Error(e.mensaje))
+      return
+    }
+    if (e.evento === 'tiempos') {
+      this.ponerTiempos(e.fps, e.frecuencia)
       return
     }
     if (!this.corriendo || this.roto) {
@@ -973,6 +984,7 @@ export class Sesion {
     // Llega del hilo con su propio búfer: no hace falta copiarlo (16 MB en N64)
     const datos = r.datos.byteOffset === 0 && r.datos.byteLength === r.datos.buffer.byteLength ? (r.datos.buffer as ArrayBuffer) : (r.datos.slice().buffer as ArrayBuffer)
     await guardarEstado({ id: this.o.juego.id, ranura, datos, fecha: Date.now(), captura })
+    if (ranura === 'auto') this.autoGuardado = true
     return true
   }
 
@@ -980,6 +992,8 @@ export class Sesion {
     const estado = await leerEstado(this.o.juego.id, ranura)
     if (!estado) return false
     const r = await this.motor.cargarEstado(new Uint8Array(estado.datos))
+    // El motor ya ha vuelto a como estaba (v0.43.0)
+    if (!r.ok) registrar('aviso', 'El núcleo no ha aceptado el estado', { sistema: this.o.juego.sistema, ranura })
     this.altavoz.vaciar()
     if (this.propio) this.motor.ritmo?.vaciarSonido()
     this.porHacer = 0
@@ -1010,6 +1024,10 @@ export class Sesion {
   }
 
   /** Error dentro del núcleo: se para, se anota y no se vuelve a guardar nada de esta sesión. */
+  /** Se abrió donde se dejó, y se ha guardado otro punto desde entonces (v0.43.0) */
+  private desdeAuto = false
+  private autoGuardado = false
+
   private fallar(e: unknown): void {
     if (this.roto || this.cerrada) return
     this.roto = true
@@ -1019,6 +1037,9 @@ export class Sesion {
     clearInterval(this.temporizadorGuardado)
     this.altavoz.pausar()
     const mensaje = (e as Error)?.message ?? String(e)
+    // Si se abrió donde se dejó y aún no se ha guardado otro punto, la próxima vez se abre sin él
+    // (v0.43.0): si el fallo viene de ese punto, se repetiría cada vez que se siguiera desde ahí
+    if (this.desdeAuto && !this.autoGuardado) marcarCargaAuto(this.o.juego.id)
     registrar('error', 'El emulador ha fallado; no se guarda nada después del fallo', { sistema: this.o.juego.sistema, hilo: this.enHilo, mensaje })
     this.o.alFallar?.(mensaje)
   }

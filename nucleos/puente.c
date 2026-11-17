@@ -277,15 +277,23 @@ static bool entorno(unsigned cmd, void *datos) {
 	}
 }
 
-static void asegurarVideo(unsigned ancho, unsigned alto) {
+/* Sin memoria (v0.43.0), malloc devuelve NULL: entonces se conserva el búfer de antes y el
+ * fotograma no se convierte (devuelve false), en lugar de escribirlo desde la dirección 0 encima de
+ * los datos del núcleo. */
+static bool asegurarVideo(unsigned ancho, unsigned alto) {
 	unsigned necesario = ancho * alto;
 	if (necesario > videoCapacidad) {
+		uint32_t *nuevo = (uint32_t *) malloc(necesario * sizeof(uint32_t));
+		if (!nuevo) {
+			return false;
+		}
 		free(video);
-		video = (uint32_t *) malloc(necesario * sizeof(uint32_t));
+		video = nuevo;
 		videoCapacidad = necesario;
 	}
 	videoAncho = ancho;
 	videoAlto = alto;
+	return true;
 }
 
 /* Convierte el fotograma del núcleo a RGBA (bytes R, G, B, A en memoria). */
@@ -301,7 +309,9 @@ static void refrescarVideo(const void *datos, unsigned ancho, unsigned alto, siz
 		videoNuevo = true;
 		return;
 	}
-	asegurarVideo(ancho, alto);
+	if (!asegurarVideo(ancho, alto)) {
+		return; /* sin memoria para el fotograma: se queda el anterior */
+	}
 	uint32_t *destino = video;
 	if (formato == RETRO_PIXEL_FORMAT_XRGB8888) {
 		for (unsigned y = 0; y < alto; ++y) {

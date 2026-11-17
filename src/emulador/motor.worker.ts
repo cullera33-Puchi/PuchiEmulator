@@ -12,6 +12,8 @@ import type { PantallasDS, PrincipalDS } from './pantallasDS'
 let motor: Motor | null = null
 /** Ritmo propio (v0.33.0; todas las consolas desde la v0.41.0): el bucle de fotogramas del hilo */
 let ritmo: RitmoPropio | null = null
+/** Número de la partida abierta (v0.43.0), lo pone la página */
+let partidaActual: number | undefined
 
 const emitir = (e: EventoRitmo, transferir: Transferable[]) => (self as unknown as Worker).postMessage(e, transferir)
 
@@ -49,11 +51,17 @@ const metodos: Record<string, (...args: never[]) => unknown> = {
     await prepararNucleo(nombre)
     return true
   },
-  crear: async (c: ConfigMotor) => {
+  crear: async (c: ConfigMotor, partida?: number) => {
     soltarRitmo()
     motor?.descargar()
     motor = null
+    partidaActual = partida
     const { motor: m, info } = await Motor.crear(c)
+    // Si mientras se abría ha llegado otra apertura, esta ya no vale
+    if (partidaActual !== partida) {
+      m.descargar()
+      throw new Error('Se ha abierto otro juego')
+    }
     motor = m
     return info
   },
@@ -71,7 +79,9 @@ const metodos: Record<string, (...args: never[]) => unknown> = {
   discos: () => usar().discos(),
   cambiarDisco: (indice: number) => usar().cambiarDisco(indice),
   ponerMando: (tipo: number) => usar().ponerMando(tipo),
-  descargar: () => {
+  descargar: (partida?: number) => {
+    // El cierre tardío de un juego anterior no descarga el que se acaba de abrir (v0.43.0)
+    if (partida !== undefined && partidaActual !== undefined && partida !== partidaActual) return
     soltarRitmo()
     motor?.descargar()
     motor = null
@@ -79,7 +89,8 @@ const metodos: Record<string, (...args: never[]) => unknown> = {
   ritmoArrancar: (entrada: EntradaRitmo, velocidad: number, limite30: boolean) => conRitmo().arrancar(entrada, velocidad, limite30),
   ritmoParar: () => ritmo?.parar(),
   ritmoEntrada: (entrada: EntradaRitmo) => ritmo?.ponerEntrada(entrada),
-  ritmoPulso: (n: number, ritmoReal: number) => ritmo?.pulso(n, ritmoReal),
+  ritmoPulso: (n: number, ritmoReal: number, hora?: number) => ritmo?.pulso(n, ritmoReal, hora),
+  ritmoImagenVista: () => ritmo?.imagenVista(),
   ritmoVelocidad: (v: number) => conRitmo().ponerVelocidad(v),
   ritmoLimite30: (activo: boolean) => conRitmo().ponerLimite30(activo),
   ritmoSonido: (puerto: MessagePort, frecuenciaSalida: number, objetivo: number) => conRitmo().ponerSonido(new SonidoHilo(puerto, frecuenciaSalida, objetivo)),

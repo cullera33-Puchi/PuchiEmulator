@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.43.0",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "Revisión a fondo de las últimas versiones, con unos 25 fallos corregidos.",
+      "El juego ya no amontona imágenes si la pantalla se atasca un momento (por ejemplo, al girar el iPhone): era la causa más probable de que la app se cerrara sola.",
+      "Nintendo DS: arreglado un fallo de memoria al guardar o seguir donde lo dejaste.",
+      "Los botones que mueves de sitio se quedan donde los pusiste, también con «Girar la pantalla», y no saltan al empezar a moverlos."
+    ]
+  },
+  {
     "version": "0.42.5",
     "fecha": "17/11/2026",
     "cambios": [

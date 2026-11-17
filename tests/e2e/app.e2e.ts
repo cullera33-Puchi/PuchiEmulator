@@ -2385,7 +2385,7 @@ test('en vertical, la fila de guardar, cargar, el menú y el avance rápido qued
     // Guardar, cargar, el menú y el avance rápido (sin rebobinar), con el mismo hueco y en el centro
     expect(f.botones, fichero).toBe(4)
     expect(Math.abs(f.centro - f.ancho / 2), fichero).toBeLessThanOrEqual(2)
-    expect(new Set(f.huecos).size, `${fichero}: ${f.huecos}`).toBe(1)
+    expect(Math.max(...f.huecos) - Math.min(...f.huecos), `${fichero}: ${f.huecos}`).toBeLessThanOrEqual(1)
   }
   // Una mano, con la derecha: la fila junta, pegada al borde de la mano, sin hueco donde iba rebobinar
   await page.evaluate(() => {

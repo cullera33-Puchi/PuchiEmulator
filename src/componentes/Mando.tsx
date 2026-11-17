@@ -9,7 +9,7 @@ import { useEffect, useRef, type PointerEvent as EventoPuntero, type ReactNode, 
 import { bit, direccionCruceta, vectorPalanca, type NombreBoton } from '../emulador/botones'
 import { vibracionActiva } from '../lib/ajustes'
 import { NOMBRE_BOTON, type BotonMenu } from '../lib/mandoJuego'
-import { estiloPieza, type DisposicionPiezas, type Pieza } from '../lib/disposicionMando'
+import { estiloPieza, type DisposicionPiezas, type Orientacion, type Pieza } from '../lib/disposicionMando'
 import { fraccionEn, giroDe, vectorJuego } from '../lib/giro'
 import { vibrar } from '../lib/vibracion'
 
@@ -33,6 +33,8 @@ interface Props {
   sinSelect?: boolean
   /** Piezas movidas por el usuario (v0.20.0): dónde va cada una y su tamaño */
   colocaciones?: DisposicionPiezas
+  /** Orientación del recuadro del juego (con «Girar la pantalla», horizontal): para colocar las piezas */
+  orientacion?: Orientacion
   /** Editando la colocación: el mando no manda nada al juego */
   editando?: boolean
   /** Máscara de los botones con turbo: se marcan con una «T» */
@@ -132,11 +134,11 @@ const BOTONES_C: [NombreBoton, string, string, typeof ChevronUp][] = [
   ['C_ABAJO', 'c-abajo', 'C abajo', ChevronDown],
 ]
 
-export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, editando, tres, etiquetas, sinSelect, n64, psx, palancasPsx }: Props) {
+export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatroDirecciones, correr, turbo = 0, colocaciones, orientacion = 'vertical', editando, tres, etiquetas, sinSelect, n64, psx, palancasPsx }: Props) {
   // Lo que pone en cada botón: el nombre de la consola o, si no, el de libretro
   const nombre = (b: 'A' | 'B' | 'X' | 'Y' | 'START') => etiquetas?.[b] ?? (b === 'START' ? 'Start' : b)
   // Atributos de cada pieza: su nombre (para el editor) y, si se ha movido, su sitio y su tamaño
-  const pieza = (p: Pieza) => ({ 'data-pieza': p, style: colocaciones?.[p] ? (estiloPieza(colocaciones[p]!) as React.CSSProperties) : undefined })
+  const pieza = (p: Pieza) => ({ 'data-pieza': p, style: colocaciones?.[p] ? (estiloPieza(colocaciones[p]!, orientacion) as React.CSSProperties) : undefined })
   const raiz = useRef<HTMLDivElement>(null)
   const cruceta = useRef<HTMLDivElement>(null)
   const dedos = useRef(new Map<number, Dedo>())

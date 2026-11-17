@@ -3,18 +3,25 @@
  * solo para toda la app: así el núcleo que se prepara al abrirla ya está compilado allí. Si el hilo no
  * arranca o no contesta, el mismo motor en el hilo principal (como hasta la v0.30.0).
  */
+import { registrar } from '../lib/registro'
 import type { NombreNucleo } from '../lib/sistemas'
 import { Motor, type ConfigMotor, type InfoMotor, type PeticionFotogramas, type ResultadoFotogramas } from './motor'
 import { prepararNucleo, type FicheroSombreadores } from './nucleo'
 import type { PantallasDS, PrincipalDS } from './pantallasDS'
 import type { Disposicion, Imagenes } from './pintor'
-import type { EntradaRitmo, EventoRitmo, MedidaRitmo } from './ritmoPropio'
+import { horaComun, type EntradaRitmo, type EventoRitmo, type MedidaRitmo } from './ritmoPropio'
 
 /** El hilo no ha arrancado o ha dejado de contestar (no es un fallo del juego) */
 export class ErrorHilo extends Error {}
 
 /** Lo que tarda como mucho en abrir un juego el hilo antes de darlo por perdido */
 const ESPERA_CREAR_MS = 20_000
+/**
+ * Nintendo 64 con la lista de sombreadores (v0.43.0): el núcleo los prepara todos al abrir, y con una
+ * lista larga en un iPhone puede pasar de 20 s; entonces se descartaba el hilo y se volvía a empezar
+ * en el principal, con la app parada
+ */
+const ESPERA_CREAR_CON_SOMBREADORES_MS = 60_000
 
 export interface ConexionMotor {
   readonly enHilo: boolean
@@ -113,6 +120,8 @@ class Hilo {
           e.data.imagenes.imagen.close()
           e.data.imagenes.mini?.close()
         }
+        // Recibida (enseñada o soltada): el hilo puede mandar la siguiente (v0.43.0)
+        if (e.data.evento === 'imagen') this.avisar('ritmoImagenVista')
         return
       }
       const p = this.pendientes.get(e.data.id)
@@ -122,9 +131,15 @@ class Hilo {
       else p.resolver(e.data.r)
     }
     const caer = (motivo: string) => {
+      if (this.caido) return
       this.caido = true
+      // Un hilo caído no se deja vivo (v0.43.0): seguía haciendo fotogramas sin recibir los botones, y el
+      // siguiente juego abría otro hilo con otro núcleo en memoria. La partida se entera como de un fallo
+      this.hilo.terminate()
+      registrar('error', 'El hilo del motor se ha caído', { motivo })
       for (const p of this.pendientes.values()) p.rechazar(new ErrorHilo(motivo))
       this.pendientes.clear()
+      this.alEvento?.({ evento: 'fallo', mensaje: `El hilo del motor se ha caído: ${motivo}` })
     }
     this.hilo.onerror = (e) => caer(e.message || 'El hilo del motor no ha arrancado')
     this.hilo.onmessageerror = () => caer('Mensaje del hilo ilegible')
@@ -161,6 +176,8 @@ class Hilo {
 }
 
 let hilo: Hilo | null = null
+/** Número de la última partida abierta en el hilo */
+let partidas = 0
 
 function hiloVivo(): Hilo {
   if (!hilo || hilo.caido) hilo = new Hilo()
@@ -171,13 +188,18 @@ class ConexionHilo implements ConexionMotor {
   readonly enHilo = true
   private readonly h = hiloVivo()
 
+  /** Partida de este juego en el hilo (v0.43.0): un «descargar» tardío de la anterior no quita esta */
+  private readonly partida = ++partidas
+
   async crear(c: ConfigMotor): Promise<InfoMotor> {
     let espera = 0
     const limite = new Promise<never>((_, rechazar) => {
-      espera = window.setTimeout(() => rechazar(new ErrorHilo('El hilo del motor no contesta')), ESPERA_CREAR_MS)
+      espera = window.setTimeout(() => rechazar(new ErrorHilo('El hilo del motor no contesta')), c.sombreadores?.length ? ESPERA_CREAR_CON_SOMBREADORES_MS : ESPERA_CREAR_MS)
     })
     try {
-      return await Promise.race([this.h.llamar<InfoMotor>('crear', [c]), limite])
+      // La ROM viaja sin copiarse (v0.43.0): con una DS de 256 MB, la copia de la página y la del hilo
+      // sumaban otro tanto a lo que ya ocupa el núcleo, y el iPhone se quedaba sin memoria
+      return await Promise.race([this.h.llamar<InfoMotor>('crear', [c, this.partida], c.rom ? [c.rom] : []), limite])
     } catch (e) {
       // Si no contesta, se descarta: la próxima vez se crea otro
       if (e instanceof ErrorHilo) this.h.terminar()
@@ -205,13 +227,13 @@ class ConexionHilo implements ConexionMotor {
   private miEvento: ((e: EventoRitmo) => void) | null = null
   descargar = () => {
     if (this.h.alEvento === this.miEvento) this.h.alEvento = null
-    return this.h.llamar<void>('descargar')
+    return this.h.llamar<void>('descargar', [this.partida])
   }
   readonly ritmo: RitmoConexion = {
     arrancar: (entrada, velocidad, limite30) => this.h.avisar('ritmoArrancar', [entrada, velocidad, limite30]),
     parar: () => this.h.avisar('ritmoParar'),
     entrada: (e) => this.h.avisar('ritmoEntrada', [e]),
-    pulso: (n, ritmoReal) => this.h.avisar('ritmoPulso', [n, ritmoReal]),
+    pulso: (n, ritmoReal) => this.h.avisar('ritmoPulso', [n, ritmoReal, horaComun()]),
     velocidad: (v) => this.h.avisar('ritmoVelocidad', [v]),
     limite30: (activo) => this.h.avisar('ritmoLimite30', [activo]),
     sonido: (puerto, frecuenciaSalida, objetivo) => this.h.avisar('ritmoSonido', [puerto, frecuenciaSalida, objetivo], [puerto]),
@@ -229,15 +251,21 @@ class ConexionHilo implements ConexionMotor {
  * el hilo no arranca o no contesta, en el hilo principal. Un fallo del juego (ROM o núcleo) no cambia
  * de hilo: se devuelve tal cual.
  */
-export async function abrirMotor(c: ConfigMotor, enHilo: boolean): Promise<{ conexion: ConexionMotor; info: InfoMotor; motivoLocal?: string }> {
+export async function abrirMotor(
+  c: ConfigMotor,
+  enHilo: boolean,
+  releerRom?: () => Promise<ArrayBuffer | undefined>,
+): Promise<{ conexion: ConexionMotor; info: InfoMotor; motivoLocal?: string }> {
   if (enHilo && typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined') {
     try {
       const conexion = new ConexionHilo()
       return { conexion, info: await conexion.crear(c) }
     } catch (e) {
       if (!(e instanceof ErrorHilo)) throw e
+      // La ROM se fue al hilo (v0.43.0): se vuelve a leer para abrirlo aquí
+      const rom = c.rom && c.rom.byteLength === 0 ? await releerRom?.() : c.rom
       const local = new ConexionLocal()
-      return { conexion: local, info: await local.crear(c), motivoLocal: e.message }
+      return { conexion: local, info: await local.crear({ ...c, rom }), motivoLocal: e.message }
     }
   }
   const local = new ConexionLocal()

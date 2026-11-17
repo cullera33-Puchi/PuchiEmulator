@@ -157,6 +157,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             lienzo: lienzo.current!,
             reanudar: desdeAuto,
             opciones: {
+              // Van a todos los núcleos, aunque solo las lee mGBA: quitarlas en los demás (v0.43.0) cambia
+              // la disposición de la memoria del de N64 y su carga de estados falla (fallo latente del
+              // núcleo, que depende de esa disposición; ver CHANGELOG). Se dejan como estaban
               mgba_gb_colors: paletaPara(temaJuego, ajustesRef.current.paletaGb),
               mgba_color_correction: controlesDe(ajustesRef.current, juego.id).coloresConsola ? 'Auto' : 'OFF',
               // Nintendo 64 (v0.34.0): resolución con la que dibuja; el lienzo del núcleo se crea a esa medida
@@ -370,7 +373,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     const s = sesion.current
     if (!s) return
     if (!(await s.cargarEstado('rapida'))) {
-      avisar('Aún no hay guardado rápido')
+      // El botón solo se activa con un guardado rápido: si no carga, es que el núcleo no lo ha aceptado
+      avisar('No se ha podido cargar el guardado rápido')
       return
     }
     avisar('Guardado rápido cargado', { fn: () => void s.deshacerCarga() })
@@ -459,7 +463,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
   const colocaciones = borrador?.piezas ?? ajustes.mandos[id]?.disposicion?.[orientacion]
   /** Las herramientas también se mueven (v0.35.0): su nombre para el editor y, si se han movido, su sitio */
-  const piezaHerramienta = (p: Pieza) => ({ 'data-pieza': p, style: colocaciones?.[p] ? (estiloPieza(colocaciones[p]!) as React.CSSProperties) : undefined })
+  const piezaHerramienta = (p: Pieza) => ({ 'data-pieza': p, style: colocaciones?.[p] ? (estiloPieza(colocaciones[p]!, orientacion) as React.CSSProperties) : undefined })
 
   const editarBotones = () => {
     setVerMando(false)
@@ -599,6 +603,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         psx={SISTEMAS[sistema].psx}
         palancasPsx={palancasPsx ? { alMover: (lado, x, y) => sesion.current?.ponerPalanca(x, y, lado) } : undefined}
         colocaciones={colocaciones}
+        orientacion={orientacion}
         editando={!!borrador}
         correr={mando.jrpg ? { activo: corriendo, boton: mando.correr, alCambiar: cambiarCorrer } : undefined}
         tactil={esTactil ? { lienzo, alTocar: (x, y) => sesion.current?.ponerPuntero(x, y) } : undefined}
@@ -698,6 +703,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
       {borrador && (
         <EditorMando
           colocaciones={borrador.piezas}
+          orientacion={orientacion}
           alCambiar={(piezas) => setBorrador({ ...borrador, piezas })}
           alRestablecer={() => setBorrador({ ...borrador, piezas: {} })}
           alListo={terminarEdicion}

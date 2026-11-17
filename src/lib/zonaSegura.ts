@@ -82,6 +82,15 @@ function orientacion(): Orientacion {
 
 let ultimaRegistrada = ''
 
+/** Alto y ancho de la ventana de verdad para el CSS, solo si han cambiado (v0.42.1; v0.43.0) */
+function ponerTamanoVentana(): void {
+  const raiz = document.documentElement.style
+  const alto = `${window.innerHeight}px`
+  const ancho = `${window.innerWidth}px`
+  if (raiz.getPropertyValue('--alto-ventana') !== alto) raiz.setProperty('--alto-ventana', alto)
+  if (raiz.getPropertyValue('--ancho-ventana') !== ancho) raiz.setProperty('--ancho-ventana', ancho)
+}
+
 function actualizar(): void {
   const o = orientacion()
   const todas = leer()
@@ -101,8 +110,7 @@ function actualizar(): void {
   // Alto de la ventana de verdad (v0.42.1): en la app instalada, iOS 26 la abre unas veces con todo el
   // alto de la pantalla (874 en el iPhone 17) y otras con 62 puntos menos (812); lo que pase de ella
   // no se ve. El juego mide esto, ni más (se cortaba) ni menos (quedaba una franja)
-  raiz.setProperty('--alto-ventana', `${window.innerHeight}px`)
-  raiz.setProperty('--ancho-ventana', `${window.innerWidth}px`)
+  ponerTamanoVentana()
   // En el registro, para ver en el iPhone si iOS falla al girar (solo cuando cambia algo)
   const firma = `${o}:${JSON.stringify(medida)}:${JSON.stringify(recordada)}`
   if (firma !== ultimaRegistrada) {
@@ -114,13 +122,16 @@ function actualizar(): void {
 /** Mide ahora y después de cada giro (iOS tarda un poco en dar los valores buenos). */
 export function vigilarZonaSegura(): void {
   actualizar()
-  let temporizador = 0
+  let temporizadores: number[] = []
   const despues = () => {
-    clearTimeout(temporizador)
+    for (const t of temporizadores) clearTimeout(t)
     actualizar()
-    temporizador = window.setTimeout(actualizar, 400)
+    // iOS puede dar el alto bueno un poco más tarde que el aviso de giro: se vuelve a mirar (v0.43.0)
+    temporizadores = [150, 400, 1000].map((ms) => window.setTimeout(actualizar, ms))
   }
   window.addEventListener('resize', despues)
+  // El alto de la ventana también puede cambiar sin «resize» (v0.43.0): solo el tamaño, sin medir más
+  window.visualViewport?.addEventListener('resize', ponerTamanoVentana)
   window.addEventListener('orientationchange', despues)
   // Al volver de segundo plano, iOS puede haber cambiado el alto de la ventana (v0.42.1)
   window.addEventListener('pageshow', despues)

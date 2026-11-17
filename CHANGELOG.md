@@ -1,5 +1,45 @@
 # Cambios
 
+## 0.43.0 (18/11/2026)
+
+Revisión independiente y a fondo de la v0.40.0 a la v0.42.5, pedida por el usuario («has perdido la finura») tras una Super Nintendo congelada: tres revisiones en paralelo (motor y ritmo de los fotogramas; pantalla e interfaz; núcleos, almacenamiento y pruebas), cada hallazgo comprobado antes de corregirlo.
+
+Lo que dice el registro del usuario: la Super Nintendo, abierta a las 22:37:35, se giró a horizontal y otra vez a vertical, y 4 segundos después la app arrancó de cero (sin «Juego cerrado»). La vez anterior, lo mismo poco después de volver a vertical. No se reproduce en el navegador de pruebas (doce giros con el juego en marcha, memoria estable).
+
+Congelación y cierres de la app:
+- Imágenes sin freno (desde la v0.41.0): con el ritmo propio, el hilo mandaba cada imagen aunque la página no hubiera recibido las anteriores. Si la página se atasca (al girar el iPhone, por ejemplo), se amontonaban en la cola de mensajes, a 60 por segundo, hasta que iOS cerraba la app por memoria. Es la causa más probable. Ahora como mucho dos sin recibir (`MAX_IMAGENES_EN_VUELO`; la página confirma cada una, `ritmoImagenVista`); mientras, el juego sigue y no se pinta. La imagen que no se pinta queda pendiente para la siguiente vez (`imagenPendiente` en `Motor`): antes, con el ahorro de batería, si el juego no cambiaba después se seguía viendo la anterior.
+- Pulsos amontonados: si el hilo iba atrasado, los pulsos de la pantalla se hacían todos seguidos al ponerse al día, y los botones y la pausa llegaban cada vez más tarde. Cada pulso lleva ahora su hora (`horaComun`); los que llegan con más de 100 ms de retraso sobre el menor visto se descartan y sigue el reloj del hilo.
+- Hilo del motor caído: se quedaba vivo haciendo fotogramas sin recibir los botones (el juego parecía colgado) y el siguiente juego abría otro hilo con otro núcleo en memoria. Ahora se cierra, queda en el registro («El hilo del motor se ha caído») y la partida lo trata como un fallo.
+- El cierre tardío de un juego (más de 8 s guardando) podía descargar el siguiente, que se quedaba con la imagen parada: cada apertura lleva su número y «descargar» solo vale para la suya.
+- La ROM va al hilo sin copiarse y la página la suelta al abrir: con una DS de 256 MB eran dos copias más de la ROM en memoria todo el rato. Si hay que volver a abrir (sin el punto donde se dejó, o sin hilo), se lee otra vez.
+
+Nintendo DS («Out of bounds memory access» al seguir donde se dejó, dos veces en el registro del usuario):
+- Sin memoria, `malloc` devuelve 0, y al guardar o cargar un estado o al abrir el juego no se comprobaba: el estado se escribía encima del propio núcleo y el siguiente fotograma fallaba. Ahora se comprueba (`nucleo.ts`) y también en el búfer de la imagen del puente (`asegurarVideo` en `puente.c`; núcleos recompilados).
+- Un punto donde se dejó que el núcleo no acepta ya no se usa a medias (melonDS carga por partes): se abre otra vez con la partida guardada. Un estado de una ranura que no carga devuelve el juego a como estaba, con su aviso. Si el juego falla después de seguir desde un punto y no se ha guardado otro, la siguiente vez se abre sin él (antes se repetía el fallo cada vez).
+- Un núcleo que falla al abrir el juego se descarga: la página lo intentaba con otro enseguida y se juntaban dos en memoria.
+
+Pantalla y mando:
+- Botones movidos con «Girar la pantalla»: los guardados antes de la v0.42.4 se colocaban con el alto del iPhone en vertical en un recuadro horizontal (la cruceta, 118 puntos más arriba). Ahora con el de la orientación del recuadro (`altoSinDato`).
+- Las piezas de la mitad de arriba guardan también su distancia al borde de arriba (la imagen va pegada arriba): L y R sobre la pantalla táctil de la DS se movían respecto a ella según el alto con que abre iOS.
+- En el editor, la pieza ya no salta al empezar a moverla (`aAltoActual`).
+- El alto de la ventana se vuelve a mirar a los 150, 400 y 1000 ms de un giro y cuando cambia el visualViewport, por si iOS lo da tarde.
+- Las hojas (el menú del juego) llegan hasta abajo de la ventana en la app instalada; antes podía asomar el juego por debajo.
+
+Otros:
+- Nintendo 64 con lista de sombreadores: 60 s para abrir antes de dar el hilo por perdido (los prepara todos al abrir; con una lista larga podía pasar de 20 s y se volvía a empezar en el hilo principal, con la app parada).
+- La partida ya no se reescribía siempre en la primera comprobación tras abrir (el original se quedaba vacío al viajar a la página).
+- Si la consola cambia de ritmo en marcha, la página lo sabe (evento `tiempos`) y cuenta los pulsos con él.
+- Ahorro de batería al pulso de la pantalla sin saltos de imagen de 66 ms por unos milisegundos de retraso de un mensaje.
+- Cargar rápido, si el núcleo no acepta el estado: «No se ha podido cargar el guardado rápido» (decía «Aún no hay guardado rápido»).
+- La prueba de la fila de herramientas admite un punto de diferencia por redondeo.
+
+Probado y sin cambiar:
+- Pasar las opciones de mGBA solo a mGBA (ocupan dos de las 64 opciones del puente en los demás) hace fallar la carga de estados de la Nintendo 64 en la prueba. No depende del número de opciones ni de cuáles: con dos opciones de relleno con otro nombre también falla. Es un fallo latente del núcleo de N64 que depende de cómo queda la memoria (el mismo que en la v0.40.0 con 256 opciones). Se dejan como estaban; pendiente de estudiar en el núcleo.
+- Sin causa encontrada: la PlayStation acelerada tras el ahorro de batería (el registro muestra el juego a 60 fotogramas por segundo; en ese rato se usó el avance rápido 9 segundos).
+- Pendiente, poco probable: al pasar de 60 a 120 Hz, medio segundo a doble velocidad hasta que se mide el refresco nuevo; melonDS reserva 16 MB sin comprobar al calcular el tamaño de un estado (dentro del núcleo).
+
+190 pruebas unitarias (nuevas: pulsos viejos, imágenes sin confirmar, piezas al alto de ahora) y 77 de navegador.
+
 ## 0.42.5 (17/11/2026)
 
 A partir del registro del usuario («la Super Nintendo se ha colgado»): guardado rápido a las 22:36:30 y, 20 segundos después, el juego cerrado. El registro muestra el juego a 60 fotogramas y 60 imágenes por segundo hasta el final, sin fallos: el núcleo seguía en marcha y lo que se paraba era la imagen.

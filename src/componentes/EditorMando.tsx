@@ -4,11 +4,13 @@
  */
 import { Minus, Plus } from 'lucide-react'
 import { useRef, useState, type PointerEvent as EventoPuntero } from 'react'
-import { escalar, mover, type Colocacion, type DisposicionPiezas, type Pieza } from '../lib/disposicionMando'
+import { aAltoActual, altoSinDato, escalar, mover, type Colocacion, type DisposicionPiezas, type Orientacion, type Pieza } from '../lib/disposicionMando'
 import { giroDe, vectorJuego } from '../lib/giro'
 
 interface Props {
   colocaciones: DisposicionPiezas
+  /** Orientación del recuadro del juego, para las piezas guardadas sin su alto */
+  orientacion: Orientacion
   alCambiar: (c: DisposicionPiezas) => void
   alRestablecer: () => void
   alListo: () => void
@@ -39,13 +41,18 @@ function nombreDe(p: Pieza): string {
   return NOMBRE[p]
 }
 
-export function EditorMando({ colocaciones, alCambiar, alRestablecer, alListo }: Props) {
+export function EditorMando({ colocaciones, orientacion, alCambiar, alRestablecer, alListo }: Props) {
   const [elegida, setElegida] = useState<Pieza | null>(null)
   const arrastre = useRef<{ pieza: Pieza; x: number; y: number; inicio: Colocacion; dedo: number } | null>(null)
 
   /** La colocación de una pieza: la guardada o, si no, donde está ahora en pantalla. */
   const colocacionDe = (p: Pieza): Colocacion | null => {
-    if (colocaciones[p]) return colocaciones[p]!
+    // La guardada, llevada al alto de ahora: si no, al empezar a moverla saltaba (v0.43.0)
+    const guardada = colocaciones[p]
+    if (guardada) {
+      const alto = document.querySelector<HTMLElement>('.mando')?.clientHeight ?? 0
+      return aAltoActual(guardada, alto, guardada.alto ?? altoSinDato(orientacion))
+    }
     // Las del mando y, desde la v0.35.0, las herramientas, que están fuera de él (mismo recuadro)
     const el = document.querySelector<HTMLElement>(`.juego [data-pieza="${p}"]`)
     const mando = document.querySelector<HTMLElement>('.mando')

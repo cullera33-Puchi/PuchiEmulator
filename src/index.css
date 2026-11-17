@@ -130,6 +130,12 @@
   .giro.girada.izquierda {
     transform: translateY(var(--alto-ventana, 100dvh)) rotate(-90deg);
   }
+  /* Las hojas, también hasta abajo de la ventana (v0.43.0): con «inset: 0» se quedaban cortas y por
+     debajo asomaba el juego */
+  .hoja-capa {
+    bottom: auto;
+    height: var(--alto-ventana, 100%);
+  }
 }
 
 /* Zonas seguras giradas: lo que era arriba en el iPhone pasa a un lado del juego */

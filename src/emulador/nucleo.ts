@@ -351,6 +351,8 @@ export class Nucleo {
       if (partida) this.m.FS.writeFile(fichero, partida.datos)
     }
     const p = this.m._malloc(rom.byteLength)
+    // Sin memoria, malloc devuelve 0 y la ROM se escribiría encima del propio núcleo (v0.43.0)
+    if (!p) throw new Error('No hay memoria para abrir el juego.')
     this.m.HEAPU8.set(rom, p)
     const ext = this.texto(extension)
     // El puente conserva la ROM hasta descargar (melonDS la relee al reiniciar); con N64 la libera al
@@ -565,6 +567,9 @@ export class Nucleo {
     const tam = this.m._pf_estado_tam()
     if (!tam) return null
     const p = this.m._malloc(tam)
+    // Sin memoria (el iPhone la limita), malloc devuelve 0: el estado se escribiría encima de los datos
+    // del núcleo y el siguiente fotograma fallaría («Out of bounds memory access», DS). Mejor no guardar (v0.43.0)
+    if (!p) return null
     try {
       if (this.llamar(() => this.resultado(this.m._pf_guardar_estado(p, tam))) !== 1) return null
       return this.m.HEAPU8.slice(p, p + tam)
@@ -575,6 +580,7 @@ export class Nucleo {
 
   cargarEstado(datos: Uint8Array): boolean {
     const p = this.m._malloc(datos.byteLength)
+    if (!p) return false
     try {
       this.m.HEAPU8.set(datos, p)
       return this.llamar(() => this.resultado(this.m._pf_cargar_estado(p, datos.byteLength))) === 1

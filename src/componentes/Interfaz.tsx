@@ -218,7 +218,7 @@ export function Hoja({ abierta, alCerrar, titulo, oscura, children }: { abierta:
 
   if (!abierta) return null
   return createPortal(
-    <div className="fixed inset-0 z-40 flex items-end" data-theme={oscura ? 'dark' : undefined}>
+    <div className="hoja-capa fixed inset-0 z-40 flex items-end" data-theme={oscura ? 'dark' : undefined}>
       <div
         ref={velo}
         className="velo absolute inset-0 bg-black/40 transition-opacity"

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Motor, PeticionFotogramas, ResultadoFotogramas } from './motor'
-import { MS_SIN_PULSO, RitmoPropio } from './ritmoPropio'
+import { horaComun, MAX_IMAGENES_EN_VUELO, MS_SIN_PULSO, RitmoPropio } from './ritmoPropio'
 
 /** Motor de mentira: cuenta los fotogramas que le piden y no pinta nada */
 function motorDePrueba() {
@@ -78,6 +78,46 @@ describe('ritmo propio del hilo', () => {
     r.pulso(10, 1)
     expect(peticiones.at(-1)?.n).toBe(4)
     expect(r.tomarMedida().perdidos).toBe(6)
+    r.cerrar()
+  })
+
+  it('los pulsos viejos (amontonados en la cola mientras el hilo iba atrasado) se descartan (v0.43.0)', () => {
+    const { motor, total } = motorDePrueba()
+    const r = new RitmoPropio(motor, 60, 48000, () => undefined)
+    r.arrancar(entrada, 1, false)
+    // El primero marca el retraso normal (aquí, con los relojes desfasados 500 ms: no importa)
+    r.pulso(1, 1, horaComun() - 500)
+    const antes = total()
+    r.pulso(1, 1, horaComun() - 500 - MS_SIN_PULSO - 50)
+    r.pulso(1, 1, horaComun() - 500 - MS_SIN_PULSO - 30)
+    expect(total()).toBe(antes)
+    r.pulso(1, 1, horaComun() - 500)
+    expect(total()).toBe(antes + 1)
+    r.cerrar()
+  })
+
+  it('sin confirmar las imágenes, deja de pintar y sigue el juego; al confirmar, vuelve a pintar (v0.43.0)', () => {
+    const pedidas: boolean[] = []
+    const motor = {
+      fotogramas(p: PeticionFotogramas): ResultadoFotogramas {
+        pedidas.push(!p.sinImagen)
+        const imagenes = p.sinImagen ? null : { imagen: { close() {} } as unknown as ImageBitmap, ancho: 1, alto: 1 }
+        return { hechos: p.n, audio: new Int16Array(0), imagenes, rebobinado: [], msTrabajo: 1, msPintar: 0 }
+      },
+    } as unknown as Motor
+    let recibidas = 0
+    const r = new RitmoPropio(motor, 60, 48000, (e) => e.evento === 'imagen' && recibidas++)
+    r.arrancar(entrada, 1, false)
+    for (let i = 0; i < 10; i++) r.pulso(1, 1, horaComun())
+    expect(recibidas).toBe(MAX_IMAGENES_EN_VUELO)
+    expect(pedidas.length).toBe(10)
+    r.imagenVista()
+    r.pulso(1, 1, horaComun())
+    expect(recibidas).toBe(MAX_IMAGENES_EN_VUELO + 1)
+    // Si la página no contesta en un segundo, se prueba con otra (el reloj sigue, sin pulsos): una por segundo
+    const antes = recibidas
+    vi.advanceTimersByTime(1100)
+    expect(recibidas).toBe(antes + 1)
     r.cerrar()
   })
 
