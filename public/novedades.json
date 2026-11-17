@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.42.0",
+    "fecha": "17/11/2026",
+    "cambios": [
+      "Ajustes, Pantalla: «Ahorrar batería en todos los juegos». Todos van a 30 imágenes por segundo, con el juego a su velocidad: menos trabajo y menos calor.",
+      "Si el iPhone baja el refresco de la pantalla (modo de bajo consumo o calor), el juego deja de dibujar lo que no se ve, sin hacer nada.",
+      "El avance rápido es lo que más calienta: ahora queda en el registro cuánto se usa."
+    ]
+  },
+  {
     "version": "0.41.3",
     "fecha": "17/11/2026",
     "cambios": [

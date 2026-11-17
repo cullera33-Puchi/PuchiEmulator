@@ -178,6 +178,13 @@ export class Sesion {
    * tiempo y con los refrescos contados en todas las llamadas (v0.30.0).
    */
   private limite30 = false
+  /** Lo que ha pedido el usuario (para este juego o para todos) y si la pantalla va a 30 o menos */
+  private limiteUsuario = false
+  private origenLimite: 'juego' | 'todos' = 'juego'
+  private pantallaLenta = false
+  /** Tiempo con avance rápido: en la medida en curso y en toda la partida (v0.42.0) */
+  private msAvance = 0
+  private msAvanceTotal = 0
   private dtPendiente = 0
   /** Fotogramas que tocan en modo sincronizado y aún no se han hecho (con el límite, de varias llamadas) */
   private debidos = 0
@@ -489,6 +496,17 @@ export class Sesion {
     const dtPantalla = Math.min(ahora - this.ultimo, 250)
     this.ultimo = ahora
     this.refresco.medir(dtPantalla)
+    // Ahorro automático (v0.42.0): la pantalla a 40 refrescos o menos, con la medida ya hecha
+    const lenta = this.refresco.ms >= 1000 / 40
+    if (lenta !== this.pantallaLenta) {
+      this.pantallaLenta = lenta
+      registrar('info', 'Ahorro automático', { activo: lenta, pantallaHz: Math.round(1000 / (this.refresco.ms || 1000 / 60)) })
+      this.aplicarLimite()
+    }
+    if (this.velocidad > 1) {
+      this.msAvance += dtPantalla
+      this.msAvanceTotal += dtPantalla
+    }
     const mascara = this.botonesTactil | this.botonesTeclado | this.botonesMandos()
     // La palanca de un mando físico (N64) también cuenta como actividad (v0.36.0)
     if (this.n64 || this.palancasPsx) {
@@ -683,6 +701,8 @@ export class Sesion {
       sistema: this.o.juego.sistema,
       pantallaHz: Math.round(1000 / presupuesto),
       limite30: this.limite30,
+      ahorro: this.ahorro,
+      avanceSeg: Math.round(this.msAvance / 1000),
       hilo: this.enHilo,
       pintor: this.pintor,
       consolaHz: Math.round(100_000 / this.paso) / 100,
@@ -699,12 +719,15 @@ export class Sesion {
       juegoSeg: Math.round((m.fotogramas / m.tiempo) * 10_000) / 10,
     })
     this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '' }
+    this.msAvance = 0
   }
 
   /** Rendimiento del ritmo propio: lo mide el hilo; aquí, los refrescos de la página. */
   private anotarRendimientoPropio(): void {
     const m = this.medida
     this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '' }
+    const avance = this.msAvance
+    this.msAvance = 0
     const ritmo = this.motor.ritmo
     if (!ritmo) return
     const presupuesto = this.refresco.ms || 1000 / 60
@@ -716,6 +739,8 @@ export class Sesion {
           ritmo: 'propio',
           pantallaHz: Math.round(1000 / presupuesto),
           limite30: this.limite30,
+          ahorro: this.ahorro,
+          avanceSeg: Math.round(avance / 1000),
           hilo: this.enHilo,
           pintor: this.pintor,
           consolaHz: Math.round(100_000 / this.paso) / 100,
@@ -845,12 +870,37 @@ export class Sesion {
     this.enviarEntrada()
   }
 
-  /** 30 imágenes por segundo (v0.28.0), por juego: menos dibujo y menos refrescos de pantalla */
-  ponerLimite30(activo: boolean): void {
+  /**
+   * 30 imágenes por segundo (v0.28.0), por juego; desde la v0.42.0, también para todos los juegos desde
+   * Ajustes (`origen` «todos»). Menos dibujo y menos refrescos de pantalla
+   */
+  ponerLimite30(activo: boolean, origen: 'juego' | 'todos' = 'juego'): void {
+    this.limiteUsuario = activo
+    this.origenLimite = origen
+    this.aplicarLimite()
+  }
+
+  /**
+   * El límite que vale: el del usuario o el automático (v0.42.0). Con la pantalla a 30 refrescos o
+   * menos (el iPhone con el modo de bajo consumo, o caliente), dibujar más imágenes es trabajo que no
+   * se ve
+   */
+  private aplicarLimite(): void {
+    const activo = this.limiteUsuario || this.pantallaLenta
     if (activo === this.limite30) return
     this.limite30 = activo
     this.dtPendiente = 0
     if (this.propio) this.motor.ritmo?.limite30(activo)
+  }
+
+  /** Qué ahorro de batería hay para el registro (v0.42.0) */
+  private get ahorro(): 'juego' | 'todos' | 'auto' | 'no' {
+    return this.limiteUsuario ? this.origenLimite : this.pantallaLenta ? 'auto' : 'no'
+  }
+
+  /** Segundos de juego con avance rápido en esta partida (v0.42.0) */
+  get segundosAvance(): number {
+    return Math.round(this.msAvanceTotal / 1000)
   }
 
   /** Turbo: máscara de los botones con turbo (0, ninguno). */

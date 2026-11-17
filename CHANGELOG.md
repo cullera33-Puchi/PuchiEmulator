@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.42.0 (17/11/2026)
+
+Mejora 28 de la hoja de ruta, pedida por el usuario por el calor del iPhone jugando a Super Nintendo. Su registro de la v0.41.1 enseña la Super Nintendo a 60 imágenes por segundo justas, con 1 ms de trabajo por fotograma y ninguno perdido: el emulador apenas trabaja; lo que más calienta es la pantalla a 60 imágenes y el avance rápido (ratos a x2 y x4).
+
+- «Ahorrar batería en todos los juegos» (Ajustes, Pantalla; `ahorroTodos`): 30 imágenes por segundo en todos los juegos, aunque tengan su propio ajuste. Dentro de un juego, su interruptor se ve activado y no se puede quitar, con una nota. El ajuste por juego sigue como estaba.
+- Ahorro automático (`pantallaLenta` en `Sesion`): si el iPhone deja la pantalla a 40 refrescos por segundo o menos (modo de bajo consumo, o caliente; en el registro del usuario la DS iba a 37), el juego deja de dibujar las imágenes que no se pueden ver. Se anota «Ahorro automático» al entrar y al salir.
+- Registro: «Rendimiento» lleva `ahorro` (juego, todos, auto o no) y `avanceSeg` (segundos con avance rápido en esos 30 s); «Juego cerrado», `avanceSeg` de toda la partida.
+- `Interruptor` admite `desactivado`.
+- Pruebas: 186 unitarias y 77 de navegador (nueva: el ahorro para todos manda sobre el del juego, el juego va a menos de 36 imágenes por segundo y el avance rápido queda en el registro).
+
 ## 0.41.3 (17/11/2026)
 
 A partir de una captura del usuario con Super Nintendo en vertical: la fila de guardar, cargar, el menú y el avance rápido había quedado descentrada desde que se quitó el botón de rebobinar (v0.37.3).

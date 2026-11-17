@@ -60,6 +60,8 @@ export interface Ajustes {
   emulacionEnHilo: boolean
   /** 30 imágenes por segundo (v0.28.0): el juego va a su velocidad, pero se dibuja la mitad de veces */
   limite30: boolean
+  /** Ahorrar batería en todos los juegos (v0.42.0), aunque tengan su propio ajuste */
+  ahorroTodos: boolean
   /** Pantallas de Nintendo DS (v0.17.0): apiladas, libro (táctil a la derecha o a la izquierda) o grande y pequeña */
   pantallasDS: PantallasDS
   /** Tamaño de la miniatura en «grande y pequeña» (v0.20.0) */
@@ -124,6 +126,7 @@ export const POR_DEFECTO: Ajustes = {
   resolucionN64: 'alta',
   filtro: 'ninguno',
   limite30: false,
+  ahorroTodos: false,
   emulacionEnHilo: true,
   pantallasDS: 'apiladas',
   tamanoMiniDS: 'mediana',

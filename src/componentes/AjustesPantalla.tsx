@@ -154,9 +154,31 @@ export function AjustesPantalla({ juego }: { juego?: { id: string; sistema: Sist
         <div className="separador" />
         <div className="fila justify-between">
           <span>Ahorrar batería (30 imágenes por segundo)</span>
-          <Interruptor etiqueta="Ahorrar batería (30 imágenes por segundo)" activo={a.limite30} alCambiar={(v) => cambiar({ limite30: v })} />
+          {/* Con el ahorro en todos los juegos (v0.42.0), dentro de un juego se ve activado y no se puede quitar */}
+          <Interruptor
+            etiqueta="Ahorrar batería (30 imágenes por segundo)"
+            activo={a.limite30 || (!!juego && ajustes.ahorroTodos)}
+            desactivado={!!juego && ajustes.ahorroTodos}
+            alCambiar={(v) => cambiar({ limite30: v })}
+          />
         </div>
+        {!juego && (
+          <>
+            <div className="separador" />
+            <div className="fila justify-between">
+              <span>Ahorrar batería en todos los juegos</span>
+              <Interruptor etiqueta="Ahorrar batería en todos los juegos" activo={ajustes.ahorroTodos} alCambiar={(v) => cambiarAjustes({ ahorroTodos: v })} />
+            </div>
+          </>
+        )}
       </div>
+      <p className="mt-2 px-4 text-[13px] text-zinc-500">
+        {juego && ajustes.ahorroTodos
+          ? 'Activado para todos los juegos en Ajustes, Pantalla.'
+          : juego
+            ? 'El juego va a su velocidad y se dibuja la mitad de veces: menos trabajo y menos calor.'
+            : 'Arriba, lo que usan los juegos que no tienen su propio ajuste. «En todos los juegos» manda sobre el ajuste de cada uno. Si el iPhone limita la pantalla a 30 refrescos (modo de bajo consumo o calor), el ahorro se activa solo.'}
+      </p>
       {juego && tieneControlesPropios(ajustes, juego.id, CLAVES_PANTALLA) && (
         <div className="lista mt-3">
           <button className="fila text-acento dark:text-acento-oscuro" onClick={() => usarControlesGenerales(juego.id, CLAVES_PANTALLA)}>

@@ -482,10 +482,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     sesion.current?.altavoz.ponerVolumen(ajustes.volumen)
   }, [ajustes.volumen, cargando])
 
-  // 30 imágenes por segundo (v0.28.0): al abrir el juego y al cambiarlo
+  // 30 imágenes por segundo (v0.28.0): al abrir el juego y al cambiarlo; o en todos los juegos (v0.42.0)
   useEffect(() => {
-    if (!cargando) sesion.current?.ponerLimite30(controles.limite30)
-  }, [controles.limite30, cargando])
+    if (!cargando) sesion.current?.ponerLimite30(ajustes.ahorroTodos || controles.limite30, ajustes.ahorroTodos ? 'todos' : 'juego')
+  }, [controles.limite30, ajustes.ahorroTodos, cargando])
 
   // Turbo: al abrir el juego y al cambiarlo
   useEffect(() => {
@@ -516,7 +516,8 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   }
 
   const salir = async () => {
-    registrar('info', 'Juego cerrado')
+    // Con el tiempo de avance rápido de la partida (v0.42.0)
+    registrar('info', 'Juego cerrado', { avanceSeg: sesion.current?.segundosAvance ?? 0 })
     setMenu(false)
     await sesion.current?.cerrar()
     sesion.current = null

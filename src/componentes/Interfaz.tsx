@@ -244,14 +244,15 @@ export function Hoja({ abierta, alCerrar, titulo, oscura, children }: { abierta:
 }
 
 /** Interruptor al estilo iOS. */
-export function Interruptor({ activo, alCambiar, etiqueta }: { activo: boolean; alCambiar: (v: boolean) => void; etiqueta: string }) {
+export function Interruptor({ activo, alCambiar, etiqueta, desactivado }: { activo: boolean; alCambiar: (v: boolean) => void; etiqueta: string; desactivado?: boolean }) {
   return (
     <button
       role="switch"
       aria-checked={activo}
       aria-label={etiqueta}
+      disabled={desactivado}
       onClick={() => alCambiar(!activo)}
-      className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors ${activo ? 'bg-[#34C759]' : 'bg-zinc-300 dark:bg-zinc-700'}`}
+      className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors disabled:opacity-50 ${activo ? 'bg-[#34C759]' : 'bg-zinc-300 dark:bg-zinc-700'}`}
     >
       <span className={`absolute top-[2px] left-[2px] size-[27px] rounded-full bg-white shadow transition-transform ${activo ? 'translate-x-5' : ''}`} />
     </button>
