@@ -4,7 +4,7 @@
  */
 import { expect, test, type Page } from '@playwright/test'
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const rom = (n: string) => fileURLToPath(new URL(`../fixtures/${n}`, import.meta.url))
@@ -38,6 +38,13 @@ const SIN_OPFS = 'Los discos de PlayStation se copian a los ficheros privados (O
 
 /** Abre la biblioteca de una consola desde el inicio. */
 /** Selector de ficheros de la pantalla de arriba: el inicio se queda montado debajo de las apiladas (v0.26.1) */
+// Si una prueba falla, su registro de la app va a la salida (v0.46.0): con WebKit solo se ve en GitHub
+test.afterEach(async ({ page }, info) => {
+  if (info.status === info.expectedStatus) return
+  const registro = await page.evaluate(() => localStorage.getItem('puchiemulator-registro')).catch(() => null)
+  if (registro) writeFileSync(info.outputPath('registro.txt'), registro.slice(-6000))
+})
+
 const selector = (page: Page) => page.locator('.capa:not(.fondo)').getByTestId('selector')
 
 async function entrar(page: Page, consola: string) {

@@ -22,3 +22,6 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps webkit
       - run: npm run e2e:webkit -- --trace off
+      # Si falla, cómo estaba la página (v0.46.0): aquí no se puede ejecutar WebKit
+      - if: failure()
+        run: find test-results \( -name error-context.md -o -name registro.txt \) -exec sh -c 'echo "== $1"; cat "$1"' _ {} \;
