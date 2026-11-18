@@ -955,13 +955,28 @@ body.en-juego .aviso {
     --tam-mando: min(calc(150px * var(--escala)), 40cqw);
     /* L y R encima de la cruceta y los botones, con su hueco: lo que ocupan los mandos */
     --bloque-mando: calc(var(--tam-mando) + 34px * var(--escala) + 18px);
-  }
-  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .zona-pantalla {
-    top: var(--seguro-arriba);
-    height: min(
+    --alto-pantallas: min(
       calc(100cqw * var(--proporcion, 1.5)),
       calc(100cqh - var(--seguro-arriba) - var(--base-mando) - var(--bloque-mando))
     );
+    /* La franja del tema (la de «Ocho bits», v0.48.2), entre las pantallas y los botones: a su altura
+       fija del fondo quedaba debajo de la pantalla táctil */
+    background: var(--fondo-liso, var(--fondo, #000));
+  }
+  /* Desde la franja hasta abajo, la parte de abajo de la consola */
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano)::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: calc(var(--seguro-arriba) + var(--alto-pantallas) + 1px);
+    background: var(--fondo-bisagra, none);
+    pointer-events: none;
+  }
+  .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .zona-pantalla {
+    top: var(--seguro-arriba);
+    height: var(--alto-pantallas);
   }
   /* Encima de la imagen (una mano: el grupo de botones sigue sobre la táctil): relleno oscuro
      translúcido y borde claro, que se ven sobre cualquier fondo */

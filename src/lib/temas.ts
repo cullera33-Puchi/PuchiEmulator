@@ -101,6 +101,9 @@ export const TEMAS: Tema[] = [
     abajo: '#b8b7b1',
     vars: {
       '--fondo': 'linear-gradient(180deg, #d9d8d3 0%, #cfcec8 62%, #2b2b2e 62.2%, #2b2b2e 64%, #b8b7b1 64.2%)',
+      // Con la DS en vertical, la franja va entre las pantallas y los botones, como una bisagra (v0.48.2)
+      '--fondo-liso': 'linear-gradient(180deg, #d9d8d3, #cfcec8)',
+      '--fondo-bisagra': 'linear-gradient(180deg, #2b2b2e 0 7px, #b8b7b1 7px)',
       '--marco': '#1f1f22',
       '--marco-relleno': '10px',
       '--marco-radio': '6px',

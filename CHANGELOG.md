@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.48.2 (18/11/2026)
+
+- DS en vertical con el tema «Ocho bits»: la franja oscura del tema iba fija al 62 % del alto y caía debajo de la pantalla táctil. Ahora va justo entre las pantallas y los botones, como una bisagra, y el tono de abajo empieza ahí (`--fondo-liso` y `--fondo-bisagra` del tema, `--alto-pantallas` en el CSS de la DS). Elegido por el usuario entre quitarla o moverla. Con el resto de temas no cambia nada.
+
 ## 0.48.1 (18/11/2026)
 
 A partir de una captura y un registro del usuario con la DS en vertical: sobran 62 puntos abajo. Es la ventana corta de iOS 26 (`ventana` 812 con la pantalla de 874), que cambia al girar (874, 874 y otra vez 812 en tres giros seguidos). Con esa medida no se distingue si la franja de abajo es de la app (como en esta captura, del color del tema) o queda fuera de ella (como en la v0.42.1, con la fila de abajo cortada).
