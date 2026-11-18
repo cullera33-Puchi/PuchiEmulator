@@ -101,9 +101,13 @@ export function entradasUltimaPartida(lista: Entrada[] = entradas): Entrada[] {
   return lista
 }
 
-export function textoRegistro(recuentos = '', soloUltimaPartida = false): string {
+/**
+ * El registro en texto, para pegarlo en el chat: entero, solo la última partida o, con `desde` (ms),
+ * desde ese momento (la comprobación en el iPhone, v0.44.0)
+ */
+export function textoRegistro(recuentos = '', soloUltimaPartida = false, desde?: number): string {
   const cabecera = `PuchiEmulator v${APP_VERSION} | ${modoApp()} | ${navigator.userAgent} | ${new Date().toString()}${recuentos ? ` | ${recuentos}` : ''}${soloUltimaPartida ? ' | última partida' : ''}`
-  const lista = soloUltimaPartida ? entradasUltimaPartida() : entradas
+  const lista = desde !== undefined ? entradas.filter((e) => Date.parse(e.t) >= desde) : soloUltimaPartida ? entradasUltimaPartida() : entradas
   const lineas = lista.map((e) => `${e.t.replace('T', ' ').slice(5, 19)} [${e.l}] ${e.m}${e.x ? ` | ${e.x}` : ''}`)
   return `${cabecera}\n${lineas.length ? lineas.join('\n') : '(sin entradas)'}`
 }

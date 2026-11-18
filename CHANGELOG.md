@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.44.0 (18/11/2026)
+
+Mejora 20 del análisis (propuesta 7 de la revisión de la v0.43.2), marcada por el usuario: la pasada de validación en el iPhone.
+
+- Ajustes, «Comprobación en el iPhone»: una lista de 16 puntos en cuatro grupos, unos 15 minutos, con lo que quedaba pendiente de confirmar de las últimas versiones (Super Nintendo al cargar, guardar, girar y con el avance rápido; fila de herramientas, DS en vertical, botones movidos y menú; PlayStation, Nintendo 64, DS al seguir y sonido de GBA; salir con «Guardando…», seguir donde se dejó, volver deslizando y cabeceras). Cada punto se marca como «Sin probar», «Bien» o «Falla», con notas opcionales; se recuerda aunque se cierre la app (`src/lib/comprobacion.ts`, en localStorage) y la lista de Ajustes enseña cuántos van.
+- «Enviar resultados» manda la lista con el registro desde el primer punto marcado (`textoRegistro` con `desde`), por la hoja de compartir del iPhone o copiados. «Empezar de nuevo», con confirmación y «Deshacer».
+
+197 pruebas unitarias y 79 de navegador (nuevas: la lista y su texto; marcar, recordar y enviar en el navegador).
+
 ## 0.43.3 (18/11/2026)
 
 Las propuestas 1, 2 y 3 de la revisión de la v0.43.2, marcadas por el usuario.

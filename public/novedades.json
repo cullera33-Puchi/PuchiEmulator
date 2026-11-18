@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.44.0",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "Nuevo en Ajustes: «Comprobación en el iPhone», una lista de unos 15 minutos con lo que falta por confirmar.",
+      "Marca cada punto como «Bien» o «Falla» mientras juegas; se recuerda aunque cierres la app.",
+      "Al acabar, «Enviar resultados» manda la lista con el registro de ese rato para pegarlo en el chat."
+    ]
+  },
+  {
     "version": "0.43.3",
     "fecha": "18/11/2026",
     "cambios": [

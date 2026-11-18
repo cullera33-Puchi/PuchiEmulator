@@ -242,6 +242,29 @@ test('juego que parece parado: no se guarda el punto donde se dejó; registro de
   expect(registro).toContain('Punto donde se dejó sin guardar: el juego parecía parado')
 })
 
+test('comprobación en el iPhone: marcar, recordar y enviar con el registro (v0.44.0)', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
+  await page.getByRole('button', { name: /^Comprobación en el iPhone/ }).click()
+  await expect(page.getByRole('heading', { name: 'Comprobación en el iPhone' })).toBeVisible()
+  await expect(page.getByText(/Unos 15 minutos/)).toBeVisible()
+  const primero = page.getByRole('radiogroup', { name: /^Abre un juego donde lo dejaste/ })
+  await primero.getByRole('radio', { name: 'Bien' }).click()
+  await page.getByRole('radiogroup', { name: /^Guarda rápido/ }).getByRole('radio', { name: 'Falla' }).click()
+  await page.getByRole('textbox', { name: 'Notas de la comprobación' }).fill('Se para a los 3 segundos')
+  // Se recuerda al volver a abrir la app
+  await page.reload()
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
+  await expect(page.getByRole('button', { name: /^Comprobación en el iPhone/ })).toContainText('2 de 16')
+  await page.getByRole('button', { name: /^Comprobación en el iPhone/ }).click()
+  await expect(page.getByRole('radiogroup', { name: /^Abre un juego donde lo dejaste/ }).getByRole('radio', { name: 'Bien' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('textbox', { name: 'Notas de la comprobación' })).toHaveValue('Se para a los 3 segundos')
+  await page.getByRole('button', { name: 'Enviar resultados' }).click()
+  await expect(page.getByText(/Resultados copiados|No se ha podido enviar/)).toBeVisible()
+  const registro = await page.evaluate(() => (JSON.parse(localStorage.getItem('puchiemulator-registro') ?? '[]') as { m: string }[]).map((e) => e.m))
+  expect(registro).toContain('Comprobación enviada')
+})
+
 test('guardar y cargar rápido, con Deshacer', async ({ page }) => {
   await page.goto('/')
   await anadir(page, 'prueba.gba')

@@ -3,7 +3,7 @@
  * seguridad, registro, aspecto y versión. Es una pantalla apilada: «‹ Juegos» o deslizar desde el
  * borde izquierdo para volver.
  */
-import { ArchiveRestore, ChevronLeft, ChevronRight, Disc, FolderOpen, Gamepad2, HardDrive, Image as ImageIcon, Info, Monitor, Moon, Palette, ScrollText, SunMoon, Volume2, type LucideIcon } from 'lucide-react'
+import { ArchiveRestore, ChevronLeft, ChevronRight, Disc, FolderOpen, Gamepad2, HardDrive, Image as ImageIcon, Info, ListChecks, Monitor, Moon, Palette, ScrollText, SunMoon, Volume2, type LucideIcon } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useVolverDeslizando } from '../componentes/gestos'
 import { SelectorTema } from '../componentes/SelectorTema'
@@ -23,6 +23,7 @@ import { borrarRegistro, copiarTexto, enviarTexto, leerRegistro, registrar, susc
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { borrarCopia, borrarTodasLasCopias, crearCopia, listarCopias, restaurarCopia, type MetaCopia } from '../lib/seguridad'
 import { APP_VERSION, cargarNovedades, type Novedad } from '../lib/version'
+import { Comprobacion, useResumenComprobacion } from '../componentes/Comprobacion'
 
 function useRegistro() {
   const [n, setN] = useState(leerRegistro().length)
@@ -33,7 +34,7 @@ function useRegistro() {
 const MOTIVOS: Record<MetaCopia['motivo'], string> = { diaria: 'Diaria', manual: 'Manual', previa: 'Antes de recuperar' }
 
 /** Apartados de Ajustes (v0.25.0): una lista corta, como en los Ajustes del iPhone, y una pantalla por apartado. */
-type Apartado = 'sonido' | 'pantalla' | 'mando' | 'cama' | 'temas' | 'caratulas' | 'bios' | 'partidas' | 'copias' | 'almacenamiento' | 'aspecto' | 'registro' | 'acerca'
+type Apartado = 'sonido' | 'pantalla' | 'mando' | 'cama' | 'temas' | 'caratulas' | 'bios' | 'partidas' | 'copias' | 'almacenamiento' | 'aspecto' | 'comprobacion' | 'registro' | 'acerca'
 
 /** Consolas, núcleo, licencia y código fuente. */
 const NUCLEOS: [string, string, string, string][] = [
@@ -74,6 +75,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   const [ocupacion, setOcupacion] = useState<{ juegos: OcupacionJuego[]; sinJuego: { juegos: number; bytes: number } } | null>(null)
   const [ocupacionElegida, setOcupacionElegida] = useState<OcupacionJuego | null>(null)
   const [verRegistro, setVerRegistro] = useState(false)
+  const resumenComprobacion = useResumenComprobacion()
   const [novedades, setNovedades] = useState<Novedad[] | null>(null)
   const [temaDe, setTemaDe] = useState<Sistema | null>(null)
   const [buscandoCaratulas, setBuscandoCaratulas] = useState(false)
@@ -377,6 +379,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
     copias: { titulo: 'Copias de seguridad', icono: ArchiveRestore, color: '#34C759', valor: copias ? String(copias.length) : undefined },
     almacenamiento: { titulo: 'Almacenamiento', icono: HardDrive, color: '#8E8E93', valor: espacio ? tamano(espacio.usado) : undefined },
     aspecto: { titulo: 'Aspecto', icono: SunMoon, color: '#007AFF', valor: NOMBRE_TEMA[a.tema] },
+    comprobacion: { titulo: 'Comprobación en el iPhone', icono: ListChecks, color: '#34C759', valor: resumenComprobacion },
     registro: { titulo: 'Registro', icono: ScrollText, color: '#8E8E93', valor: String(entradas) },
     acerca: { titulo: 'Acerca de', icono: Info, color: '#8E8E93', valor: APP_VERSION },
   }
@@ -385,7 +388,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
     ['sonido', 'pantalla', 'mando', 'cama', 'temas', 'caratulas', 'bios'],
     ['partidas', 'copias', 'almacenamiento'],
     ['aspecto'],
-    ['registro', 'acerca'],
+    ['comprobacion', 'registro', 'acerca'],
   ]
 
   const contenido = (ap: Apartado) => {
@@ -681,6 +684,8 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
             <p className="pie-grupo">Si algo falla, envía la última partida (o copia el registro entero) y pégalo en el chat. No lleva nombres de juegos ni partidas.</p>
           </>
         )
+      case 'comprobacion':
+        return <Comprobacion recuentos={recuentos} />
       case 'acerca':
         return (
           <>
