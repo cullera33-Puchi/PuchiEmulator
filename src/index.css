@@ -310,6 +310,24 @@
   inset: 0;
   pointer-events: none;
 }
+/* Avance rápido (v0.46.0): marca fija en la esquina de la imagen y botón en ámbar mientras dura. Sin
+   animación (gastaría batería) y sin recoger toques */
+.imagen .marca-avance {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 7px 3px 5px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #1c1917;
+  background: rgb(251 191 36 / 0.9);
+  pointer-events: none;
+}
 .imagen .filtro.lcd {
   background-image:
     linear-gradient(to right, rgb(0 0 0 / 0.3) 0, rgb(0 0 0 / 0.3) 14%, transparent 14%),
@@ -747,6 +765,10 @@
 .herramienta:active,
 .herramienta.activa {
   background: rgb(127 127 127 / 0.45);
+}
+.herramienta.avance.activa {
+  color: #1c1917;
+  background: rgb(251 191 36);
 }
 .herramienta:disabled {
   opacity: 0.3;

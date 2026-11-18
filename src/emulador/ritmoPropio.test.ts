@@ -70,6 +70,24 @@ describe('ritmo propio del hilo', () => {
     r.cerrar()
   })
 
+  it('con avance rápido, no pide sonido ni lo manda; al volver a normal, sí (v0.46.0)', () => {
+    const { motor, peticiones } = motorDePrueba()
+    const enviar = vi.fn()
+    const r = new RitmoPropio(motor, 60, 48000, () => undefined)
+    r.ponerSonido({ enviar, vaciar: vi.fn(), cerrar: vi.fn() } as unknown as Parameters<RitmoPropio['ponerSonido']>[0])
+    r.arrancar(entrada, 2, false)
+    vi.advanceTimersByTime(500)
+    expect(peticiones.length).toBeGreaterThan(0)
+    expect(peticiones.every((p) => p.sinSonido)).toBe(true)
+    expect(enviar).not.toHaveBeenCalled()
+    peticiones.length = 0
+    r.ponerVelocidad(1)
+    vi.advanceTimersByTime(500)
+    expect(peticiones.some((p) => !p.sinSonido)).toBe(true)
+    expect(enviar).toHaveBeenCalled()
+    r.cerrar()
+  })
+
   it('un pulso con demasiados fotogramas se recorta y lo demás se cuenta como perdido', () => {
     const { motor, peticiones } = motorDePrueba()
     const r = new RitmoPropio(motor, 60, 48000, () => undefined)

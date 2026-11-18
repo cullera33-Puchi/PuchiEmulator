@@ -697,7 +697,7 @@ export class Sesion {
   /** Pide `n` fotogramas al motor y, al volver, enseña la imagen, suena y guarda lo de rebobinar. */
   private enviar(n: number, mascara: number, frecuenciaSonido: number): void {
     this.enVuelo = true
-    this.motor.fotogramas({ n, mascara, turbo: this.turbo, correr: this.correr, extra: this.extra, palanca: this.n64 || this.palancasPsx ? this.palanca(0) : undefined, palancaDer: this.palancasPsx ? this.palanca(1) : undefined }).then(
+    this.motor.fotogramas({ n, mascara, turbo: this.turbo, correr: this.correr, extra: this.extra, sinSonido: this.velocidad > 1, palanca: this.n64 || this.palancasPsx ? this.palanca(0) : undefined, palancaDer: this.palancasPsx ? this.palanca(1) : undefined }).then(
       (r) => {
         this.enVuelo = false
         if (this.cerrada || this.roto) {
@@ -708,7 +708,7 @@ export class Sesion {
         if (r.distinta) this.imagenCambiada()
         this.mostrar(r.imagenes)
         // Si ya se ha pausado, el sonido de esos fotogramas no se pone en la cola
-        if (this.corriendo && !this.rebobinando) this.altavoz.enviar(r.audio, frecuenciaSonido)
+        if (this.corriendo && !this.rebobinando && this.velocidad === 1) this.altavoz.enviar(r.audio, frecuenciaSonido)
         for (const e of r.rebobinado) this.historial.guardar(e.estado, e.botones)
         if (r.tiempos) this.ponerTiempos(r.tiempos.fps, r.tiempos.frecuencia)
         if (r.hechos > 0 && this.velocidad === 1) {
@@ -871,6 +871,7 @@ export class Sesion {
   ponerVelocidad(v: number): void {
     this.velocidad = v
     if (this.propio) this.motor.ritmo?.velocidad(v)
+    this.aplicarLimite()
     this.acumulado = 0
     this.dtPendiente = 0
     this.debidos = 0
@@ -958,7 +959,8 @@ export class Sesion {
    * se ve
    */
   private aplicarLimite(): void {
-    const activo = this.limiteUsuario || this.pantallaLenta
+    // Con avance rápido, también (v0.46.0): a esa velocidad no se notan las imágenes de más
+    const activo = this.limiteUsuario || this.pantallaLenta || this.velocidad > 1
     if (activo === this.limite30) return
     this.limite30 = activo
     this.dtPendiente = 0

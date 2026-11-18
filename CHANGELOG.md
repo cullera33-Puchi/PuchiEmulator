@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.46.0 (18/11/2026)
+
+El usuario nota el iPhone caliente con el avance rápido, que usa en ratos largos para subir de nivel en los juegos de rol (en su registro de la v0.45.0, unos 20 de 26 minutos). Eligió las tres propuestas de menos esfuerzo; quitar o limitar el x4 queda para después si sigue calentándose.
+
+- Menos imágenes con avance rápido: mientras dura, se pintan 30 imágenes por segundo, como con «Ahorrar batería» (`aplicarLimite` en `Sesion` cuenta la velocidad). El juego sigue haciendo todos sus fotogramas; se ahorra el dibujo y el envío de las imágenes.
+- Sin sonido con avance rápido: el motor lee el sonido del núcleo pero no lo copia (`sinSonido` en la petición de fotogramas) y no se manda al altavoz, en el hilo y en el principal. Al volver a la velocidad normal, el sonido vuelve.
+- Avance rápido a la vista: una marca ámbar fija en la esquina de la imagen («x2» o «x4», sin animación y sin recoger toques) y el botón en ámbar mientras está activo.
+- Comprobación en el iPhone: el punto del avance rápido dice cómo debe verse ahora y vuelve a «Sin probar».
+
+198 pruebas unitarias y 80 de navegador (nuevas: sin sonido con avance rápido en el ritmo propio; la marca y el juego respondiendo a x2 en el navegador).
+
 ## 0.45.0 (18/11/2026)
 
 A partir de la comprobación en el iPhone del usuario (la DS en vertical, «queda mucho espacio abajo de los botones y la pantalla ocupa mucho») y de la propuesta de la actualización que no se veía. El usuario eligió la opción A para la DS y dejó el resto a criterio.

@@ -75,6 +75,8 @@ export interface PeticionFotogramas {
   palancaDer?: [number, number]
   /** No hace falta imagen (ahorrar batería con el ritmo propio): no se pinta (v0.36.0) */
   sinImagen?: boolean
+  /** Sin sonido (avance rápido, v0.46.0): el del núcleo se descarta sin copiarlo */
+  sinSonido?: boolean
 }
 
 export interface ResultadoFotogramas {
@@ -277,14 +279,17 @@ export class Motor {
       if (this.huecoCorrer > 0) this.huecoCorrer--
       this.nucleo.botones(enviada)
       if (this.fotograma()) hayImagen = true
+      // El sonido del núcleo se lee siempre (si no, se amontona); sin sonido, no se copia
       const a = this.nucleo.audio()
-      if (muestras + a.length > this.audio.length) {
-        const mayor = new Int16Array(Math.max(this.audio.length * 2, muestras + a.length))
-        mayor.set(this.audio.subarray(0, muestras))
-        this.audio = mayor
+      if (!p.sinSonido) {
+        if (muestras + a.length > this.audio.length) {
+          const mayor = new Int16Array(Math.max(this.audio.length * 2, muestras + a.length))
+          mayor.set(this.audio.subarray(0, muestras))
+          this.audio = mayor
+        }
+        this.audio.set(a, muestras)
+        muestras += a.length
       }
-      this.audio.set(a, muestras)
-      muestras += a.length
       if (this.conRebobinado && ++this.contadorFotogramas % FOTOGRAMAS_POR_ESTADO === 0) {
         const estado = this.nucleo.guardarEstado()
         if (estado) rebobinado.push({ estado, botones: enviada })

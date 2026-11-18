@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.46.0",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "Avance rápido más ligero: pinta la mitad de imágenes y va sin sonido, para que el iPhone se caliente menos en los ratos largos.",
+      "Mientras está activo, una marca ámbar en la esquina de la imagen y el botón en ámbar te lo recuerdan."
+    ]
+  },
+  {
     "version": "0.45.0",
     "fecha": "18/11/2026",
     "cambios": [

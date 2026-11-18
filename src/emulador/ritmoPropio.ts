@@ -294,7 +294,9 @@ export class RitmoPropio {
     // Al pulso, la página ya junta los fotogramas cada unos 33 ms con el ahorro: aquí no se vuelve a
     // mirar el tiempo, que con unos milisegundos de retraso del mensaje se saltaba una imagen (v0.43.0)
     const quiereImagen = this.enVuelo < MAX_IMAGENES_EN_VUELO && (!this.limite30 || porPulso || ahora - this.ultimaImagen >= 1000 / 30 - 3)
-    const r = this.motor.fotogramas({ n, ...this.entrada, sinImagen: !quiereImagen })
+    // Con avance rápido, sin sonido (v0.46.0): acelerado no ayuda y procesarlo calienta el iPhone
+    const sinSonido = this.velocidad > 1
+    const r = this.motor.fotogramas({ n, ...this.entrada, sinImagen: !quiereImagen, sinSonido })
     this.hechos += n
     if (r.tiempos) {
       const fps = r.tiempos.fps > 0 ? r.tiempos.fps : this.fps
@@ -305,7 +307,7 @@ export class RitmoPropio {
       this.frecuencia = r.tiempos.frecuencia || this.frecuencia
       if (cambia) this.emitir({ evento: 'tiempos', fps: this.fps, frecuencia: this.frecuencia }, [])
     }
-    this.sonido?.enviar(r.audio, this.frecuencia * this.velocidad * (porPulso ? this.ritmoPulso : 1))
+    if (!sinSonido) this.sonido?.enviar(r.audio, this.frecuencia * this.velocidad * (porPulso ? this.ritmoPulso : 1))
     const m = this.medida
     m.tandas++
     if (porPulso) m.pulsos++

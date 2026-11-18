@@ -306,8 +306,16 @@ test('rebobinar vuelve atrás en el juego y el avance rápido cambia de velocida
   // El avance rápido sigue (decisión del usuario: solo se quita ir hacia atrás)
   await page.getByRole('button', { name: /Avance rápido/ }).click()
   await expect(page.getByRole('button', { name: /Avance rápido/ })).toHaveAccessibleName('Avance rápido (x2)')
+  // Marca a la vista sobre la imagen (v0.46.0) y el juego sigue respondiendo con menos imágenes y sin sonido
+  await expect(page.getByTestId('marca-avance')).toHaveText('x2')
+  await page.keyboard.down('KeyX')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 251, 0])
+  await page.keyboard.up('KeyX')
+  await expect.poll(() => colorCentral(page)).toEqual([0, 0, 255])
   await page.getByRole('button', { name: /Avance rápido/ }).click()
+  await expect(page.getByTestId('marca-avance')).toHaveText('x4')
   await page.getByRole('button', { name: /Avance rápido/ }).click()
+  await expect(page.getByTestId('marca-avance')).toHaveCount(0)
   await page.evaluate(() => {
     const a = JSON.parse(localStorage.getItem('puchiemulator-ajustes') ?? '{}')
     localStorage.setItem('puchiemulator-ajustes', JSON.stringify({ ...a, rebobinado: true }))

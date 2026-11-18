@@ -1,5 +1,5 @@
 /**
- * Comprobación en el iPhone (v0.44.0, mejora 20; la DS en vertical, revisada en la v0.45.0): una lista de unos 15 minutos con lo que queda por
+ * Comprobación en el iPhone (v0.44.0, mejora 20; la DS en vertical, revisada en la v0.45.0, y el avance rápido, en la v0.46.0): una lista de unos 15 minutos con lo que queda por
  * confirmar de las últimas versiones. El usuario marca cada punto como «Bien» o «Falla» mientras juega
  * y manda los resultados con el registro de ese rato. Se guarda en localStorage (no son datos de juego).
  */
@@ -27,7 +27,7 @@ export const COMPROBACION: GrupoComprobacion[] = [
       { id: 'snes-seguir', texto: 'Abre un juego donde lo dejaste y juega un minuto: imagen y sonido normales.' },
       { id: 'snes-cargar', texto: 'Guarda rápido, juega unos segundos y carga rápido: a los 10 segundos sigue respondiendo.' },
       { id: 'snes-girar', texto: 'Gira a horizontal y vuelve a vertical: la imagen sigue moviéndose.' },
-      { id: 'snes-avance', texto: 'Avance rápido x2 y otra vez normal: el juego vuelve a su velocidad.' },
+      { id: 'avance-ligero', texto: 'Avance rápido x2: sale la marca ámbar en la imagen y no suena; al quitarlo, vuelven la velocidad normal y el sonido.' },
     ],
   },
   {

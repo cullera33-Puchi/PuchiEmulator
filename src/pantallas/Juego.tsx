@@ -615,6 +615,12 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         <span ref={imagen} className="imagen">
           <canvas ref={lienzo} width={240} height={160} aria-label="Pantalla del juego" data-testid="pantalla" />
           {filtro !== 'ninguno' && <span className={`filtro ${filtro}`} data-testid="filtro" aria-hidden />}
+          {/* Avance rápido a la vista (v0.46.0): con ratos largos, que no se quede puesto sin darse cuenta */}
+          {velocidad > 1 && (
+            <span className="marca-avance" data-testid="marca-avance" aria-hidden>
+              <FastForward size={13} fill="currentColor" />x{velocidad}
+            </span>
+          )}
         </span>
       </div>
 
@@ -700,7 +706,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             <Wind size={20} />
           </button>
         )}
-        <button className={`herramienta ${velocidad > 1 ? 'activa' : ''}`} aria-label={`Avance rápido (${velocidad > 1 ? `x${velocidad}` : 'desactivado'})`} onClick={cambiarVelocidad}>
+        <button className={`herramienta avance ${velocidad > 1 ? 'activa' : ''}`} aria-label={`Avance rápido (${velocidad > 1 ? `x${velocidad}` : 'desactivado'})`} onClick={cambiarVelocidad}>
           {velocidad > 1 ? <span className="text-[14px] font-bold">x{velocidad}</span> : <FastForward size={20} />}
         </button>
       </div>
