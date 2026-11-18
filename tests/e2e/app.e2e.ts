@@ -225,13 +225,13 @@ test('juego que parece parado: no se guarda el punto donde se dejó; registro de
   // La imagen se pinta en 2D (v0.43.3) y se ve
   await expect.poll(() => colorCentral(page)).toEqual([0, 0, 255])
   // B no cambia nada en la ROM de prueba: la imagen no cambia aunque se pulse, como un juego parado
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 11; i++) {
     await page.keyboard.down('KeyZ')
     await page.waitForTimeout(150)
     await page.keyboard.up('KeyZ')
     await page.waitForTimeout(150)
   }
-  await page.waitForTimeout(7000)
+  await page.waitForTimeout(13000)
   // Enviar el registro de esta partida (sin hoja de compartir en el navegador de pruebas: se copia)
   await page.getByRole('button', { name: 'Menú' }).click()
   await page.getByRole('button', { name: 'Enviar registro de esta partida' }).click()

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.44.1",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "Arreglado: en la DS, un juego en un menú podía darse por colgado y no se guardaba el punto donde lo dejaste."
+    ]
+  },
+  {
     "version": "0.44.0",
     "fecha": "18/11/2026",
     "cambios": [

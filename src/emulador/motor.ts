@@ -224,7 +224,11 @@ export class Motor {
    * Pinta el último fotograma del núcleo. Si la tarjeta gráfica falla, se sigue con el 2D. En Nintendo
    * 64 la imagen ya está dibujada en el lienzo del núcleo: se entrega tal cual, una vez por fotograma.
    */
-  /** Si la imagen del núcleo es otra que la última vez: 64 puntos repartidos (v0.43.1, para el registro) */
+  /**
+   * Si la imagen del núcleo es otra que la última vez (v0.43.1). Uno de cada 5 puntos, seguidos en cada
+   * fila (v0.44.1): con 64 puntos repartidos no se veía un cursor o un texto que cambia en un rincón, y
+   * un juego de DS en un menú se dio por parado. Cualquier cosa de 5 puntos de ancho cae en alguno.
+   */
   private imagenCambiada(): boolean {
     const v = this.nucleo.video()
     if (!v) return true
@@ -232,7 +236,7 @@ export class Motor {
     if (!px) return false
     const datos = new Uint32Array(v.datos.buffer, v.datos.byteOffset, px)
     let firma = 2166136261 ^ px
-    for (let i = 0; i < 64; i++) firma = Math.imul(firma ^ datos[Math.floor(((i + 0.5) * px) / 64)], 16777619)
+    for (let i = 0; i < px; i += 5) firma = Math.imul(firma ^ datos[i], 16777619)
     const cambia = firma !== this.ultimaFirma
     this.ultimaFirma = firma
     return cambia

@@ -34,8 +34,8 @@ export const MANDO_DUALSHOCK = (2 << 8) | 5
 /** Al rebobinar, un estado cada 50 ms: va unas tres veces más rápido que el juego */
 const MS_POR_ESTADO_ATRAS = 50
 /** El juego parece parado con la imagen sin cambiar este tiempo y estos botones pulsados (v0.43.3) */
-export const MS_PARADO = 8000
-export const TOQUES_PARADO = 6
+export const MS_PARADO = 15_000
+export const TOQUES_PARADO = 10
 /** Sin tocar ningún botón durante este tiempo, el reloj de tiempo jugado se para */
 export const INACTIVIDAD_MS = 10 * 60_000
 /** Cada cuánto se guarda el tiempo jugado mientras se juega */
@@ -1033,8 +1033,8 @@ export class Sesion {
   }
 
   /**
-   * El juego parece parado (v0.43.3): la imagen no cambia desde hace 8 segundos aunque se han pulsado
-   * botones al menos 6 veces. Entonces no se guarda el punto donde se dejó: si se guardara, la próxima
+   * El juego parece parado (v0.43.3): la imagen no cambia desde hace 15 segundos aunque se han pulsado
+   * botones al menos 10 veces (v0.44.1; antes 8 y 6, y un juego de DS en un menú se dio por parado). Entonces no se guarda el punto donde se dejó: si se guardara, la próxima
    * vez se seguiría desde un juego parado. Se queda el anterior; la partida del juego se guarda igual.
    */
   get pareceParado(): boolean {

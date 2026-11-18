@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.44.1 (18/11/2026)
+
+A partir de la primera comprobación en el iPhone del usuario (14 bien, 1 falla y 1 sin probar) y su registro.
+
+- Falsa alarma de juego parado (v0.43.3): en la DS, con el juego en un menú, se dio por parado y no se guardó el punto donde se dejó («segundosSinCambio» 23, «toques» 6). La firma de la imagen tomaba 64 puntos repartidos y no veía un cursor o un texto que cambia en un rincón. Ahora toma uno de cada 5 puntos, seguidos en cada fila (cualquier cosa de 5 puntos de ancho cae en alguno), y hacen falta 15 segundos sin cambios y 10 botones pulsados (antes 8 y 6). No se perdió nada: el juego se abrió desde el punto anterior y al cerrarlo después se guardó bien.
+- Pendiente de decidir con el usuario: la DS en vertical, que en su comprobación sale como fallo («queda mucho espacio abajo de los botones y la pantalla ocupa mucho»). Ya no se pisan los botones y la fila de abajo.
+- Visto en el registro y sin cambios: la PlayStation con avance rápido va a unas 114 imágenes por segundo con parones (el iPhone no da para el doble con ese núcleo); a velocidad normal, bien.
+
+197 pruebas unitarias y 79 de navegador.
+
 ## 0.44.0 (18/11/2026)
 
 Mejora 20 del análisis (propuesta 7 de la revisión de la v0.43.2), marcada por el usuario: la pasada de validación en el iPhone.
