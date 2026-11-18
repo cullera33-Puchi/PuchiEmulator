@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.46.1",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "Al entrar en un juego desaparece el aviso de la biblioteca, para no deshacer nada con el juego en marcha."
+    ]
+  },
+  {
     "version": "0.46.0",
     "fecha": "18/11/2026",
     "cambios": [

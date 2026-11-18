@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.46.1 (18/11/2026)
+
+- Al entrar en un juego se quita el aviso que hubiera de la biblioteca. Su «Deshacer» (de importar una partida o de quitar un juego) no vale con el juego en marcha: devolvería la partida anterior al almacén y el juego la pisaría al guardar.
+- Pruebas con WebKit: si una prueba falla, GitHub enseña la consola, los errores y las caídas de la página y de los hilos, el registro de la app y cómo estaba la página (`eventos.txt`, `registro.txt`); el flujo se puede lanzar a mano con una sola prueba y repetirla (`prueba`, `repetir`).
+- Fallo pendiente, solo visto en el WebKit de Linux de GitHub: desde la v0.43.2, al abrir un juego enseguida después de importar su partida (.sav), la página deja de responder y se cae a los 15 o 20 segundos, en la mayoría de los intentos. Con otros pasos (sin importar, importar y recargar, esperar unos segundos) no pasa. No se ha encontrado la causa: no es el aviso con «Deshacer» ni su desenfoque. Pendiente de saber si pasa en el iPhone.
+
+198 pruebas unitarias y 80 de navegador.
+
 ## 0.46.0 (18/11/2026)
 
 El usuario nota el iPhone caliente con el avance rápido, que usa en ratos largos para subir de nivel en los juegos de rol (en su registro de la v0.45.0, unos 20 de 26 minutos). Eligió las tres propuestas de menos esfuerzo; quitar o limitar el x4 queda para después si sigue calentándose.
