@@ -4,7 +4,7 @@
  * - Desde la v0.31.0, el núcleo, los fotogramas y el dibujo van en el motor (`motor.ts`), en un hilo
  *   aparte si se puede (`conexion.ts`). Aquí, en el hilo principal, se queda el ritmo de la pantalla,
  *   los botones, el tiempo jugado, el sonido, el rebobinado y el guardado. Cada imagen vuelve del
- *   motor ya pintada y se enseña sin copiarla (`bitmaprenderer`).
+ *   motor ya pintada y se dibuja en el lienzo en 2D (desde la v0.43.3; antes, `bitmaprenderer`).
  * - El ritmo va por tiempo, no por fotogramas de la pantalla: el iPhone puede refrescar a 60 o a
  *   120 Hz, o a 30 en modo de bajo consumo, y el juego tiene que ir siempre a su velocidad. Si el
  *   motor aún no ha terminado lo anterior, los fotogramas que tocan se suman al siguiente envío.
@@ -33,6 +33,9 @@ export const MANDO_DUALSHOCK = (2 << 8) | 5
 
 /** Al rebobinar, un estado cada 50 ms: va unas tres veces más rápido que el juego */
 const MS_POR_ESTADO_ATRAS = 50
+/** El juego parece parado con la imagen sin cambiar este tiempo y estos botones pulsados (v0.43.3) */
+export const MS_PARADO = 8000
+export const TOQUES_PARADO = 6
 /** Sin tocar ningún botón durante este tiempo, el reloj de tiempo jugado se para */
 export const INACTIVIDAD_MS = 10 * 60_000
 /** Cada cuánto se guarda el tiempo jugado mientras se juega */
@@ -98,13 +101,29 @@ function capturaDelLienzo(lienzo: HTMLCanvasElement): Promise<ArrayBuffer | unde
   })
 }
 
+/**
+ * Contexto para enseñar las imágenes del motor. En 2D desde la v0.43.3: `bitmaprenderer` las enseñaba
+ * sin copiarlas, pero es una vía poco usada en Safari y la principal sospecha de la imagen que se quedaba
+ * parada en el iPhone con el juego en marcha. Copiar una imagen de 256 x 224 cuesta muy poco.
+ * `puchiemulator-pantalla` = `bitmap` en localStorage vuelve a la de antes (para probar).
+ */
 function contextoDe(lienzo: HTMLCanvasElement): ImageBitmapRenderingContext | CanvasRenderingContext2D | null {
-  return lienzo.getContext('bitmaprenderer') ?? lienzo.getContext('2d', { alpha: false })
+  let antigua = false
+  try {
+    antigua = localStorage.getItem('puchiemulator-pantalla') === 'bitmap'
+  } catch {
+    // sin almacenamiento
+  }
+  if (antigua) return lienzo.getContext('bitmaprenderer') ?? lienzo.getContext('2d', { alpha: false })
+  const c = lienzo.getContext('2d', { alpha: false })
+  if (c) c.imageSmoothingEnabled = false
+  return c ?? lienzo.getContext('bitmaprenderer')
 }
 
 function ensenar(c: ImageBitmapRenderingContext | CanvasRenderingContext2D, imagen: ImageBitmap): void {
   if ('transferFromImageBitmap' in c) return c.transferFromImageBitmap(imagen)
-  c.drawImage(imagen, 0, 0)
+  // A la medida del lienzo: la miniatura de la DS es de 256 x 192 y la imagen, la misma
+  c.drawImage(imagen, 0, 0, c.canvas.width, c.canvas.height)
   imagen.close()
 }
 
@@ -131,7 +150,7 @@ let cierreEnCurso: Promise<void> = Promise.resolve()
 export class Sesion {
   readonly altavoz = altavoz
   private motor!: ConexionMotor
-  /** Donde se enseña la imagen: sin copiarla (`bitmaprenderer`) o, si no lo hay, dibujándola en 2D */
+  /** Donde se enseña la imagen: en 2D (v0.43.3) o, si se fuerza para probar, sin copiarla (`bitmaprenderer`) */
   private contexto!: ImageBitmapRenderingContext | CanvasRenderingContext2D
   private corriendo = false
   private peticion = 0
@@ -350,6 +369,8 @@ export class Sesion {
       this.tamano = { ancho: imagenes.ancho, alto: imagenes.alto }
       lienzo.width = imagenes.ancho
       lienzo.height = imagenes.alto
+      // Cambiar el tamaño del lienzo deja el 2D como nuevo
+      if ('imageSmoothingEnabled' in this.contexto) this.contexto.imageSmoothingEnabled = false
       this.o.alCambiarTamano?.(imagenes.ancho, imagenes.alto)
     }
     ensenar(this.contexto, imagenes.imagen)
@@ -397,6 +418,7 @@ export class Sesion {
       e.imagenes.mini?.close()
       return
     }
+    if (e.cambio) this.imagenCambiada()
     this.mostrar(e.imagenes)
     if (this.cargaAutoPendiente && ++this.imagenesPropias >= 120) {
       this.cargaAutoPendiente = false
@@ -459,6 +481,8 @@ export class Sesion {
   private contarTiempo(dt: number, mascara: number): boolean {
     const ahora = Date.now()
     if (mascara !== this.ultimaMascara) {
+      // Cada botón que se pulsa con la imagen sin cambiar cuenta para ver si el juego se ha parado (v0.43.3)
+      if (mascara & ~this.ultimaMascara) this.toquesSinCambio++
       this.ultimaMascara = mascara
       this.ultimaActividad = ahora
     }
@@ -681,6 +705,7 @@ export class Sesion {
           r.imagenes?.mini?.close()
           return
         }
+        if (r.distinta) this.imagenCambiada()
         this.mostrar(r.imagenes)
         // Si ya se ha pausado, el sonido de esos fotogramas no se pone en la cola
         if (this.corriendo && !this.rebobinando) this.altavoz.enviar(r.audio, frecuenciaSonido)
@@ -708,6 +733,16 @@ export class Sesion {
         this.fallar(e)
       },
     )
+  }
+
+  /** Anota ya la medida de rendimiento en curso, si hay algo (para enviar el registro desde el menú) */
+  async medirAhora(): Promise<void> {
+    if (this.medida.tiempo < 1000) return
+    if (!this.propio) {
+      this.anotarRendimiento()
+      return
+    }
+    await this.anotarRendimientoPropio()
   }
 
   /**
@@ -751,15 +786,15 @@ export class Sesion {
   }
 
   /** Rendimiento del ritmo propio: lo mide el hilo; aquí, los refrescos de la página. */
-  private anotarRendimientoPropio(): void {
+  private anotarRendimientoPropio(): Promise<void> {
     const m = this.medida
     this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0 }
     const avance = this.msAvance
     this.msAvance = 0
     const ritmo = this.motor.ritmo
-    if (!ritmo) return
+    if (!ritmo) return Promise.resolve()
     const presupuesto = this.refresco.ms || 1000 / 60
-    void ritmo.medida().then(
+    return ritmo.medida().then(
       (h) => {
         const seg = h.ms / 1000 || 1
         registrar('info', 'Rendimiento', {
@@ -997,8 +1032,39 @@ export class Sesion {
     return this.guardando
   }
 
+  /**
+   * El juego parece parado (v0.43.3): la imagen no cambia desde hace 8 segundos aunque se han pulsado
+   * botones al menos 6 veces. Entonces no se guarda el punto donde se dejó: si se guardara, la próxima
+   * vez se seguiría desde un juego parado. Se queda el anterior; la partida del juego se guarda igual.
+   */
+  get pareceParado(): boolean {
+    return Date.now() - this.ultimoCambioImagen > MS_PARADO && this.toquesSinCambio >= TOQUES_PARADO
+  }
+
+  /** No se ha guardado el punto donde se dejó porque el juego parecía parado */
+  autoDescartado = false
+
+  private imagenCambiada(): void {
+    this.ultimoCambioImagen = Date.now()
+    this.toquesSinCambio = 0
+  }
+
+  private ultimoCambioImagen = Date.now()
+  private toquesSinCambio = 0
+
   async guardarEstado(ranura: Ranura): Promise<boolean> {
     if (this.roto || this.cerrada || !this.motor) return false
+    if (ranura === 'auto' && this.pareceParado) {
+      if (!this.autoDescartado) {
+        registrar('aviso', 'Punto donde se dejó sin guardar: el juego parecía parado', {
+          sistema: this.o.juego.sistema,
+          segundosSinCambio: Math.round((Date.now() - this.ultimoCambioImagen) / 1000),
+          toques: this.toquesSinCambio,
+        })
+      }
+      this.autoDescartado = true
+      return false
+    }
     const r = await this.motor.guardarEstado()
     if (!r || this.roto) return false
     // Nintendo 64: el motor no tiene la imagen (la dibuja el núcleo), se toma la que se ve. No en el
@@ -1019,6 +1085,7 @@ export class Sesion {
     // El motor ya ha vuelto a como estaba (v0.43.0)
     if (!r.ok) registrar('aviso', 'El núcleo no ha aceptado el estado', { sistema: this.o.juego.sistema, ranura })
     else {
+      this.imagenCambiada()
       registrar('info', 'Estado cargado', { sistema: this.o.juego.sistema, ranura, kb: Math.round(estado.datos.byteLength / 1024) })
       // Lo que se mida hasta ahora va a su línea, y la siguiente sale a los 10 s
       if (this.medida.tiempo >= 5000) this.anotarRendimiento()

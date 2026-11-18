@@ -216,6 +216,32 @@ test('la partida guardada dentro del juego se conserva en el iPhone al cerrar la
   await expect.poll(() => colorCentral(page)).toEqual([255, 0, 0])
 })
 
+test('juego que parece parado: no se guarda el punto donde se dejó; registro de la partida desde el menú (v0.43.3)', async ({ page }) => {
+  test.setTimeout(60_000)
+  await page.goto('/')
+  await anadir(page, 'prueba.gba')
+  await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  // La imagen se pinta en 2D (v0.43.3) y se ve
+  await expect.poll(() => colorCentral(page)).toEqual([0, 0, 255])
+  // B no cambia nada en la ROM de prueba: la imagen no cambia aunque se pulse, como un juego parado
+  for (let i = 0; i < 7; i++) {
+    await page.keyboard.down('KeyZ')
+    await page.waitForTimeout(150)
+    await page.keyboard.up('KeyZ')
+    await page.waitForTimeout(150)
+  }
+  await page.waitForTimeout(7000)
+  // Enviar el registro de esta partida (sin hoja de compartir en el navegador de pruebas: se copia)
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: 'Enviar registro de esta partida' }).click()
+  await expect(page.getByText(/Registro de esta partida (copiado|enviado)|No se ha podido enviar/)).toBeVisible()
+  await page.getByRole('button', { name: 'Salir a la biblioteca' }).click()
+  await expect(page.getByText('El juego parecía parado: la próxima vez seguirás desde el punto anterior')).toBeVisible()
+  const registro = await page.evaluate(() => (JSON.parse(localStorage.getItem('puchiemulator-registro') ?? '[]') as { m: string }[]).map((e) => e.m))
+  expect(registro).toContain('Punto donde se dejó sin guardar: el juego parecía parado')
+})
+
 test('guardar y cargar rápido, con Deshacer', async ({ page }) => {
   await page.goto('/')
   await anadir(page, 'prueba.gba')

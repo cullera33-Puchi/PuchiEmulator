@@ -19,7 +19,7 @@ import { guardadoSinJuego, ocupacionPorJuego, type OcupacionJuego } from '../lib
 import { borrarEstadosDe, espacioUsado, guardarBiosPsx, listarJuegos, ocupacionGuardada, restaurarEstados, listarPartidas, pedirPersistencia, sustituirPartidas } from '../lib/almacen'
 import { ErrorArchivo, exportarCopia, importarArchivo } from '../lib/copias'
 import { cuando, plural, tamano } from '../lib/formato'
-import { borrarRegistro, copiarTexto, leerRegistro, registrar, suscribirRegistro, textoRegistro } from '../lib/registro'
+import { borrarRegistro, copiarTexto, enviarTexto, leerRegistro, registrar, suscribirRegistro, textoRegistro } from '../lib/registro'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { borrarCopia, borrarTodasLasCopias, crearCopia, listarCopias, restaurarCopia, type MetaCopia } from '../lib/seguridad'
 import { APP_VERSION, cargarNovedades, type Novedad } from '../lib/version'
@@ -311,6 +311,12 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   const copiarRegistro = async () => {
     const ok = await copiarTexto(textoRegistro(await recuentos()))
     avisar(ok ? 'Registro copiado' : 'No se ha podido copiar')
+  }
+
+  const enviarUltimaPartida = async () => {
+    const r = await enviarTexto(textoRegistro(await recuentos(), true))
+    if (r === 'copiado') avisar('Registro de la última partida copiado')
+    else if (r === 'fallo') avisar('No se ha podido enviar')
   }
 
   const compartirRegistro = async () => {
@@ -656,6 +662,10 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
                 <ChevronRight size={18} className="text-zinc-400" />
               </button>
               <div className="separador" />
+              <button className="fila text-acento dark:text-acento-oscuro" onClick={() => void enviarUltimaPartida()}>
+                Enviar la última partida
+              </button>
+              <div className="separador" />
               <button className="fila text-acento dark:text-acento-oscuro" onClick={() => void copiarRegistro()}>
                 Copiar registro
               </button>
@@ -668,7 +678,7 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
                 </>
               )}
             </div>
-            <p className="pie-grupo">Si algo falla, copia el registro y pégalo en el chat. No lleva nombres de juegos ni partidas.</p>
+            <p className="pie-grupo">Si algo falla, envía la última partida (o copia el registro entero) y pégalo en el chat. No lleva nombres de juegos ni partidas.</p>
           </>
         )
       case 'acerca':

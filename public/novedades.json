@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.43.3",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "La imagen del juego se pinta de otra forma, más habitual en el iPhone: debería acabar con la imagen que se quedaba parada.",
+      "Si el juego parece colgado al salir, no se guarda ese punto: la próxima vez sigues desde el anterior.",
+      "En el menú del juego, «Enviar registro de esta partida», para mandármelo cuando algo falle."
+    ]
+  },
+  {
     "version": "0.43.2",
     "fecha": "18/11/2026",
     "cambios": [

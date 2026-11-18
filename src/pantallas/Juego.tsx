@@ -3,7 +3,7 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { BedDouble, BookOpen, Check, ChevronRight, Disc, RotateCw, Wind, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume1, Volume2, VolumeX, X } from 'lucide-react'
+import { BedDouble, BookOpen, Check, ChevronRight, Disc, RotateCw, Wind, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume1, Volume2, VolumeX, X, ScrollText } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
@@ -14,7 +14,7 @@ import { nombreBiosPsx } from '../lib/bios'
 import { actualizarJuego, hayEstado, leerBiosPsx, leerJuego, leerRomGuardada, RANURAS_USUARIO, renombrarEstado, resumenEstados, type Ranura, type ResumenEstado } from '../lib/almacen'
 import { cuando } from '../lib/formato'
 import { duracion } from '../lib/estadisticas'
-import { registrar } from '../lib/registro'
+import { enviarTexto, registrar, textoRegistro } from '../lib/registro'
 import { SISTEMAS, type Sistema } from '../lib/sistemas'
 import { nucleoPreparado } from '../emulador/nucleo'
 import { preparadoEnHilo } from '../emulador/conexion'
@@ -381,6 +381,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     await cargarListaEstados()
   }
 
+  // Si algo va mal, el registro de esta partida sin salir del juego (v0.43.3): con la medida de ahora
+  const enviarRegistro = async () => {
+    await sesion.current?.medirAhora()
+    const r = await enviarTexto(textoRegistro('', true))
+    if (r === 'copiado') avisar('Registro de esta partida copiado')
+    else if (r === 'fallo') avisar('No se ha podido enviar')
+  }
+
   const reiniciar = async () => {
     if (!(await confirmar({ titulo: '¿Reiniciar el juego?', mensaje: 'Se pierde lo que no hayas guardado dentro del juego.', aceptar: 'Reiniciar', destructivo: true }))) return
     sesion.current?.reiniciar()
@@ -555,6 +563,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     sesion.current = null
     await Promise.race([s?.cerrar().catch(() => undefined), new Promise((r) => setTimeout(r, 8000))])
     alSalir()
+    if (s?.autoDescartado) avisar('El juego parecía parado: la próxima vez seguirás desde el punto anterior')
   }
 
   const estadoDe = (r: Ranura) => estados?.find((e) => e.ranura === r)
@@ -951,6 +960,10 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           <div className="separador" />
           <button className="fila" onClick={reiniciar}>
             <RotateCcw size={20} className="text-acento dark:text-acento-oscuro" /> Reiniciar
+          </button>
+          <div className="separador" />
+          <button className="fila" onClick={() => void enviarRegistro()}>
+            <ScrollText size={20} className="text-acento dark:text-acento-oscuro" /> Enviar registro de esta partida
           </button>
         </div>
         <p className="pie-grupo">

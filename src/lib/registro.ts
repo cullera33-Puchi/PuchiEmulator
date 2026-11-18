@@ -92,10 +92,36 @@ export function modoApp(): 'instalada' | 'navegador' {
   return 'navegador'
 }
 
-export function textoRegistro(recuentos = ''): string {
-  const cabecera = `PuchiEmulator v${APP_VERSION} | ${modoApp()} | ${navigator.userAgent} | ${new Date().toString()}${recuentos ? ` | ${recuentos}` : ''}`
-  const lineas = entradas.map((e) => `${e.t.replace('T', ' ').slice(5, 19)} [${e.l}] ${e.m}${e.x ? ` | ${e.x}` : ''}`)
+/**
+ * Las entradas de la última partida (v0.43.3): desde la última vez que se abrió un juego hasta ahora,
+ * con lo que pasara después (también si la app volvió a arrancar). Sin ningún juego abierto, todas.
+ */
+export function entradasUltimaPartida(lista: Entrada[] = entradas): Entrada[] {
+  for (let i = lista.length - 1; i >= 0; i--) if (lista[i].m === 'Juego abierto') return lista.slice(i)
+  return lista
+}
+
+export function textoRegistro(recuentos = '', soloUltimaPartida = false): string {
+  const cabecera = `PuchiEmulator v${APP_VERSION} | ${modoApp()} | ${navigator.userAgent} | ${new Date().toString()}${recuentos ? ` | ${recuentos}` : ''}${soloUltimaPartida ? ' | última partida' : ''}`
+  const lista = soloUltimaPartida ? entradasUltimaPartida() : entradas
+  const lineas = lista.map((e) => `${e.t.replace('T', ' ').slice(5, 19)} [${e.l}] ${e.m}${e.x ? ` | ${e.x}` : ''}`)
   return `${cabecera}\n${lineas.length ? lineas.join('\n') : '(sin entradas)'}`
+}
+
+/**
+ * Manda un texto con la hoja de compartir del iPhone (para pegarlo en el chat o enviarlo) y, si no
+ * hay hoja, lo copia (v0.43.3).
+ */
+export async function enviarTexto(texto: string): Promise<'enviado' | 'copiado' | 'cancelado' | 'fallo'> {
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ text: texto })
+      return 'enviado'
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return 'cancelado'
+    }
+  }
+  return (await copiarTexto(texto)) ? 'copiado' : 'fallo'
 }
 
 /** Errores no controlados, promesas rechazadas y console.error van al registro. */

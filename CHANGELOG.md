@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.43.3 (18/11/2026)
+
+Las propuestas 1, 2 y 3 de la revisión de la v0.43.2, marcadas por el usuario.
+
+- La imagen se pinta en el lienzo en 2D (`drawImage`), no con `bitmaprenderer` (propuesta 1). `bitmaprenderer` la enseñaba sin copiarla, pero es una vía poco usada en Safari y la principal sospecha de la imagen parada de la Super Nintendo, con el juego en marcha. Copiar una imagen de 256 x 224 cuesta muy poco. `puchiemulator-pantalla` = `bitmap` en localStorage vuelve a la de antes, para comparar.
+- Si el juego parece parado, no se guarda el punto donde se dejó (propuesta 2): la imagen del núcleo no cambia desde hace 8 segundos (`MS_PARADO`) aunque se han pulsado botones al menos 6 veces (`TOQUES_PARADO`). Así una congelación no se guarda y se repite al volver a abrir; se queda el punto anterior y la partida del juego se guarda igual. El hilo marca en cada imagen si ha cambiado (`cambio` en el evento). Al salir, el aviso lo dice, y queda en el registro («Punto donde se dejó sin guardar»).
+- Enviar el registro de la última partida (propuesta 3): en Ajustes, Registro, «Enviar la última partida», y en el menú del juego, «Enviar registro de esta partida», con la medida de ese momento. Desde el último «Juego abierto» hasta ahora, por la hoja de compartir del iPhone o, si no la hay, copiado (`entradasUltimaPartida`, `enviarTexto`).
+
+195 pruebas unitarias y 78 de navegador (nueva: juego que parece parado, con el registro desde el menú).
+
 ## 0.43.2 (18/11/2026)
 
 Revisión de la aplicación pedida por el usuario, con prioridad para las últimas versiones: el motor y las v0.43.0 y v0.43.1 (que nadie había revisado) y dos revisiones independientes de lo que nunca se había repasado, los discos de PlayStation y el almacenamiento (v0.37.0 a v0.39.0) y la pantalla de juego con el mando. Cada hallazgo, comprobado en el código antes de corregirlo.

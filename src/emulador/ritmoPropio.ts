@@ -24,7 +24,8 @@ export type EntradaRitmo = Omit<PeticionFotogramas, 'n'>
 
 /** Lo que el hilo manda a la página por su cuenta */
 export type EventoRitmo =
-  | { evento: 'imagen'; imagenes: Imagenes }
+  /** `cambio`: la imagen del núcleo ha cambiado desde la anterior que se mandó (v0.43.3) */
+  | { evento: 'imagen'; imagenes: Imagenes; cambio: boolean }
   | { evento: 'fallo'; mensaje: string }
   /** La consola ha cambiado de ritmo (v0.43.0): la página cuenta los pulsos con él */
   | { evento: 'tiempos'; fps: number; frecuencia: number }
@@ -133,6 +134,8 @@ export class RitmoPropio {
   private ultimaEnviada = 0
   /** El menor retraso visto de un pulso, de la página al hilo (v0.43.0) */
   private menorRetraso = Infinity
+  /** La imagen del núcleo ha cambiado desde la última que se mandó (v0.43.3) */
+  private cambioPendiente = true
 
   private readonly motor: Motor
   private fps: number
@@ -306,7 +309,10 @@ export class RitmoPropio {
     const m = this.medida
     m.tandas++
     if (porPulso) m.pulsos++
-    if (r.distinta) m.distintas++
+    if (r.distinta) {
+      m.distintas++
+      this.cambioPendiente = true
+    }
     if (r.conSonido) m.conSonido++
     m.fotogramas += n
     m.trabajo += r.msTrabajo
@@ -321,6 +327,7 @@ export class RitmoPropio {
     m.imagenes++
     const transferir: Transferable[] = [r.imagenes.imagen]
     if (r.imagenes.mini) transferir.push(r.imagenes.mini)
-    this.emitir({ evento: 'imagen', imagenes: r.imagenes }, transferir)
+    this.emitir({ evento: 'imagen', imagenes: r.imagenes, cambio: this.cambioPendiente }, transferir)
+    this.cambioPendiente = false
   }
 }
