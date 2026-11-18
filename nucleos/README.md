@@ -70,4 +70,6 @@ El script descarga el núcleo en `.nucleos/` (ignorado por git), lo compila como
 
 Sin memoria (v0.43.0): si `malloc` no puede agrandar el búfer de la imagen (al subir la resolución, Super Nintendo en alta o PlayStation a 640 x 480), se conserva el de antes y ese fotograma no se convierte; antes se escribía desde la dirección 0, encima de los datos del núcleo. La app comprueba también lo que reserva para la ROM y los estados (`nucleo.ts`). Todos los núcleos recompilados.
 
+Trucos (v0.48.0): `pf_trucos_vaciar` y `pf_truco` llaman a `retro_cheat_reset` y `retro_cheat_set` del núcleo. La app vacía la lista y manda solo los trucos activos, uno por llamada, porque mGBA no mira `enabled`; Snes9x y Genesis Plus GX copian el código en 256 bytes sin comprobar el largo, así que la app parte los largos por sus partes (`envios` en `src/lib/trucos.ts`) y el puente rechaza los de más de 4000 caracteres. melonDS aplica cada truco una sola vez y no los quita al vaciar: la DS no tiene trucos en la app. Todos los núcleos recompilados.
+
 `libretro.h` es la cabecera pública de la API de libretro (licencia MIT).

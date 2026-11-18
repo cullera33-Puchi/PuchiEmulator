@@ -40,6 +40,7 @@ export interface ConexionMotor {
   /** Discos del juego y cambiar de disco (PlayStation, v0.38.0) */
   discos(): Promise<{ total: number; actual: number }>
   cambiarDisco(indice: number): Promise<boolean>
+  ponerTrucos(codigos: string[]): Promise<number>
   ponerMando(tipo: number): Promise<void>
   descargar(): Promise<void>
   /** Ritmo propio (v0.33.0): solo en el hilo aparte */
@@ -95,6 +96,7 @@ class ConexionLocal implements ConexionMotor {
   reiniciar = async () => this.usar().reiniciar()
   discos = async () => this.usar().discos()
   cambiarDisco = async (indice: number) => this.usar().cambiarDisco(indice)
+  ponerTrucos = async (codigos: string[]) => this.usar().ponerTrucos(codigos)
   ponerMando = async (tipo: number) => this.usar().ponerMando(tipo)
   descargar = async () => {
     this.motor?.descargar()
@@ -222,6 +224,7 @@ class ConexionHilo implements ConexionMotor {
   reiniciar = () => this.h.llamar<void>('reiniciar')
   discos = () => this.h.llamar<{ total: number; actual: number }>('discos')
   cambiarDisco = (indice: number) => this.h.llamar<boolean>('cambiarDisco', [indice])
+  ponerTrucos = (codigos: string[]) => this.h.llamar<number>('ponerTrucos', [codigos])
   ponerMando = (tipo: number) => this.h.llamar<void>('ponerMando', [tipo])
   /** El manejador de eventos de esta partida: al descargar se quita solo si sigue siendo el suyo */
   private miEvento: ((e: EventoRitmo) => void) | null = null

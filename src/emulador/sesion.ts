@@ -12,8 +12,9 @@
  *   segundo), al pausar y al salir.
  * - Al salir o al pasar la app a segundo plano se guarda un estado «auto» para seguir donde se dejó.
  */
-import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, guardarSombreadores, leerEstado, leerJuego, leerPartida, leerRomGuardada, leerSombreadores, type Juego, type Ranura } from '../lib/almacen'
+import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, guardarSombreadores, leerEstado, leerJuego, leerPartida, leerRomGuardada, leerSombreadores, type Juego, type Ranura, type Truco } from '../lib/almacen'
 import { listaDeDiscos } from '../lib/discos'
+import { envios } from '../lib/trucos'
 import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
@@ -1136,7 +1137,11 @@ export class Sesion {
 
   reiniciar(): void {
     this.porHacer = 0
-    this.motor.reiniciar().catch((e) => this.fallar(e))
+    this.motor
+      .reiniciar()
+      // Los trucos siguen puestos después de reiniciar (algún núcleo los quita)
+      .then(() => (this.codigosTrucos.length ? this.motor.ponerTrucos(this.codigosTrucos) : 0))
+      .catch((e) => this.fallar(e))
     this.altavoz.vaciar()
     if (this.propio) this.motor.ritmo?.vaciarSonido()
   }
@@ -1177,6 +1182,22 @@ export class Sesion {
     await this.motor.ponerMando(activas ? MANDO_DUALSHOCK : MANDO_NORMAL)
     this.enviarEntrada()
     registrar('info', 'Palancas de PlayStation', { activas })
+  }
+
+  /** Los trucos puestos, para volver a ponerlos al reiniciar (v0.48.0) */
+  private codigosTrucos: string[] = []
+
+  /**
+   * Trucos (v0.48.0): manda al núcleo los activos (la lista se vacía y se pone entera). Devuelve los
+   * que no caben en esta consola, que no se ponen.
+   */
+  async ponerTrucos(trucos: Truco[]): Promise<{ puestos: number; fuera: Truco[] }> {
+    if (!this.motor || this.cerrada || this.roto) return { puestos: 0, fuera: [] }
+    const { codigos, fuera } = envios(trucos, this.o.juego.sistema)
+    const puestos = await this.motor.ponerTrucos(codigos)
+    this.codigosTrucos = codigos
+    registrar('info', 'Trucos puestos', { sistema: this.o.juego.sistema, activos: trucos.filter((t) => t.activo).length, envios: codigos.length, aceptados: puestos, fuera: fuera.length })
+    return { puestos, fuera }
   }
 
   /** El disco que había antes de cargar un estado de otro disco, para «Deshacer» (v0.47.0) */

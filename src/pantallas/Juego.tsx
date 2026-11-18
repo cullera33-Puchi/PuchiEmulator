@@ -3,7 +3,7 @@
  * según la orientación). El menú pausa el juego; al pasar la app a segundo plano también se pausa y
  * se guarda todo.
  */
-import { BedDouble, BookOpen, Check, ChevronRight, Disc, RotateCw, Wind, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume1, Volume2, VolumeX, X, ScrollText } from 'lucide-react'
+import { BedDouble, BookOpen, Check, ChevronRight, Disc, RotateCw, Wind, FastForward, Pencil, FolderOpen, Gamepad2, Menu, Monitor, Moon, NotebookPen, Palette, Play, Rewind, RotateCcw, Save, Upload, Volume1, Volume2, VolumeX, X, ScrollText, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Mando } from '../componentes/Mando'
 import { Hoja, Interruptor, Segmentado, useInterfaz } from '../componentes/Interfaz'
@@ -11,7 +11,7 @@ import { bit, TECLAS } from '../emulador/botones'
 import { cargaAutoFallida, MANDO_DUALSHOCK, Sesion } from '../emulador/sesion'
 import { aplicarTema, cambiarAjustes, COLOR_NOCHE, leerAjustes, useAjustes } from '../lib/ajustes'
 import { nombreBiosPsx } from '../lib/bios'
-import { actualizarJuego, hayEstado, leerBiosPsx, leerJuego, leerRomGuardada, RANURAS_USUARIO, renombrarEstado, resumenEstados, type Ranura, type ResumenEstado } from '../lib/almacen'
+import { actualizarJuego, hayEstado, leerBiosPsx, leerJuego, leerRomGuardada, leerTrucos, RANURAS_USUARIO, renombrarEstado, resumenEstados, type Ranura, type ResumenEstado } from '../lib/almacen'
 import { cuando } from '../lib/formato'
 import { duracion } from '../lib/estadisticas'
 import { enviarTexto, registrar, textoRegistro } from '../lib/registro'
@@ -21,6 +21,8 @@ import { preparadoEnHilo } from '../emulador/conexion'
 import { paletaPara, temaPara } from '../lib/temas'
 import { SelectorTema } from '../componentes/SelectorTema'
 import { EditorNotas } from '../componentes/Notas'
+import { Trucos } from '../componentes/Trucos'
+import { tieneTrucos } from '../lib/trucos'
 import { AjustesMando, ESCALAS } from '../componentes/AjustesMando'
 import { AjustesPantalla } from '../componentes/AjustesPantalla'
 import { EditorMando } from '../componentes/EditorMando'
@@ -92,6 +94,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const [verMando, setVerMando] = useState(false)
   const [verPantalla, setVerPantalla] = useState(false)
   const [verNotas, setVerNotas] = useState(false)
+  // Trucos (v0.48.0): la hoja y cuántos hay puestos
+  const [verTrucos, setVerTrucos] = useState(false)
+  const [trucosPuestos, setTrucosPuestos] = useState(0)
   const tema = temaPara(sistema, ajustes.temas[sistema])
   // Mando de este juego (modo JRPG) y correr fijo
   const mando = mandoDe(ajustes.mandos, id, sistema)
@@ -133,6 +138,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     setVerTemas(false)
     setVerMando(false)
     setVerDiscos(false)
+    setVerTrucos(false)
     void sesion.current?.jugar(ajustesRef.current.sonido, ajustesRef.current.sonarEnSilencio)
   }, [])
 
@@ -229,6 +235,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         if (creada.motivoLocal && ajustesRef.current.emulacionEnHilo !== false) registrar('aviso', 'La emulación va en el hilo principal', creada.motivoLocal)
         void actualizarJuego(alAbrir(juego))
         void hayEstado(juego.id, 'rapida').then((hay) => !cancelado && setHayRapido(hay))
+        // Los trucos que estaban puestos la vez anterior (v0.48.0)
+        if (tieneTrucos(juego.sistema)) {
+          const guardados = await leerTrucos(juego.id).catch(() => undefined)
+          if (!cancelado && guardados?.trucos.some((t) => t.activo)) {
+            await creada.ponerTrucos(guardados.trucos)
+            setTrucosPuestos(guardados.trucos.filter((t) => t.activo).length)
+          }
+        }
         setCargando(false)
         // Si la app ha pasado a segundo plano mientras cargaba (v0.43.2), no arranca sola: el hilo
         // seguiría con su reloj sin que nadie lo viera. Se queda en pausa, con su aviso
@@ -803,6 +817,20 @@ export function Juego({ id, reanudar, alSalir }: Props) {
 
       {menu && verTemas && <SelectorTema oscura sistema={sistema} alCerrar={() => setVerTemas(false)} />}
 
+      <Hoja oscura abierta={menu && verTrucos} alCerrar={() => setVerTrucos(false)} titulo="Trucos">
+        {menu && verTrucos && (
+          <Trucos
+            juego={{ id, nombre: sesion.current?.juego.nombre ?? '', sistema }}
+            alPoner={async (t) => {
+              const r = (await sesion.current?.ponerTrucos(t)) ?? { puestos: 0, fuera: [] }
+              setTrucosPuestos(t.filter((x) => x.activo && !r.fuera.includes(x)).length)
+              return r
+            }}
+            alVolver={() => setVerTrucos(false)}
+          />
+        )}
+      </Hoja>
+
       <Hoja oscura abierta={menu && verNotas} alCerrar={() => setVerNotas(false)} titulo="Notas">
         <EditorNotas juegoId={id} oscura />
         <button className="boton-texto mt-2 w-full py-2" onClick={() => setVerNotas(false)}>
@@ -878,6 +906,17 @@ export function Juego({ id, reanudar, alSalir }: Props) {
             <NotebookPen size={20} className="text-acento dark:text-acento-oscuro" /> Notas
           </button>
           <div className="separador" />
+          {tieneTrucos(sistema) && (
+            <>
+              <button className="fila" onClick={() => setVerTrucos(true)}>
+                <Sparkles size={20} className="text-acento dark:text-acento-oscuro" />
+                <span className="flex-1">Trucos</span>
+                {trucosPuestos > 0 && <span className="text-zinc-500">{trucosPuestos === 1 ? '1 puesto' : `${trucosPuestos} puestos`}</span>}
+                <ChevronRight size={18} className="text-zinc-400" />
+              </button>
+              <div className="separador" />
+            </>
+          )}
           {discos && discos.total > 1 && (
             <>
               <button className="fila" onClick={() => setVerDiscos(true)}>

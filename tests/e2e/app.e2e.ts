@@ -288,7 +288,7 @@ test('comprobación en el iPhone: marcar, recordar y enviar con el registro (v0.
   // Se recuerda al volver a abrir la app
   await page.reload()
   await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
-  await expect(page.getByRole('button', { name: /^Comprobación en el iPhone/ })).toContainText('2 de 17')
+  await expect(page.getByRole('button', { name: /^Comprobación en el iPhone/ })).toContainText('2 de 18')
   await page.getByRole('button', { name: /^Comprobación en el iPhone/ }).click()
   await expect(page.getByRole('radiogroup', { name: /^Abre un juego donde lo dejaste/ }).getByRole('radio', { name: 'Bien' })).toHaveAttribute('aria-checked', 'true')
   await expect(page.getByRole('textbox', { name: 'Notas de la comprobación' })).toHaveValue('Se para a los 3 segundos')
@@ -2424,6 +2424,80 @@ test('PlayStation: un disco que no parece de PlayStation se pregunta antes de co
   await page.waitForTimeout(500)
   await page.getByRole('alertdialog').getByRole('button', { name: 'Añadir igualmente' }).click()
   await expect(page.getByText(/Juego añadido/)).toBeVisible({ timeout: 15_000 })
+})
+
+test('trucos: busca el fichero del juego, pone el truco al momento, al volver a abrir y con un código propio (v0.48.0)', async ({ page }) => {
+  // Sin internet en las pruebas: el índice y el fichero de trucos se sirven aquí. El truco pone el fondo de
+  // la ROM de prueba de Super Nintendo en rojo (su color va en $7E0000 y $7E0001)
+  await page.route('**/trucos/snes.json', (r) => r.fulfill({ json: { carpeta: 'Nintendo - Super Nintendo Entertainment System', nombres: ['Otra cosa (USA)', 'prueba (Europe)'] } }))
+  const cht = 'cheats = 2\n\ncheat0_desc = "Red background"\ncheat0_code = "7E00001F+7E000100"\ncheat0_enable = false\n\ncheat1_desc = "Nothing"\ncheat1_code = "7E1FFF00"\ncheat1_enable = false\n'
+  await page.route('https://raw.githubusercontent.com/libretro/libretro-database/**', (r) => r.fulfill({ body: cht, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' } }))
+  await page.goto('/')
+  await anadir(page, 'prueba.sfc')
+  await page.getByRole('button', { name: /prueba.*Super Nintendo/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(() => tono(page)).toBe('azul')
+
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: /^Trucos/ }).click()
+  await expect(page.getByText('De «prueba (Europe)».')).toBeVisible()
+  await page.getByRole('switch', { name: 'Red background' }).click()
+  // La primera vez avisa
+  await page.waitForTimeout(500)
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Poner el truco' }).click()
+  await expect(page.getByRole('switch', { name: 'Red background' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  await expect(page.getByRole('button', { name: /^Trucos/ })).toContainText('1 puesto')
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  await expect.poll(() => tono(page), { timeout: 5000 }).toBe('rojo')
+
+  // Desde el principio, el truco sigue puesto: rojo nada más arrancar (sin él, azul)
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: 'Salir' }).click()
+  await page.getByRole('button', { name: /Opciones de prueba/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(() => tono(page), { timeout: 5000 }).toBe('rojo')
+
+  // Un código propio: se añade puesto, arriba, y se puede quitar
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: /^Trucos/ }).click()
+  await page.getByRole('button', { name: 'Escribir un código' }).click()
+  await page.getByRole('textbox', { name: 'Nombre del código' }).fill('Mío')
+  await page.getByRole('textbox', { name: 'Código del truco' }).fill('7E1FFE00')
+  await page.getByRole('button', { name: 'Añadir y poner' }).click()
+  await expect(page.getByRole('switch', { name: 'Mío' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  await expect(page.getByRole('button', { name: /^Trucos/ })).toContainText('2 puestos')
+  await page.getByRole('button', { name: /^Trucos/ }).click()
+  await page.getByRole('button', { name: 'Quitar el código «Mío»' }).click()
+  await expect(page.getByRole('switch', { name: 'Mío' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  await expect(page.getByRole('button', { name: /^Trucos/ })).toContainText('1 puesto')
+})
+
+test('trucos: sin fichero para el juego, un código propio en NES (v0.48.0)', async ({ page }) => {
+  // Ningún fichero se parece a «prueba»: se puede buscar con otro nombre o quedarse con los códigos propios
+  await page.route('**/trucos/nes.json', (r) => r.fulfill({ json: { carpeta: 'Nintendo - Nintendo Entertainment System', nombres: ['Otra cosa (USA)'] } }))
+  await page.goto('/')
+  await anadir(page, 'prueba.nes')
+  await page.getByRole('button', { name: /prueba.*NES/i }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden()
+  await expect.poll(() => tono(page)).toBe('azul')
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: /^Trucos/ }).click()
+  await expect(page.getByText(/No se han encontrado trucos con ese nombre/)).toBeVisible()
+  await page.getByRole('button', { name: 'Ninguno: solo mis códigos' }).click()
+  // El color de la ROM de prueba va en $00: el código en bruto lo deja en rojo
+  await page.getByRole('button', { name: 'Escribir un código' }).click()
+  await page.getByRole('textbox', { name: 'Código del truco' }).fill('0000:16')
+  await page.getByRole('button', { name: 'Añadir y poner' }).click()
+  await page.waitForTimeout(500)
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Poner el truco' }).click()
+  await expect(page.getByRole('switch', { name: 'Mi código' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  await page.getByRole('button', { name: 'Seguir jugando' }).click()
+  await expect.poll(() => tono(page), { timeout: 5000 }).toBe('rojo')
 })
 
 test('PlayStation: palancas analógicas por juego, con L3 al tocar la palanca (v0.38.0)', async ({ page, browserName }) => {

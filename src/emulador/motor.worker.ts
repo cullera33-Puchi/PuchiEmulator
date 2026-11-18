@@ -78,6 +78,7 @@ const metodos: Record<string, (...args: never[]) => unknown> = {
   reiniciar: () => usar().reiniciar(),
   discos: () => usar().discos(),
   cambiarDisco: (indice: number) => usar().cambiarDisco(indice),
+  ponerTrucos: (codigos: string[]) => usar().ponerTrucos(codigos),
   ponerMando: (tipo: number) => usar().ponerMando(tipo),
   descargar: (partida?: number) => {
     // El cierre tardío de un juego anterior no descarga el que se acaba de abrir (v0.43.0)

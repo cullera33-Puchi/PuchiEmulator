@@ -40,7 +40,7 @@ ZLIB_COMMIT="51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf"
 OPTIMIZACION="${OPTIMIZACION--msimd128 -flto}"
 export EMCC_CFLAGS="$OPTIMIZACION"
 
-EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_cargar_ruta","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion","_pf_puntero","_pf_analogico","_pf_imagen_gl","_pf_resultado","_pf_discos","_pf_disco_actual","_pf_disco_inicial","_pf_cambiar_disco","_pf_mando"]'
+EXPORTADAS='["_malloc","_free","_pf_iniciar","_pf_cargar","_pf_cargar_ruta","_pf_descargar","_pf_reiniciar","_pf_botones","_pf_fotograma","_pf_video","_pf_video_ancho","_pf_video_alto","_pf_audio","_pf_audio_muestras","_pf_fps","_pf_frecuencia","_pf_base_ancho","_pf_base_alto","_pf_proporcion","_pf_av_cambiado","_pf_memoria","_pf_memoria_tam","_pf_estado_tam","_pf_guardar_estado","_pf_cargar_estado","_pf_opcion","_pf_puntero","_pf_analogico","_pf_imagen_gl","_pf_resultado","_pf_discos","_pf_disco_actual","_pf_disco_inicial","_pf_cambiar_disco","_pf_mando","_pf_trucos_vaciar","_pf_truco"]'
 
 traer() { # repo commit carpeta
 	if [ ! -d "$3/.git" ]; then

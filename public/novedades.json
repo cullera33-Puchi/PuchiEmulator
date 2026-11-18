@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.48.0",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "Trucos en el menú del juego: la app busca sola los del juego y los pones o quitas con un interruptor.",
+      "También puedes escribir tus propios códigos (Game Genie, Action Replay, GameShark…).",
+      "Por ahora en Game Boy, Game Boy Advance, NES, Super Nintendo, Mega Drive, Master System y Game Gear.",
+      "Los trucos vienen en inglés, tal como están en el archivo libre de libretro."
+    ]
+  },
+  {
     "version": "0.47.0",
     "fecha": "18/11/2026",
     "cambios": [

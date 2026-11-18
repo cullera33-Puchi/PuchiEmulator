@@ -535,6 +535,25 @@ bool pf_cambiar_disco(unsigned indice) {
 	return ok;
 }
 
+/*
+ * Trucos (v0.48.0). La app vacía la lista y manda solo los activos, uno por llamada (mGBA no mira
+ * `enabled`). Cada núcleo admite un largo distinto (Snes9x y Genesis Plus GX copian el código en 256
+ * bytes): la app parte los códigos largos donde se puede; aquí solo se corta lo desmedido.
+ */
+EMSCRIPTEN_KEEPALIVE
+void pf_trucos_vaciar(void) {
+	retro_cheat_reset();
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool pf_truco(unsigned indice, const char *codigo) {
+	if (!codigo || !codigo[0] || strlen(codigo) > 4000) {
+		return false;
+	}
+	retro_cheat_set(indice, true, codigo);
+	return true;
+}
+
 /* Tipo de mando del puerto 1 (v0.38.0): el de libretro o una subclase (PlayStation: DualShock) */
 EMSCRIPTEN_KEEPALIVE
 void pf_mando(unsigned tipo) {

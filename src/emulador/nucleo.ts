@@ -45,6 +45,8 @@ interface Modulo {
   _pf_cambiar_disco?(indice: number): number
   _pf_disco_inicial?(indice: number, ruta: number): number
   _pf_mando?(tipo: number): void
+  _pf_trucos_vaciar?(): void
+  _pf_truco?(indice: number, codigo: number): number
   specialHTMLTargets?: Record<string, unknown>
   /** Nintendo 64 (v0.32.1): el error original de un fallo dentro del núcleo, con su pila */
   errorOriginal?: unknown
@@ -393,6 +395,22 @@ export class Nucleo {
   /** Cambia de disco: lo expulsa, elige el otro y lo mete */
   cambiarDisco(indice: number): boolean {
     return this.m._pf_cambiar_disco?.(indice) === 1
+  }
+
+  /**
+   * Trucos (v0.48.0): vacía la lista del núcleo y pone estos códigos, uno por llamada. Devuelve
+   * cuántos ha aceptado el puente (un núcleo anterior sin trucos, ninguno).
+   */
+  ponerTrucos(codigos: string[]): number {
+    if (!this.m._pf_trucos_vaciar || !this.m._pf_truco) return 0
+    this.m._pf_trucos_vaciar()
+    let puestos = 0
+    codigos.forEach((c, i) => {
+      const t = this.texto(c)
+      if (this.m._pf_truco!(i, t)) puestos++
+      this.m._free(t)
+    })
+    return puestos
   }
 
   /** Tipo de mando del puerto 1 (v0.38.0): RETRO_DEVICE_JOYPAD o una subclase, como el DualShock */

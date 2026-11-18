@@ -1,5 +1,5 @@
 /**
- * Comprobación en el iPhone (v0.44.0, mejora 20; la DS en vertical, revisada en la v0.45.0, el avance rápido, en la v0.46.0, y los discos de PlayStation, en la v0.47.0): una lista de unos 15 minutos con lo que queda por
+ * Comprobación en el iPhone (v0.44.0, mejora 20; la DS en vertical, revisada en la v0.45.0, el avance rápido, en la v0.46.0, los discos de PlayStation, en la v0.47.0, y los trucos, en la v0.48.0): una lista de unos 15 minutos con lo que queda por
  * confirmar de las últimas versiones. El usuario marca cada punto como «Bien» o «Falla» mientras juega
  * y manda los resultados con el registro de ese rato. Se guarda en localStorage (no son datos de juego).
  */
@@ -55,6 +55,7 @@ export const COMPROBACION: GrupoComprobacion[] = [
     titulo: 'Partidas y app',
     minutos: 4,
     puntos: [
+      { id: 'trucos', texto: 'Trucos: en un juego de rol, Menú, Trucos. Sale su lista (o eliges el juego); pon uno y comprueba que hace efecto.' },
       { id: 'salir', texto: 'Sal de un juego desde el menú: sale «Guardando…» y vuelves a la biblioteca.' },
       { id: 'volver-abrir', texto: 'Vuelve a abrir ese juego: sigue donde lo dejaste.' },
       { id: 'parpadeo', texto: 'Vuelve atrás deslizando desde el borde: la pantalla no parpadea.' },

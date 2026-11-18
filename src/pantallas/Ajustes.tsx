@@ -748,6 +748,11 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
                 <span>Carátulas</span>
                 <span className="text-zinc-500">libretro-thumbnails</span>
               </a>
+              <div className="separador" />
+              <a className="fila justify-between" href="https://github.com/libretro/libretro-database" target="_blank" rel="noreferrer">
+                <span>Trucos</span>
+                <span className="text-zinc-500">libretro-database, CC BY-SA 4.0</span>
+              </a>
             </div>
             <p className="pie-grupo">La app no incluye juegos ni BIOS. Usa copias de tus propios cartuchos.</p>
           </>

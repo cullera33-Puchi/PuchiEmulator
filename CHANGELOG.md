@@ -1,5 +1,20 @@
 # Cambios
 
+## 0.48.0 (18/11/2026)
+
+Trucos, pedidos por el usuario (mejora 12), con búsqueda automática: primero en Game Boy, Game Boy Color, Game Boy Advance, NES, Super Nintendo, Mega Drive, Master System y Game Gear.
+
+- «Trucos» en el menú del juego. La primera vez, la app busca el juego en el índice de ficheros de trucos del archivo público de libretro (libretro-database, licencia CC BY-SA 4.0; `public/trucos/<consola>.json`, `npm run indice:trucos`), como con las carátulas: si la coincidencia es segura descarga ese fichero al iPhone; si no, deja elegir entre los parecidos, buscar con otro nombre o quedarse solo con códigos propios. «Cambiar» vuelve a buscar.
+- Cada truco se pone o se quita con su interruptor, al momento y con el juego en marcha; los puestos van arriba y el resto se filtra escribiendo (un fichero puede traer más de mil). Se recuerdan por juego y se vuelven a poner al abrirlo y al reiniciar. El menú dice cuántos hay puestos.
+- «Escribir un código»: nombre opcional y código (Game Genie, Action Replay, GameShark, Pro Action Replay o en bruto); se añade puesto y se puede quitar con «Deshacer».
+- La primera vez que se pone un truco, la app avisa de que algunos cuelgan el juego o estropean la partida y propone guardar un estado antes.
+- Puente: `pf_trucos_vaciar` y `pf_truco`. La app vacía la lista y manda solo los activos (mGBA no mira si están puestos) y parte los códigos largos en Super Nintendo, NES y Sega, cuyos núcleos copian el código en un búfer fijo; en Game Boy no se parten (hay códigos que dependen del anterior). Todos los núcleos recompilados.
+- Almacén de la app en la versión 5, con los trucos de cada juego aparte de su ficha (`trucos`). La copia de partidas no los lleva.
+- Sin trucos por ahora en DS (melonDS aplica cada truco una sola vez y no deja quitarlo), N64 ni PlayStation.
+- Ajustes, Acerca de: el archivo de trucos, con su licencia.
+
+210 pruebas unitarias y 84 de navegador (nuevas: lectura de los ficheros de trucos, códigos largos partidos o rechazados, elección del fichero y cambio de fichero; en el navegador, el truco que pone la pantalla roja en Super Nintendo al momento y al volver a abrir, un código propio en NES).
+
 ## 0.47.0 (18/11/2026)
 
 Las tres mejoras de PlayStation que propuso la revisión de la v0.43.2, pedidas por el usuario. El resto de propuestas queda en la hoja de ruta.

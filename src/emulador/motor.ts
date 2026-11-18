@@ -388,6 +388,10 @@ export class Motor {
     return this.nucleo.discos()
   }
 
+  ponerTrucos(codigos: string[]): number {
+    return this.nucleo.ponerTrucos(codigos)
+  }
+
   cambiarDisco(indice: number): boolean {
     return this.nucleo.cambiarDisco(indice)
   }

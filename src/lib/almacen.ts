@@ -48,6 +48,26 @@ export interface Nota {
   fecha: number
 }
 
+/** Un truco: su nombre, el código tal cual y si está puesto (v0.48.0) */
+export interface Truco {
+  nombre: string
+  codigo: string
+  activo: boolean
+  /** Lo ha escrito el usuario (no viene del archivo de trucos) */
+  propio?: boolean
+}
+
+/**
+ * Los trucos de un juego (v0.48.0), aparte de su ficha: un fichero del archivo puede traer más de
+ * mil, y la ficha se lee entera con toda la biblioteca. `origen`: el fichero del que salieron.
+ */
+export interface TrucosJuego {
+  id: string
+  origen?: string
+  trucos: Truco[]
+  fecha: number
+}
+
 export interface Partida {
   id: string
   datos: ArrayBuffer
@@ -83,8 +103,8 @@ export interface Caratula {
 }
 
 const NOMBRE = 'puchiemulator'
-/** 1: juegos, roms, partidas y estados. 2: carátulas. 3: sesiones de juego (tiempo jugado). 4: notas. */
-const VERSION = 4
+/** 1: juegos, roms, partidas y estados. 2: carátulas. 3: sesiones de juego (tiempo jugado). 4: notas. 5: trucos (v0.48.0). */
+const VERSION = 5
 
 let abierta: Promise<IDBDatabase> | null = null
 
@@ -106,6 +126,7 @@ function abrir(): Promise<IDBDatabase> {
         sesiones.createIndex('juegoId', 'juegoId')
       }
       if (!bd.objectStoreNames.contains('notas')) bd.createObjectStore('notas', { keyPath: 'id' })
+      if (!bd.objectStoreNames.contains('trucos')) bd.createObjectStore('trucos', { keyPath: 'id' })
     }
     peticion.onsuccess = () => {
       const bd = peticion.result
@@ -528,4 +549,12 @@ export async function espacioUsado(): Promise<{ usado: number; cuota: number } |
   } catch {
     return null
   }
+}
+
+export function leerTrucos(id: string): Promise<TrucosJuego | undefined> {
+  return leer<TrucosJuego>('trucos', id)
+}
+
+export function guardarTrucos(t: TrucosJuego): Promise<void> {
+  return poner('trucos', t)
 }
