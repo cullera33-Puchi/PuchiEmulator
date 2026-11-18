@@ -106,17 +106,14 @@ function esInstalada(): boolean {
 }
 
 /**
- * El alto que usa el juego (v0.48.3). iOS 26, en la app instalada, a veces encoge la página 62 puntos
- * un instante después de girar (`innerHeight` 812) aunque la ventana sigue entera (`outerHeight` 874), y
- * abajo queda un hueco. Entonces se usa el de la ventana, sin pasar del de la pantalla.
+ * El alto que usa el juego: el de la página (`innerHeight`). iOS 26, en la app instalada, a veces encoge
+ * la página 62 puntos un instante después de girar (812) con la ventana entera (`outerHeight` 874). En
+ * la v0.48.3 se probó a usar el de la ventana y la fila de abajo de la DS salió cortada (captura del
+ * usuario): esa franja queda fuera de la página, iOS solo la pinta con el fondo. Vuelve al de la página
+ * (v0.48.4).
  */
 export function altoUsado(): number {
-  const dentro = window.innerHeight
-  if (!esInstalada()) return dentro
-  const vertical = window.innerWidth <= window.innerHeight
-  const pantalla = vertical ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height)
-  const fuera = window.outerHeight
-  return fuera > dentro && fuera <= pantalla ? fuera : dentro
+  return window.innerHeight
 }
 
 /** Alto y ancho de la ventana de verdad para el CSS, solo si han cambiado (v0.42.1; v0.43.0) */

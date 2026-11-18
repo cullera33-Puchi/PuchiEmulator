@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.48.4",
+    "fecha": "19/11/2026",
+    "cambios": [
+      "Arreglada la fila de abajo de la DS en vertical, que la versión anterior dejaba cortada."
+    ]
+  },
+  {
     "version": "0.48.3",
     "fecha": "18/11/2026",
     "cambios": [

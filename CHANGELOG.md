@@ -1,5 +1,9 @@
 # Cambios
 
+## 0.48.4 (19/11/2026)
+
+- Vuelta atrás de la v0.48.3: con el alto de la ventana (`outerHeight`), la fila de abajo de la DS en vertical salía cortada (captura del usuario con Dragon Quest V), igual que en la v0.42.1. Cuando iOS 26 encoge la página a 812, los 62 puntos de abajo quedan fuera de ella: iOS los pinta con el color de fondo, pero la app no puede dibujar ni recibir toques ahí. El juego vuelve a medir la página (`innerHeight`). El hueco que se ve a veces abajo es de iOS y no se puede usar desde la web.
+
 ## 0.48.3 (18/11/2026)
 
 A partir del registro del usuario con las medidas nuevas de la v0.48.1 (DS en vertical, girando): justo al girar a vertical todo mide 874; un segundo después iOS 26 encoge la página a 812 (`innerHeight`, `dvh`, lo fijado, `visualViewport`), pero la ventana sigue midiendo 874 (`outerHeight`) y el alto grande también. El hueco de 62 puntos de abajo es esa diferencia.
