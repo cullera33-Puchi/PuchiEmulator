@@ -38,9 +38,26 @@ const SIN_OPFS = 'Los discos de PlayStation se copian a los ficheros privados (O
 
 /** Abre la biblioteca de una consola desde el inicio. */
 /** Selector de ficheros de la pantalla de arriba: el inicio se queda montado debajo de las apiladas (v0.26.1) */
-// Si una prueba falla, su registro de la app va a la salida (v0.46.0): con WebKit solo se ve en GitHub
+// Si una prueba falla, lo que ha pasado en la página y su registro de la app van a ficheros que GitHub
+// enseña (v0.46.0): con WebKit, las pruebas solo se pueden ver allí
+const eventosDe = new WeakMap<Page, string[]>()
+test.beforeEach(({ page }) => {
+  const eventos: string[] = []
+  eventosDe.set(page, eventos)
+  const t0 = Date.now()
+  const apuntar = (s: string) => eventos.push(`${((Date.now() - t0) / 1000).toFixed(1)} s ${s.slice(0, 500)}`)
+  page.on('console', (m) => apuntar(`consola ${m.type()}: ${m.text()}`))
+  page.on('pageerror', (e) => apuntar(`error: ${e.message}`))
+  page.on('crash', () => apuntar('LA PÁGINA SE HA CAÍDO'))
+  page.on('close', () => apuntar('página cerrada'))
+  page.on('worker', (w) => {
+    apuntar(`hilo: ${w.url()}`)
+    w.on('close', () => apuntar(`hilo terminado: ${w.url()}`))
+  })
+})
 test.afterEach(async ({ page }, info) => {
   if (info.status === info.expectedStatus) return
+  writeFileSync(info.outputPath('eventos.txt'), (eventosDe.get(page) ?? []).slice(-300).join('\n'))
   const registro = await page.evaluate(() => localStorage.getItem('puchiemulator-registro')).catch(() => null)
   if (registro) writeFileSync(info.outputPath('registro.txt'), registro.slice(-6000))
 })

@@ -7,6 +7,11 @@ name: Pruebas con WebKit
 on:
   push:
   workflow_dispatch:
+    inputs:
+      prueba:
+        description: Solo las pruebas cuyo nombre contenga esto (vacío, todas)
+        required: false
+        default: ''
 
 jobs:
   webkit:
@@ -21,7 +26,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx playwright install --with-deps webkit
-      - run: npm run e2e:webkit -- --trace off
+      - run: npm run e2e:webkit -- --trace off ${PRUEBA:+-g "$PRUEBA"}
+        env:
+          PRUEBA: ${{ inputs.prueba }}
       # Si falla, cómo estaba la página (v0.46.0): aquí no se puede ejecutar WebKit
       - if: failure()
-        run: find test-results \( -name error-context.md -o -name registro.txt \) -exec sh -c 'echo "== $1"; cat "$1"' _ {} \;
+        run: find test-results \( -name error-context.md -o -name registro.txt -o -name eventos.txt \) -exec sh -c 'echo "== $1"; cat "$1"' _ {} \;
