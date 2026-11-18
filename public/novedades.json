@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.45.0",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "Nintendo DS en vertical: los botones van debajo de las pantallas y ya no tapan la táctil.",
+      "En Ajustes, Acerca de, puedes buscar una versión nueva y aplicarla aunque se te haya pasado el aviso."
+    ]
+  },
+  {
     "version": "0.44.1",
     "fecha": "18/11/2026",
     "cambios": [

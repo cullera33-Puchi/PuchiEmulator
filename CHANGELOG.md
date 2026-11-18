@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.45.0 (18/11/2026)
+
+A partir de la comprobación en el iPhone del usuario (la DS en vertical, «queda mucho espacio abajo de los botones y la pantalla ocupa mucho») y de la propuesta de la actualización que no se veía. El usuario eligió la opción A para la DS y dejó el resto a criterio.
+
+- Nintendo DS en vertical (opción A): las dos pantallas, tan grandes como quepan por encima de los botones y centradas; L y R, la cruceta y los botones, debajo, sin tapar la pantalla táctil, y la fila de herramientas al final. En el iPhone 17, el 86 % del ancho con la ventana entera (874) y el 76 % con la corta (812). Los botones dejan de ser translúcidos (ya no van encima de la imagen); con una mano, igual que antes.
+- Actualizar desde Ajustes, Acerca de: «Actualizar a la versión nueva» mientras haya una descargada sin aplicar (el aviso dura unos segundos y, si se pasaba, no había forma de aplicarla sin cerrar la app) y, si no, «Buscar actualización», que la busca en ese momento y dice si ya se tiene la última (`src/lib/actualizacion.ts`).
+- Comprobación en el iPhone: el punto de la DS en vertical pasa a decir cómo debe verse ahora y vuelve a «Sin probar».
+
+197 pruebas unitarias y 80 de navegador (la de DS comprueba las pantallas centradas y los botones debajo; nueva: buscar actualización).
+
 ## 0.44.1 (18/11/2026)
 
 A partir de la primera comprobación en el iPhone del usuario (14 bien, 1 falla y 1 sin probar) y su registro.

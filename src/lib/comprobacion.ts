@@ -1,5 +1,5 @@
 /**
- * Comprobación en el iPhone (v0.44.0, mejora 20): una lista de unos 15 minutos con lo que queda por
+ * Comprobación en el iPhone (v0.44.0, mejora 20; la DS en vertical, revisada en la v0.45.0): una lista de unos 15 minutos con lo que queda por
  * confirmar de las últimas versiones. El usuario marca cada punto como «Bien» o «Falla» mientras juega
  * y manda los resultados con el registro de ese rato. Se guarda en localStorage (no son datos de juego).
  */
@@ -35,7 +35,7 @@ export const COMPROBACION: GrupoComprobacion[] = [
     minutos: 3,
     puntos: [
       { id: 'fila-centrada', texto: 'En vertical, la fila de guardar, cargar, menú y avance rápido está centrada.' },
-      { id: 'ds-fila', texto: 'Nintendo DS en vertical: la fila de abajo se ve entera, sin cortar.' },
+      { id: 'ds-vertical', texto: 'Nintendo DS en vertical: los botones van debajo de las pantallas, sin taparlas, y no sobra espacio abajo.' },
       { id: 'botones-movidos', texto: 'Los botones que has movido no pisan la fila de abajo.' },
       { id: 'menu-fondo', texto: 'Con el menú del juego abierto, no asoma otro color por debajo.' },
     ],

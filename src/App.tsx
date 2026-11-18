@@ -10,6 +10,7 @@ import { seVolvioDeslizando } from './componentes/gestos'
 import { Hoja, ProveedorInterfaz, useInterfaz } from './componentes/Interfaz'
 import { cambiarAjustes, useAjustes } from './lib/ajustes'
 import { registrar } from './lib/registro'
+import { ponerActualizacion, ponerRegistroSW } from './lib/actualizacion'
 import { cargarNovedades, novedadesPosteriores, type Novedad } from './lib/version'
 import { Ajustes } from './pantallas/Ajustes'
 import { Biblioteca } from './pantallas/Biblioteca'
@@ -31,6 +32,8 @@ function AvisoVersion({ visible }: { visible: boolean }) {
     updateServiceWorker,
   } = useRegisterSW({
     onRegisteredSW(_url, registro) {
+      // Para «Buscar actualización» en Ajustes, Acerca de (v0.45.0)
+      ponerRegistroSW(registro)
       // Al volver a la app se mira si hay versión nueva
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') registro?.update().catch(() => undefined)
@@ -51,6 +54,11 @@ function AvisoVersion({ visible }: { visible: boolean }) {
     if (!nuevas.length) actualizar()
     else setNovedades(nuevas)
   }
+
+  // Ajustes, Acerca de, ofrece aplicarla mientras esté pendiente (v0.45.0): el aviso dura unos segundos
+  useEffect(() => {
+    ponerActualizacion(pendiente, () => void verNovedades())
+  })
 
   // Nunca durante una partida: el aviso sale al volver a la biblioteca
   useEffect(() => {

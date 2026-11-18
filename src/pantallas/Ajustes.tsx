@@ -24,6 +24,7 @@ import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { borrarCopia, borrarTodasLasCopias, crearCopia, listarCopias, restaurarCopia, type MetaCopia } from '../lib/seguridad'
 import { APP_VERSION, cargarNovedades, type Novedad } from '../lib/version'
 import { Comprobacion, useResumenComprobacion } from '../componentes/Comprobacion'
+import { aplicarActualizacion, buscarActualizacion, useActualizacionPendiente } from '../lib/actualizacion'
 
 function useRegistro() {
   const [n, setN] = useState(leerRegistro().length)
@@ -75,6 +76,17 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
   const [ocupacion, setOcupacion] = useState<{ juegos: OcupacionJuego[]; sinJuego: { juegos: number; bytes: number } } | null>(null)
   const [ocupacionElegida, setOcupacionElegida] = useState<OcupacionJuego | null>(null)
   const [verRegistro, setVerRegistro] = useState(false)
+  // Versión nueva (v0.45.0): se puede aplicar aquí aunque se haya pasado el aviso, o buscar a mano
+  const actualizacionPendiente = useActualizacionPendiente()
+  const [buscando, setBuscando] = useState(false)
+  const buscar = async () => {
+    setBuscando(true)
+    const r = await buscarActualizacion()
+    setBuscando(false)
+    registrar('info', 'Buscar actualización', { resultado: r })
+    if (r === 'al-dia') avisar(`Tienes la última versión (${APP_VERSION})`)
+    else if (r === 'sin-conexion') avisar('No se ha podido buscar: mira la conexión')
+  }
   const resumenComprobacion = useResumenComprobacion()
   const [novedades, setNovedades] = useState<Novedad[] | null>(null)
   const [temaDe, setTemaDe] = useState<Sistema | null>(null)
@@ -699,6 +711,16 @@ export function Ajustes({ alVolver }: { alVolver: () => void }) {
                 <span className="flex-1 text-acento dark:text-acento-oscuro">Novedades</span>
                 <ChevronRight size={18} className="text-zinc-400" />
               </button>
+              <div className="separador" />
+              {actualizacionPendiente ? (
+                <button className="fila font-semibold text-acento dark:text-acento-oscuro" onClick={aplicarActualizacion}>
+                  Actualizar a la versión nueva
+                </button>
+              ) : (
+                <button className="fila text-acento dark:text-acento-oscuro" disabled={buscando} onClick={() => void buscar()}>
+                  {buscando ? 'Buscando…' : 'Buscar actualización'}
+                </button>
+              )}
             </div>
             <div className="lista mt-6">
               <div className="fila justify-between">

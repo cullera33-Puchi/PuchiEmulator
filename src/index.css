@@ -921,24 +921,31 @@ body.en-juego .aviso {
 }
 
 /* Pantalla lo más grande posible: sin margen ni marco (en vertical, de borde a borde) */
-/* Nintendo DS en vertical (v0.12.0): las dos pantallas a todo lo ancho y todo lo alto que se pueda.
-   La de abajo es táctil y casi nunca se mira entera: la cruceta, los botones y L y R quedan encima de
-   ella, translúcidos (donde no hay un botón, el toque es del lápiz). Abajo del todo, una fila con
-   guardar y cargar, Select y Start, el menú y el avance rápido. */
+/* Nintendo DS en vertical (v0.12.0; desde la v0.45.0, propuesta A elegida por el usuario): las dos
+   pantallas tan grandes como quepan por encima de los botones, centradas, y la cruceta, los botones y
+   L y R debajo, sin tapar la táctil. Antes iban a todo lo ancho con los botones translúcidos encima de
+   la táctil, y abajo quedaba espacio sin usar. Abajo del todo, una fila con guardar y cargar, Select y
+   Start, el menú y el avance rápido. */
 @container juego (orientation: portrait) {
   .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) {
     --fila-abajo: calc(var(--seguro-abajo) + 52px);
     --base-mando: calc(var(--fila-abajo) + 4px);
     --tam-mando: min(calc(150px * var(--escala)), 40cqw);
+    /* L y R encima de la cruceta y los botones, con su hueco: lo que ocupan los mandos */
+    --bloque-mando: calc(var(--tam-mando) + 34px * var(--escala) + 18px);
   }
   .juego[data-sistema='nds'][data-disposicion='apiladas']:not(.una-mano) .zona-pantalla {
     top: var(--seguro-arriba);
-    height: min(calc(100cqw * var(--proporcion, 1.5)), calc(100cqh - var(--seguro-arriba) - var(--fila-abajo)));
+    height: min(
+      calc(100cqw * var(--proporcion, 1.5)),
+      calc(100cqh - var(--seguro-arriba) - var(--base-mando) - var(--bloque-mando))
+    );
   }
-  /* Encima de la imagen: relleno oscuro translúcido y borde claro, que se ven sobre cualquier fondo */
-  .juego[data-sistema='nds'][data-disposicion='apiladas'] .cruceta,
-  .juego[data-sistema='nds'][data-disposicion='apiladas'] .botones-accion,
-  .juego[data-sistema='nds'][data-disposicion='apiladas'] .hombro {
+  /* Encima de la imagen (una mano: el grupo de botones sigue sobre la táctil): relleno oscuro
+     translúcido y borde claro, que se ven sobre cualquier fondo */
+  .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .cruceta,
+  .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .botones-accion,
+  .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .hombro {
     --ab: rgb(20 20 24 / 0.38);
     --ab-pulsado: rgb(255 255 255 / 0.45);
     --borde: rgb(255 255 255 / 0.55);
@@ -954,13 +961,13 @@ body.en-juego .aviso {
     opacity: var(--opacidad-horizontal, 0.6);
     text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
   }
-  .juego[data-sistema='nds'][data-disposicion='apiladas'] .hombro {
+  .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .hombro {
     border-color: var(--borde);
   }
-  .juego[data-sistema='nds'][data-disposicion='apiladas'] .cruceta .brazo {
+  .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .cruceta .brazo {
     box-shadow: 0 0 0 1px rgb(255 255 255 / 0.45);
   }
-  .juego[data-sistema='nds'][data-disposicion='apiladas'] .cruceta .centro {
+  .juego[data-sistema='nds'][data-disposicion='apiladas'].una-mano .cruceta .centro {
     background: var(--cruceta);
   }
   /* Una mano en DS (v0.20.0): las pantallas igual de grandes y el grupo de botones del modo una

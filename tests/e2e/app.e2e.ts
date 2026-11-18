@@ -242,6 +242,14 @@ test('juego que parece parado: no se guarda el punto donde se dejó; registro de
   expect(registro).toContain('Punto donde se dejó sin guardar: el juego parecía parado')
 })
 
+test('buscar actualización en Ajustes, Acerca de (v0.45.0)', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
+  await page.getByRole('button', { name: /^Acerca de/ }).click()
+  await page.getByRole('button', { name: 'Buscar actualización' }).click()
+  await expect(page.getByText(/Tienes la última versión|No se ha podido buscar/)).toBeVisible({ timeout: 25_000 })
+})
+
 test('comprobación en el iPhone: marcar, recordar y enviar con el registro (v0.44.0)', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
@@ -807,12 +815,16 @@ test('Nintendo DS (en pruebas): arranca sin BIOS, dos pantallas, botones, tácti
   // Dos pantallas apiladas: 256 x 384
   const lienzo = page.getByTestId('pantalla')
   await expect.poll(() => lienzo.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual([256, 384])
-  // En vertical, las dos pantallas a todo lo ancho (v0.12.0): los controles van encima de la de abajo
+  // En vertical (v0.45.0, opción A del usuario): las pantallas tan grandes como quepan por encima de
+  // los botones, centradas, y L, R, la cruceta y los botones debajo, sin tapar la táctil
   const ancho = page.viewportSize()!.width
-  await expect.poll(async () => (await lienzo.boundingBox())!.width).toBeGreaterThan(ancho - 4)
-  const cajaA = (await page.getByTestId('mando').getByRole('button', { name: 'A', exact: true }).boundingBox())!
+  await expect.poll(async () => (await lienzo.boundingBox())!.height).toBeGreaterThan(200)
   const cajaLienzo = (await lienzo.boundingBox())!
-  expect(cajaA.y).toBeLessThan(cajaLienzo.y + cajaLienzo.height)
+  expect(Math.abs(cajaLienzo.x + cajaLienzo.width / 2 - ancho / 2)).toBeLessThanOrEqual(2)
+  for (const n of ['L', 'R', 'A', 'B', 'X', 'Y']) {
+    const b = (await page.getByTestId('mando').getByRole('button', { name: n, exact: true }).boundingBox())!
+    expect(b.y, n).toBeGreaterThanOrEqual(cajaLienzo.y + cajaLienzo.height - 1)
+  }
   const arriba = () => lienzo.evaluate((c: HTMLCanvasElement) => [...((t) => { t.width = c.width; t.height = c.height; const g = t.getContext('2d')!; g.drawImage(c, 0, 0); return g })(document.createElement('canvas')).getImageData(128, 96, 1, 1).data.slice(0, 3)])
   await expect.poll(arriba).toEqual([0, 0, 251])
   await pulsar(page, 'A')
