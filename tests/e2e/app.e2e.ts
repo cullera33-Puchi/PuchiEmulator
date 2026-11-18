@@ -2289,13 +2289,15 @@ test('partida como fichero: importar un .sav, arrancar con ella, exportarla y de
   await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
   // Sonda temporal (v0.46.0): en WebKit la página deja de responder aquí
   if (test.info().project.name === 'webkit')
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 16; i++) {
+      const t = Date.now()
       const r = await Promise.race([
         page.evaluate(() => `${document.body.innerText.replace(/\s+/g, ' ').slice(0, 160)} | registro: ${(localStorage.getItem('puchiemulator-registro') ?? '').slice(-700)}`),
         new Promise<string>((ok) => setTimeout(() => ok('NO RESPONDE'), 1500)),
       ]).catch((e: Error) => `fallo: ${e.message}`)
-      eventosDe.get(page)?.push(`sonda ${i}: ${r}`)
-      await page.waitForTimeout(500)
+      eventosDe.get(page)?.push(`sonda ${i} (${Date.now() - t} ms): ${r}`)
+      writeFileSync(test.info().outputPath('sonda.txt'), (eventosDe.get(page) ?? []).join('\n'))
+      await page.waitForTimeout(250)
     }
   await expect(page.getByText('Cargando…')).toBeHidden()
   await expect.poll(() => tono(page), { timeout: 10_000 }).toBe('rojo')
