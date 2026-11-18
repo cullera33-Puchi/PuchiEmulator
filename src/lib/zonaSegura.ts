@@ -59,12 +59,17 @@ function medirAhora(): Medida {
  * Altos de la pantalla según el navegador (v0.35.0), para ver en el registro si la app instalada llega
  * hasta abajo: el de la ventana, el grande (lvh), el de la pantalla y si va instalada.
  */
-function altos(): { ventana: number; grande: number; pantalla: number; instalada: boolean } {
-  const sonda = document.createElement('div')
-  sonda.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:100lvh;visibility:hidden;pointer-events:none'
-  document.body.appendChild(sonda)
-  const grande = Math.round(sonda.getBoundingClientRect().height)
-  sonda.remove()
+function altos(): Record<string, number | boolean> {
+  // Lo que mide un elemento fijo con cada alto de CSS
+  const medir = (css: string) => {
+    const sonda = document.createElement('div')
+    sonda.style.cssText = `position:fixed;top:0;left:0;width:1px;visibility:hidden;pointer-events:none;${css}`
+    document.body.appendChild(sonda)
+    const alto = Math.round(sonda.getBoundingClientRect().height)
+    sonda.remove()
+    return alto
+  }
+  const grande = medir('height:100lvh')
   const vertical = window.innerWidth <= window.innerHeight
   const pantalla = vertical ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height)
   let instalada = false
@@ -73,7 +78,20 @@ function altos(): { ventana: number; grande: number; pantalla: number; instalada
   } catch {
     // sin matchMedia
   }
-  return { ventana: window.innerHeight, grande, pantalla, instalada }
+  // Más medidas (v0.48.1): iOS 26 da a veces el alto corto (812) con la app a pantalla completa y otras
+  // con la franja de abajo fuera de la app; con innerHeight y lvh no se distinguen
+  return {
+    ventana: window.innerHeight,
+    grande,
+    pantalla,
+    instalada,
+    pequeno: medir('height:100svh'),
+    dinamico: medir('height:100dvh'),
+    fijo: medir('bottom:0'),
+    visual: Math.round(window.visualViewport?.height ?? 0),
+    exterior: window.outerHeight,
+    cliente: document.documentElement.clientHeight,
+  }
 }
 
 function orientacion(): Orientacion {
@@ -112,10 +130,12 @@ function actualizar(): void {
   // no se ve. El juego mide esto, ni más (se cortaba) ni menos (quedaba una franja)
   ponerTamanoVentana()
   // En el registro, para ver en el iPhone si iOS falla al girar (solo cuando cambia algo)
-  const firma = `${o}:${JSON.stringify(medida)}:${JSON.stringify(recordada)}`
+  // También cuando solo cambia el alto (v0.48.1)
+  const alto = altos()
+  const firma = `${o}:${JSON.stringify(medida)}:${JSON.stringify(recordada)}:${JSON.stringify(alto)}`
   if (firma !== ultimaRegistrada) {
     ultimaRegistrada = firma
-    registrar('info', 'Zona segura', { orientacion: o, ios: medida, usada: recordada, alto: altos() })
+    registrar('info', 'Zona segura', { orientacion: o, ios: medida, usada: recordada, alto })
   }
 }
 

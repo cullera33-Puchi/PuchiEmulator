@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.48.1",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "El registro apunta más medidas de la pantalla, para arreglar el hueco que a veces queda abajo en la DS en vertical."
+    ]
+  },
+  {
     "version": "0.48.0",
     "fecha": "18/11/2026",
     "cambios": [

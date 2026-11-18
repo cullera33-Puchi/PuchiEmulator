@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.48.1 (18/11/2026)
+
+A partir de una captura y un registro del usuario con la DS en vertical: sobran 62 puntos abajo. Es la ventana corta de iOS 26 (`ventana` 812 con la pantalla de 874), que cambia al girar (874, 874 y otra vez 812 en tres giros seguidos). Con esa medida no se distingue si la franja de abajo es de la app (como en esta captura, del color del tema) o queda fuera de ella (como en la v0.42.1, con la fila de abajo cortada).
+
+- «Zona segura» lleva más medidas del alto (`pequeno` con svh, `dinamico` con dvh, `fijo` con un elemento fijado arriba y abajo, `visual`, `exterior` y `cliente`) y se apunta también cuando solo cambia el alto. Con el registro de los dos casos se podrá elegir el alto bueno.
+
 ## 0.48.0 (18/11/2026)
 
 Trucos, pedidos por el usuario (mejora 12), con búsqueda automática: primero en Game Boy, Game Boy Color, Game Boy Advance, NES, Super Nintendo, Mega Drive, Master System y Game Gear.
