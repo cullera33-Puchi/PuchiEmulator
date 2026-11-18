@@ -50,6 +50,7 @@ test.beforeEach(({ page }) => {
   page.on('pageerror', (e) => apuntar(`error: ${e.message}`))
   page.on('crash', () => apuntar('LA PÁGINA SE HA CAÍDO'))
   page.on('close', () => apuntar('página cerrada'))
+  page.on('framenavigated', (f) => f === page.mainFrame() && apuntar(`navega a ${f.url()}`))
   page.on('worker', (w) => {
     apuntar(`hilo: ${w.url()}`)
     w.on('close', () => apuntar(`hilo terminado: ${w.url()}`))
@@ -2286,6 +2287,16 @@ test('partida como fichero: importar un .sav, arrancar con ella, exportarla y de
   await page.getByRole('alertdialog').getByRole('button', { name: 'Importar' }).click()
   await expect(page.getByText('Partida importada')).toBeVisible()
   await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+  // Sonda temporal (v0.46.0): en WebKit la página deja de responder aquí
+  if (test.info().project.name === 'webkit')
+    for (let i = 0; i < 8; i++) {
+      const r = await Promise.race([
+        page.evaluate(() => `${document.body.innerText.replace(/\s+/g, ' ').slice(0, 160)} | registro: ${(localStorage.getItem('puchiemulator-registro') ?? '').slice(-700)}`),
+        new Promise<string>((ok) => setTimeout(() => ok('NO RESPONDE'), 1500)),
+      ]).catch((e: Error) => `fallo: ${e.message}`)
+      eventosDe.get(page)?.push(`sonda ${i}: ${r}`)
+      await page.waitForTimeout(500)
+    }
   await expect(page.getByText('Cargando…')).toBeHidden()
   await expect.poll(() => tono(page), { timeout: 10_000 }).toBe('rojo')
   await page.getByRole('button', { name: 'Guardar rápido' }).click()
