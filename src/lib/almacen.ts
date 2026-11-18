@@ -71,6 +71,8 @@ export interface Estado {
   captura?: ArrayBuffer
   /** Nombre que le pone el usuario («Antes del jefe»), v0.19.0 */
   nombre?: string
+  /** PlayStation con varios discos (v0.47.0): el fichero del disco que estaba puesto */
+  disco?: string
 }
 
 export interface Caratula {
@@ -360,7 +362,7 @@ export async function resumenEstados(id: string): Promise<ResumenEstado[]> {
       const cursor = peticion.result
       if (!cursor) return resolver(lista)
       const e = cursor.value as Estado
-      lista.push({ clave: e.clave, id: e.id, ranura: e.ranura, fecha: e.fecha, captura: e.captura, nombre: e.nombre })
+      lista.push({ clave: e.clave, id: e.id, ranura: e.ranura, fecha: e.fecha, captura: e.captura, nombre: e.nombre, disco: e.disco })
       cursor.continue()
     }
   })

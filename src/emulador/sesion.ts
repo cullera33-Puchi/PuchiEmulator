@@ -13,6 +13,7 @@
  * - Al salir o al pasar la app a segundo plano se guarda un estado «auto» para seguir donde se dejó.
  */
 import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, guardarSombreadores, leerEstado, leerJuego, leerPartida, leerRomGuardada, leerSombreadores, type Juego, type Ranura } from '../lib/almacen'
+import { listaDeDiscos } from '../lib/discos'
 import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
@@ -1074,7 +1075,9 @@ export class Sesion {
     const captura = r.captura ?? (ranura === 'auto' ? undefined : await capturaDelLienzo(this.o.lienzo))
     // Llega del hilo con su propio búfer: no hace falta copiarlo (16 MB en N64)
     const datos = r.datos.byteOffset === 0 && r.datos.byteLength === r.datos.buffer.byteLength ? (r.datos.buffer as ArrayBuffer) : (r.datos.slice().buffer as ArrayBuffer)
-    await guardarEstado({ id: this.o.juego.id, ranura, datos, fecha: Date.now(), captura })
+    // PlayStation con varios discos (v0.47.0): el disco puesto va con el estado
+    const disco = this.discoPuesto
+    await guardarEstado({ id: this.o.juego.id, ranura, datos, fecha: Date.now(), captura, ...(disco ? { disco } : {}) })
     if (ranura === 'auto') this.autoGuardado = true
     return true
   }
@@ -1083,7 +1086,19 @@ export class Sesion {
     if (this.roto || this.cerrada || this.cierre || !this.motor) return false
     const estado = await leerEstado(this.o.juego.id, ranura)
     if (!estado) return false
+    // El disco del estado se pone antes de cargarlo (v0.47.0); con «Deshacer», vuelve el de antes
+    const lista = this.o.juego.disco ? listaDeDiscos(this.o.juego.disco) : []
+    const antes = this.o.juego.disco?.actual ?? 0
+    const delEstado = estado.disco ? lista.indexOf(estado.disco) : -1
+    this.discoAntesDeCargar = undefined
+    if (lista.length > 1 && delEstado >= 0 && delEstado !== antes) {
+      if (await this.cambiarDisco(delEstado)) this.discoAntesDeCargar = antes
+    }
     const r = await this.motor.cargarEstado(new Uint8Array(estado.datos))
+    if (!r.ok && this.discoAntesDeCargar !== undefined) {
+      await this.cambiarDisco(this.discoAntesDeCargar)
+      this.discoAntesDeCargar = undefined
+    }
     // El motor ya ha vuelto a como estaba (v0.43.0)
     if (!r.ok) registrar('aviso', 'El núcleo no ha aceptado el estado', { sistema: this.o.juego.sistema, ranura })
     else {
@@ -1105,6 +1120,8 @@ export class Sesion {
     // El aviso con «Deshacer» puede seguir en pantalla después de salir del juego (v0.43.2)
     if (this.roto || this.cerrada || this.cierre || !this.motor) return false
     const r = await this.motor.deshacerCarga()
+    if (r.ok && this.discoAntesDeCargar !== undefined) await this.cambiarDisco(this.discoAntesDeCargar)
+    this.discoAntesDeCargar = undefined
     this.altavoz.vaciar()
     if (this.propio) this.motor.ritmo?.vaciarSonido()
     this.porHacer = 0
@@ -1160,6 +1177,26 @@ export class Sesion {
     await this.motor.ponerMando(activas ? MANDO_DUALSHOCK : MANDO_NORMAL)
     this.enviarEntrada()
     registrar('info', 'Palancas de PlayStation', { activas })
+  }
+
+  /** El disco que había antes de cargar un estado de otro disco, para «Deshacer» (v0.47.0) */
+  private discoAntesDeCargar: number | undefined
+
+  /** El fichero del disco puesto, con varios discos (PlayStation, v0.47.0) */
+  private get discoPuesto(): string | undefined {
+    const d = this.o.juego.disco
+    if (!d) return undefined
+    const lista = listaDeDiscos(d)
+    return lista.length > 1 ? lista[d.actual ?? 0] : undefined
+  }
+
+  /** El número del disco de un estado («Disco 2»), si el juego tiene varios (v0.47.0) */
+  numeroDelDisco(fichero?: string): number | null {
+    const d = this.o.juego.disco
+    if (!d || !fichero) return null
+    const lista = listaDeDiscos(d)
+    const i = lista.indexOf(fichero)
+    return lista.length > 1 && i >= 0 ? i + 1 : null
   }
 
   /** Discos del juego (PlayStation, v0.38.0): cuántos y cuál está puesto */

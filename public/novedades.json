@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.47.0",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "PlayStation: si añades un disco que no parece de PlayStation, la app te pregunta antes de copiarlo.",
+      "Si a un juego le faltan discos, te lo dice; y si los añades otro día, se juntan con su juego, con la misma tarjeta de memoria.",
+      "Cada estado guardado recuerda en qué disco estabas y lo vuelve a poner al cargarlo."
+    ]
+  },
+  {
     "version": "0.46.1",
     "fecha": "18/11/2026",
     "cambios": [

@@ -345,6 +345,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     void cargarListaEstados()
   }
 
+  // Con varios discos, en qué disco se guardó cada estado (v0.47.0)
+  const discoDe = (e: ResumenEstado) => {
+    const n = sesion.current?.numeroDelDisco(e.disco)
+    return n ? `, disco ${n}` : ''
+  }
   const nombreRanura = (r: Ranura) => estadoDe(r)?.nombre ?? `Ranura ${r}`
 
   const guardarEn = async (r: Ranura) => {
@@ -998,7 +1003,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
                   <Captura estado={e} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate">{e?.nombre ?? `Ranura ${r}`}</p>
-                    <p className="truncate text-[13px] text-zinc-500">{e ? `${e.nombre ? `Ranura ${r}, ` : ''}${cuando(e.fecha)}` : 'Vacía'}</p>
+                    <p className="truncate text-[13px] text-zinc-500">{e ? `${e.nombre ? `Ranura ${r}, ` : ''}${cuando(e.fecha)}${discoDe(e)}` : 'Vacía'}</p>
                   </div>
                   {e && (
                     <button className="boton-icono" aria-label={`Poner nombre a la ranura ${r}`} onClick={() => void renombrar(r)}>

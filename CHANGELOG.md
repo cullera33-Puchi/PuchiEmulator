@@ -1,5 +1,18 @@
 # Cambios
 
+## 0.47.0 (18/11/2026)
+
+Las tres mejoras de PlayStation que propuso la revisión de la v0.43.2, pedidas por el usuario. El resto de propuestas queda en la hoja de ruta.
+
+- Aviso al añadir un disco que no parece de PlayStation: se mira el descriptor de volumen del disco (sector 16), que en PlayStation dice «PLAYSTATION»; si dice otra cosa o el disco empieza con una pista de música (como los de PC Engine), se pregunta antes de copiarlo («Añadir igualmente» o «Cancelar»). El CHD va comprimido y no se comprueba.
+- Aviso de los discos que faltan, por los números («Disc 1» y «Disc 3») y por el total del nombre («Disc 1 of 3»): «a «Juego» le faltan los discos 2 y 3: añádelos cuando quieras y se juntan», con «Vale» y 12 segundos.
+- Discos de un juego añadidos en días distintos: un disco con número cuyo juego ya está (mismo nombre sin el número) se le añade en su carpeta en lugar de ser otro juego. Conserva el identificador, así que la tarjeta de memoria y los estados siguen siendo suyos; los ficheros nuevos se llaman «disco-n2.cue» y similares para no chocar, la lista .m3u se escribe en orden y el disco que estaba puesto sigue puesto. Si la copia falla, se quita solo lo nuevo y se devuelve la lista anterior. Los juegos guardados antes también se juntan (orden y números deducidos de los nombres). El PBP no se junta.
+- Cada estado guarda el disco que estaba puesto: al cargarlo se pone ese disco (y «Deshacer» devuelve el de antes), y la lista de ranuras dice «disco N». Va también en la copia de partidas (campo opcional; las copias anteriores se siguen leyendo).
+- El disco con el que se arranca sale de la lista guardada (`Disco.lista`), no del nombre «discoN».
+- Comprobación en el iPhone: punto nuevo para un juego de varios discos.
+
+203 pruebas unitarias y 82 de navegador (nuevas: disco de otra consola, discos que faltan, juntar con nombres sin chocar y el disco puesto; en el navegador, juntar dos días con el aviso, el estado con su disco y el disco de otra consola).
+
 ## 0.46.1 (18/11/2026)
 
 - Al entrar en un juego se quita el aviso que hubiera de la biblioteca. Su «Deshacer» (de importar una partida o de quitar un juego) no vale con el juego en marcha: devolvería la partida anterior al almacén y el juego la pisaría al guardar.

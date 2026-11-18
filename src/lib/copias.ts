@@ -49,6 +49,8 @@ interface EstadoArchivo {
   fecha: number
   captura?: string
   nombre?: string
+  /** El disco puesto, en PlayStation con varios (v0.47.0; los archivos anteriores no lo llevan) */
+  disco?: string
 }
 
 export interface ArchivoPartidas {
@@ -111,6 +113,7 @@ export async function crearArchivo(conEstados: boolean, version: string): Promis
       fecha: e.fecha,
       captura: e.captura ? aBase64(e.captura) : undefined,
       nombre: e.nombre,
+      disco: e.disco,
     })),
     sesiones: sesiones.map(({ id: _id, ...s }) => s),
     notas,
@@ -152,6 +155,7 @@ export function leerArchivo(texto: string): { partidas: Partida[]; estados: Esta
       fecha: Number(e.fecha) || Date.now(),
       captura: e.captura ? deBase64(e.captura) : undefined,
       nombre: typeof e.nombre === 'string' && e.nombre.trim() ? e.nombre.slice(0, 60) : undefined,
+      disco: typeof e.disco === 'string' && /^[\w.-]{1,80}$/.test(e.disco) ? e.disco : undefined,
     })
   }
   const sesiones: SesionJuego[] = []

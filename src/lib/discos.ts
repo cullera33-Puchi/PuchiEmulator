@@ -15,6 +15,14 @@ export interface Disco {
   /** Varios discos (v0.38.0): cuántos y cuál estaba puesto la última vez (desde 0) */
   discos?: number
   actual?: number
+  /**
+   * Desde la v0.47.0: el fichero de cada disco en el orden de la lista .m3u, su número («Disc 2») y el
+   * nombre del juego sin él, para juntar los discos que se añadan otro día. Sin ellos (antes), se
+   * deducen de los nombres de la copia (`listaDeDiscos`, `numerosDeDisco`).
+   */
+  lista?: string[]
+  numeros?: number[]
+  base?: string
 }
 
 /** Lo que el usuario ha elegido para un juego (uno o varios discos), listo para copiar */
@@ -32,6 +40,17 @@ export interface GrupoDisco {
   /** El fichero que abre el núcleo */
   principal: string
   discos: number
+  /** El fichero de cada disco, en orden (v0.47.0) */
+  lista: string[]
+  /** El número de cada disco y el nombre del juego sin él, si los discos lo llevan (v0.47.0) */
+  numeros: number[]
+  base: string | null
+  /** Cuántos discos dice el nombre que tiene el juego («Disc 1 of 3»), si lo dice */
+  total: number | null
+  /** Los discos que no parecen de PlayStation (v0.47.0) */
+  noPsx: string[]
+  /** Los discos, sueltos: para añadirlos a un juego que ya está (v0.47.0) */
+  partes: { numero: number; suelto: DiscoSuelto }[]
 }
 
 export const CARPETA_DISCOS = 'discos'
@@ -88,21 +107,57 @@ export function cueParaBin(nombre: string, modo: number): string {
  * Número de disco en el nombre («Juego (Disc 2)», «(Disco 2 de 3)», «[CD2]») y el nombre sin él, para
  * juntar los discos de un mismo juego (v0.38.0).
  */
-export function numeroDeDisco(nombre: string): { base: string; numero: number | null } {
+export function numeroDeDisco(nombre: string): { base: string; numero: number | null; de?: number } {
   const sinExtension = nombre.replace(/\.[^.]+$/, '')
-  const m = /\s*[([]\s*(?:disc|disco|disk|cd)\s*(\d+)(?:\s*(?:of|de|\/)\s*\d+)?\s*[)\]]/i.exec(sinExtension)
+  const m = /\s*[([]\s*(?:disc|disco|disk|cd)\s*(\d+)(?:\s*(?:of|de|\/)\s*(\d+))?\s*[)\]]/i.exec(sinExtension)
   if (!m) return { base: sinExtension.trim(), numero: null }
-  return { base: (sinExtension.slice(0, m.index) + sinExtension.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim(), numero: Number(m[1]) }
+  const base = (sinExtension.slice(0, m.index) + sinExtension.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim()
+  return m[2] ? { base, numero: Number(m[1]), de: Number(m[2]) } : { base, numero: Number(m[1]) }
 }
 
+/** Nombre del juego sin el número de disco, para compararlo (sin mayúsculas y con las tildes iguales) */
+export const claveBase = (base: string) => base.normalize('NFC').toLowerCase()
+
 /** Un disco suelto, antes de juntarlo con los demás de su juego */
-interface DiscoSuelto {
+export interface DiscoSuelto {
   nombreFichero: string
   tipo: 'cue' | 'chd' | 'pbp'
   datos: File[]
   /** Hoja CUE original (o la de un BIN suelto), con los nombres de los BIN de `datos` */
   cue?: string
   nombresCue?: string[]
+  /** No parece de PlayStation (v0.47.0) */
+  noPsx?: boolean
+}
+
+/** Los ficheros con que se guarda un disco suelto y el que se abre, con un prefijo («disco2») */
+function nombresDeParte(p: DiscoSuelto, prefijo: string, conPrefijoEnPistas: boolean): { datos: File[]; nombres: string[]; texto?: { nombre: string; contenido: string }; principal: string } {
+  if (p.tipo !== 'cue') return { datos: [p.datos[0]], nombres: [`${prefijo}.${p.tipo}`], principal: `${prefijo}.${p.tipo}` }
+  const pistas = p.datos.map((_, n) => (conPrefijoEnPistas ? `${prefijo}-pista${n + 1}.bin` : `pista${n + 1}.bin`))
+  const cambios = new Map(p.nombresCue!.map((n, k) => [n.toLowerCase(), pistas[k]]))
+  return { datos: p.datos, nombres: pistas, texto: { nombre: `${prefijo}.cue`, contenido: reescribirCue(p.cue!, cambios) }, principal: `${prefijo}.cue` }
+}
+
+/**
+ * Si un disco en bruto (sectores de 2352 bytes) es de PlayStation (v0.47.0): su descriptor de volumen
+ * (sector 16) dice «PLAYSTATION». Los de otras consolas dicen otra cosa o no lo tienen (los de PC
+ * Engine empiezan con una pista de música). `modo` es el del primer sector (1 o 2).
+ */
+export async function pareceDePlayStation(f: File, modo: number): Promise<boolean> {
+  const desde = 16 * 2352
+  const b = new Uint8Array(await f.slice(desde, desde + 2352).arrayBuffer())
+  if (!esSectorCd(b)) return false
+  const d = modo === 1 ? 16 : 24
+  if (String.fromCharCode(...b.subarray(d + 1, d + 6)) !== 'CD001') return false
+  return String.fromCharCode(...b.subarray(d + 8, d + 40)).trim() === 'PLAYSTATION'
+}
+
+/** Los discos que faltan entre el 1 y el último (o los que dice el nombre, «Disc 1 of 3») */
+export function discosQueFaltan(numeros: number[], total: number | null): number[] {
+  const hasta = Math.max(total ?? 0, ...numeros)
+  const faltan: number[] = []
+  for (let n = 1; n <= hasta; n++) if (!numeros.includes(n)) faltan.push(n)
+  return faltan
 }
 
 async function cabecera(f: File, bytes = 16): Promise<Uint8Array> {
@@ -110,37 +165,36 @@ async function cabecera(f: File, bytes = 16): Promise<Uint8Array> {
 }
 
 /** Nombres de la copia: los de siempre con un disco; con varios, «disco2-pista1.bin», «disco2.cue»… */
-function montarGrupo(partes: DiscoSuelto[]): GrupoDisco {
+function montarGrupo(partes: { numero: number | null; suelto: DiscoSuelto }[]): GrupoDisco {
   const varios = partes.length > 1
   const datos: File[] = []
   const nombres: string[] = []
   const textos: { nombre: string; contenido: string }[] = []
   const principales: string[] = []
-  partes.forEach((p, i) => {
-    const prefijo = varios ? `disco${i + 1}` : 'disco'
-    if (p.tipo !== 'cue') {
-      datos.push(p.datos[0])
-      nombres.push(`${prefijo}.${p.tipo}`)
-      principales.push(`${prefijo}.${p.tipo}`)
-      return
-    }
-    const pistas = p.datos.map((_, n) => (varios ? `${prefijo}-pista${n + 1}.bin` : `pista${n + 1}.bin`))
-    datos.push(...p.datos)
-    nombres.push(...pistas)
-    const cambios = new Map(p.nombresCue!.map((n, k) => [n.toLowerCase(), pistas[k]]))
-    textos.push({ nombre: `${prefijo}.cue`, contenido: reescribirCue(p.cue!, cambios) })
-    principales.push(`${prefijo}.cue`)
+  partes.forEach(({ suelto: p }, i) => {
+    const r = nombresDeParte(p, varios ? `disco${i + 1}` : 'disco', varios)
+    datos.push(...r.datos)
+    nombres.push(...r.nombres)
+    if (r.texto) textos.push(r.texto)
+    principales.push(r.principal)
   })
   if (varios) textos.push({ nombre: 'discos.m3u', contenido: principales.join('\n') + '\n' })
-  const primero = numeroDeDisco(partes[0].nombreFichero)
+  const primero = numeroDeDisco(partes[0].suelto.nombreFichero)
+  const numerados = partes.every((p) => p.numero !== null)
   return {
-    nombre: nombreDesdeFichero(varios ? `${primero.base}.x` : partes[0].nombreFichero),
-    nombreFichero: partes[0].nombreFichero,
+    nombre: nombreDesdeFichero(varios || numerados ? `${primero.base}.x` : partes[0].suelto.nombreFichero),
+    nombreFichero: partes[0].suelto.nombreFichero,
     datos,
     nombres,
     textos,
     principal: varios ? 'discos.m3u' : principales[0],
     discos: partes.length,
+    lista: principales,
+    numeros: numerados ? partes.map((p) => p.numero!) : [],
+    base: numerados ? claveBase(primero.base) : null,
+    total: Math.max(0, ...partes.map((p) => numeroDeDisco(p.suelto.nombreFichero).de ?? 0)) || null,
+    noPsx: partes.filter((p) => p.suelto.noPsx).map((p) => p.suelto.nombreFichero),
+    partes: numerados ? partes.map((p) => ({ numero: p.numero!, suelto: p.suelto })) : [],
   }
 }
 
@@ -173,7 +227,10 @@ export async function agruparDiscos(ficheros: File[]): Promise<{ discos: GrupoDi
       continue
     }
     datos.forEach((d) => usados.add(d!))
-    sueltos.push({ nombreFichero: f.name, tipo: 'cue', datos: datos as File[], cue: texto, nombresCue: nombres })
+    // La primera pista es la de datos: si es música o no dice «PLAYSTATION», es de otra consola (v0.47.0)
+    const b = await cabecera(datos[0]!)
+    const noPsx = !esSectorCd(b) || !(await pareceDePlayStation(datos[0]!, b[15]))
+    sueltos.push({ nombreFichero: f.name, tipo: 'cue', datos: datos as File[], cue: texto, nombresCue: nombres, noPsx })
   }
   const resto: File[] = []
   for (const f of ficheros) {
@@ -196,7 +253,7 @@ export async function agruparDiscos(ficheros: File[]): Promise<{ discos: GrupoDi
         continue
       }
       if (esSectorCd(b)) {
-        sueltos.push({ nombreFichero: f.name, tipo: 'cue', datos: [f], cue: cueParaBin(f.name, b[15]), nombresCue: [f.name] })
+        sueltos.push({ nombreFichero: f.name, tipo: 'cue', datos: [f], cue: cueParaBin(f.name, b[15]), nombresCue: [f.name], noPsx: !(await pareceDePlayStation(f, b[15])) })
         continue
       }
     }
@@ -208,14 +265,18 @@ export async function agruparDiscos(ficheros: File[]): Promise<{ discos: GrupoDi
   for (const d of sueltos) {
     const { base, numero } = numeroDeDisco(d.nombreFichero)
     if (numero === null) {
-      discos.push(montarGrupo([d]))
+      discos.push(montarGrupo([{ numero: null, suelto: d }]))
       continue
     }
-    const clave = base.toLowerCase()
+    const clave = claveBase(base)
     if (!juntos.has(clave)) juntos.set(clave, [])
     juntos.get(clave)!.push({ numero, disco: d })
   }
-  for (const lista of juntos.values()) discos.push(montarGrupo(lista.sort((a, b) => a.numero - b.numero).map((x) => x.disco)))
+  for (const lista of juntos.values()) {
+    // El mismo disco elegido dos veces cuenta una
+    const unicos = lista.sort((a, b) => a.numero - b.numero).filter((x, k, l) => k === 0 || l[k - 1].numero !== x.numero)
+    discos.push(montarGrupo(unicos.map((x) => ({ numero: x.numero, suelto: x.disco }))))
+  }
   return { discos, resto, incompletos, sinHoja }
 }
 
@@ -236,6 +297,103 @@ export function ficherosDeGrupo(g: GrupoDisco): { nombres: string[]; principal: 
   return { nombres: [...g.nombres, ...g.textos.map((t) => t.nombre)], principal: g.principal }
 }
 
+/**
+ * El fichero de cada disco de un juego, en orden. Los guardados antes de la v0.47.0 no lo llevan: con
+ * varios, son «disco1.cue», «disco2.chd»…; con uno, el principal.
+ */
+export function listaDeDiscos(d: Disco): string[] {
+  if (d.lista?.length) return d.lista
+  if (!d.principal.endsWith('.m3u')) return [d.principal]
+  const lista: string[] = []
+  for (let i = 1; i <= (d.discos ?? 0); i++) {
+    const f = d.ficheros.find((x) => new RegExp(`^disco${i}\\.(cue|chd|pbp)$`).test(x))
+    if (f) lista.push(f)
+  }
+  return lista
+}
+
+/**
+ * El número de cada disco de un juego guardado y su nombre sin él, si el fichero llevaba número
+ * («Juego (Disc 1).cue»). Antes de la v0.47.0 no se guardaban: se toman del nombre del primer disco y
+ * se cuentan seguidos.
+ */
+export function numerosDeDisco(d: Disco, nombreFichero: string): { base: string; numeros: number[] } | null {
+  if (d.base && d.numeros?.length) return { base: d.base, numeros: d.numeros }
+  const { base, numero } = numeroDeDisco(nombreFichero)
+  if (numero === null) return null
+  return { base: claveBase(base), numeros: listaDeDiscos(d).map((_, i) => numero + i) }
+}
+
+/** Lo que hay que copiar y cómo queda el disco al añadir discos a un juego que ya está (v0.47.0) */
+export interface PlanJuntar {
+  datos: File[]
+  nombres: string[]
+  textos: { nombre: string; contenido: string }[]
+  /** El disco del juego con los nuevos dentro (sin cambiar de carpeta) */
+  disco: Disco
+  /** Los números de disco que se añaden y los que ya estaban (no se copian) */
+  anadidos: number[]
+  yaEstaban: number[]
+}
+
+/**
+ * Añadir a un juego guardado los discos de otro día (v0.47.0): los nuevos van a la misma carpeta con
+ * nombres que no chocan («disco-n2.cue»), la lista .m3u se escribe de nuevo en orden y el disco que
+ * estaba puesto sigue puesto. El juego conserva su identificador: su tarjeta de memoria y sus estados
+ * siguen siendo suyos. Sin nada nuevo, `null`.
+ */
+export function planJuntar(d: Disco, nombreFichero: string, g: GrupoDisco): PlanJuntar | null {
+  const antes = numerosDeDisco(d, nombreFichero)
+  if (!antes || !g.partes.length) return null
+  const lista = listaDeDiscos(d)
+  const actual = lista[d.actual ?? 0]
+  const entradas = lista.map((fichero, i) => ({ numero: antes.numeros[i], fichero }))
+  const ocupados = new Set(d.ficheros)
+  const datos: File[] = []
+  const nombres: string[] = []
+  const textos: { nombre: string; contenido: string }[] = []
+  const anadidos: number[] = []
+  const yaEstaban: number[] = []
+  for (const { numero, suelto } of g.partes) {
+    if (entradas.some((e) => e.numero === numero)) {
+      yaEstaban.push(numero)
+      continue
+    }
+    let prefijo = `disco-n${numero}`
+    for (let k = 2; [...ocupados].some((f) => f.startsWith(`${prefijo}.`) || f.startsWith(`${prefijo}-`)); k++) prefijo = `disco-n${numero}-${k}`
+    const r = nombresDeParte(suelto, prefijo, true)
+    r.nombres.forEach((n) => ocupados.add(n))
+    datos.push(...r.datos)
+    nombres.push(...r.nombres)
+    if (r.texto) textos.push(r.texto)
+    entradas.push({ numero, fichero: r.principal })
+    anadidos.push(numero)
+  }
+  if (!anadidos.length) return null
+  entradas.sort((a, b) => a.numero - b.numero)
+  const nuevaLista = entradas.map((e) => e.fichero)
+  // La lista va la última: si la copia falla antes, el juego sigue como estaba
+  textos.push({ nombre: 'discos.m3u', contenido: nuevaLista.join('\n') + '\n' })
+  const ficheros = [...d.ficheros, ...nombres, ...textos.map((t) => t.nombre)].filter((f, i, l) => l.indexOf(f) === i)
+  return {
+    datos,
+    nombres,
+    textos,
+    disco: {
+      ...d,
+      principal: 'discos.m3u',
+      ficheros,
+      discos: nuevaLista.length,
+      actual: Math.max(0, nuevaLista.indexOf(actual)),
+      lista: nuevaLista,
+      numeros: entradas.map((e) => e.numero),
+      base: antes.base,
+    },
+    anadidos,
+    yaEstaban,
+  }
+}
+
 /* ---- Copia en el iPhone, por el hilo de los discos ---- */
 
 type Respuesta = { progreso: number } | { hecho: { sha1: string; tam: number } } | { error: string }
@@ -247,32 +405,73 @@ const carpetaNueva = () => `d${Date.now().toString(36)}${Math.random().toString(
  * Copia un disco a su carpeta, con el SHA-1 de sus datos (los BIN o el CHD, no la hoja). Si falla a
  * medias, no deja la carpeta.
  */
-export async function copiarDisco(g: GrupoDisco, alProgreso?: (fraccion: number) => void): Promise<{ disco: Disco; sha1: string; tam: number }> {
-  const carpeta = carpetaNueva()
-  const { nombres, principal } = ficherosDeGrupo(g)
-  const total = g.datos.reduce((s, f) => s + f.size, 0)
+/** Copia ficheros a una carpeta de discos por el hilo de los discos, con el SHA-1 de los datos */
+async function copiarEnCarpeta(
+  carpeta: string,
+  datos: File[],
+  nombres: string[],
+  textos: { nombre: string; contenido: string }[],
+  alProgreso?: (fraccion: number) => void,
+): Promise<{ sha1: string; tam: number }> {
+  const total = datos.reduce((s, f) => s + f.size, 0)
   const hilo = new Worker(new URL('./discos.worker.ts', import.meta.url), { type: 'module' })
   try {
-    const r = await new Promise<{ sha1: string; tam: number }>((resolver, rechazar) => {
+    return await new Promise<{ sha1: string; tam: number }>((resolver, rechazar) => {
       hilo.onmessage = (e: MessageEvent<Respuesta>) => {
         if ('progreso' in e.data) alProgreso?.(total ? e.data.progreso / total : 1)
         else if ('hecho' in e.data) resolver(e.data.hecho)
         else rechazar(new Error(e.data.error))
       }
       hilo.onerror = (e) => rechazar(new Error(e.message || 'El hilo de los discos no ha arrancado'))
-      hilo.postMessage({
-        orden: 'copiar',
-        carpeta,
-        ficheros: g.datos.map((f, i) => ({ fichero: f, nombre: g.nombres[i] })),
-        textos: g.textos,
-      })
+      hilo.postMessage({ orden: 'copiar', carpeta, ficheros: datos.map((f, i) => ({ fichero: f, nombre: nombres[i] })), textos })
     })
-    return { disco: { carpeta, principal, ficheros: nombres, ...(g.discos > 1 ? { discos: g.discos, actual: 0 } : {}) }, ...r }
+  } finally {
+    hilo.terminate()
+  }
+}
+
+export async function copiarDisco(g: GrupoDisco, alProgreso?: (fraccion: number) => void): Promise<{ disco: Disco; sha1: string; tam: number }> {
+  const carpeta = carpetaNueva()
+  const { nombres, principal } = ficherosDeGrupo(g)
+  try {
+    const r = await copiarEnCarpeta(carpeta, g.datos, g.nombres, g.textos, alProgreso)
+    const disco: Disco = { carpeta, principal, ficheros: nombres, ...(g.discos > 1 ? { discos: g.discos, actual: 0, lista: g.lista } : {}) }
+    if (g.base) Object.assign(disco, { numeros: g.numeros, base: g.base })
+    return { disco, ...r }
   } catch (e) {
     await borrarCarpetaDisco(carpeta).catch(() => undefined)
     throw e
-  } finally {
-    hilo.terminate()
+  }
+}
+
+/**
+ * Copia los discos nuevos de un plan a la carpeta del juego (v0.47.0). Si falla, quita solo lo nuevo
+ * (la lista .m3u se escribe la última); lo que ya tenía el juego no se toca.
+ */
+export async function copiarPlanJuntar(plan: PlanJuntar, alProgreso?: (fraccion: number) => void): Promise<{ sha1: string; tam: number }> {
+  const listaAntes = await leerTextoDelDisco(plan.disco.carpeta, 'discos.m3u')
+  try {
+    return await copiarEnCarpeta(plan.disco.carpeta, plan.datos, plan.nombres, plan.textos, alProgreso)
+  } catch (e) {
+    await borrarFicherosDelDisco(plan.disco.carpeta, [...plan.nombres, ...plan.textos.map((t) => t.nombre).filter((n) => n !== 'discos.m3u')])
+    if (listaAntes !== null) await copiarEnCarpeta(plan.disco.carpeta, [], [], [{ nombre: 'discos.m3u', contenido: listaAntes }]).catch(() => undefined)
+    throw e
+  }
+}
+
+/** Quita unos ficheros de la carpeta de un disco (los que se copiaron de más) */
+export async function borrarFicherosDelDisco(carpeta: string, nombres: string[]): Promise<void> {
+  const c = await (await raizDiscos()).getDirectoryHandle(carpeta).catch(() => null)
+  if (!c) return
+  for (const n of nombres) await c.removeEntry(n).catch(() => undefined)
+}
+
+async function leerTextoDelDisco(carpeta: string, nombre: string): Promise<string | null> {
+  try {
+    const c = await (await raizDiscos()).getDirectoryHandle(carpeta)
+    return await (await (await c.getFileHandle(nombre)).getFile()).text()
+  } catch {
+    return null
   }
 }
 

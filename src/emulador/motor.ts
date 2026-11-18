@@ -6,7 +6,7 @@
  * guardado y el registro) lo lleva `Sesion` en el hilo principal.
  */
 import type { Disco } from '../lib/discos'
-import { ficherosDelDisco } from '../lib/discos'
+import { ficherosDelDisco, listaDeDiscos } from '../lib/discos'
 import type { NombreNucleo } from '../lib/sistemas'
 import { mascaraConCorrer, mascaraConTurbo } from './mascaras'
 import { Nucleo, type FicheroSombreadores } from './nucleo'
@@ -100,11 +100,11 @@ export interface ResultadoFotogramas {
 
 /**
  * Con varios discos en una lista .m3u (v0.38.0), el disco con el que se arranca: el que estaba puesto
- * la última vez, si no es el primero. Su fichero es «discoN.cue», «discoN.chd» o «discoN.pbp».
+ * la última vez, si no es el primero. Su fichero, el de la lista (v0.47.0; antes, «discoN.cue»…).
  */
 export function discoInicial(d: Disco): { indice: number; fichero: string } | undefined {
   if (!d.actual || !d.principal.endsWith('.m3u')) return undefined
-  const fichero = d.ficheros.find((f) => new RegExp(`^disco${d.actual! + 1}\\.(cue|chd|pbp)$`).test(f))
+  const fichero = listaDeDiscos(d)[d.actual]
   return fichero ? { indice: d.actual, fichero } : undefined
 }
 

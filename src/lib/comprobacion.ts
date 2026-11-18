@@ -1,5 +1,5 @@
 /**
- * Comprobación en el iPhone (v0.44.0, mejora 20; la DS en vertical, revisada en la v0.45.0, y el avance rápido, en la v0.46.0): una lista de unos 15 minutos con lo que queda por
+ * Comprobación en el iPhone (v0.44.0, mejora 20; la DS en vertical, revisada en la v0.45.0, el avance rápido, en la v0.46.0, y los discos de PlayStation, en la v0.47.0): una lista de unos 15 minutos con lo que queda por
  * confirmar de las últimas versiones. El usuario marca cada punto como «Bien» o «Falla» mientras juega
  * y manda los resultados con el registro de ese rato. Se guarda en localStorage (no son datos de juego).
  */
@@ -45,6 +45,7 @@ export const COMPROBACION: GrupoComprobacion[] = [
     minutos: 4,
     puntos: [
       { id: 'psx', texto: 'PlayStation: juega un minuto. La imagen no se encoge y el juego va a su velocidad.' },
+      { id: 'psx-discos', texto: 'PlayStation con varios discos, si tienes alguno: añade un disco otro día y se junta con su juego; un estado guardado en el disco 2 lo vuelve a poner al cargarlo.' },
       { id: 'n64', texto: 'Nintendo 64, si tienes alguno: juega un minuto. ¿Va fluido, sin parones?' },
       { id: 'ds-seguir', texto: 'Nintendo DS: abre donde lo dejaste y no sale «El emulador ha fallado».' },
       { id: 'sonido', texto: 'Game Boy Advance o Game Boy: el sonido se oye limpio, sin tono metálico.' },

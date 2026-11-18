@@ -10,6 +10,7 @@ const TROZO = 8 * 1024 * 1024
 
 interface AccesoSincrono {
   write(datos: Uint8Array, opciones: { at: number }): number
+  truncate(tam: number): void | Promise<void>
   flush(): void | Promise<void>
   close(): void | Promise<void>
 }
@@ -25,6 +26,8 @@ async function escribir(carpeta: FileSystemDirectoryHandle, nombre: string, troz
   const fichero = await carpeta.getFileHandle(nombre, { create: true })
   const acceso = (await (fichero as unknown as { createSyncAccessHandle(): Promise<AccesoSincrono> }).createSyncAccessHandle()) as AccesoSincrono
   try {
+    // Un fichero que ya estaba (la lista .m3u al añadir un disco, v0.47.0) se escribe desde cero
+    await acceso.truncate(0)
     let en = 0
     for await (const t of trozos) {
       let escrito = 0

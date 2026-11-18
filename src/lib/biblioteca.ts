@@ -4,7 +4,7 @@
  * se queda donde estaba.
  */
 import { borrarCaratula, guardarCaratula, guardarJuego, leerCaratula, leerJuego, leerRomGuardada, listarJuegos, quitarJuego, type EstadoJuego, type Juego } from './almacen'
-import { borrarCarpetaDisco, copiarDisco, limpiarDiscosHuerfanos, type GrupoDisco } from './discos'
+import { borrarCarpetaDisco, copiarDisco, copiarPlanJuntar, discosQueFaltan, limpiarDiscosHuerfanos, numeroDeDisco, numerosDeDisco, planJuntar, type GrupoDisco } from './discos'
 import { registrar } from './registro'
 import { CONSOLAS, CONSOLAS_APP, consolaDe, leerRom, nombreDesdeFichero, tituloInterno, type Consola, type Sistema } from './sistemas'
 
@@ -14,9 +14,11 @@ export async function sha1(bytes: Uint8Array): Promise<string> {
 }
 
 export type ResultadoAnadir =
-  | { tipo: 'nuevo'; juego: Juego }
+  | { tipo: 'nuevo'; juego: Juego; faltan?: number[] }
   | { tipo: 'repetido'; juego: Juego }
   | { tipo: 'no-reconocido'; fichero: string }
+  /** Discos de PlayStation añadidos a un juego que ya estaba (v0.47.0) */
+  | { tipo: 'juntado'; juego: Juego; anadidos: number[]; faltan: number[] }
 
 export async function anadirFichero(nombre: string, contenido: ArrayBuffer): Promise<ResultadoAnadir> {
   const rom = leerRom(new Uint8Array(contenido), nombre)
@@ -44,6 +46,9 @@ export async function anadirFichero(nombre: string, contenido: ArrayBuffer): Pro
  * (el de los BIN o el CHD) como identificador. Si ya estaba, se borra la copia nueva.
  */
 export async function anadirDisco(g: GrupoDisco, alProgreso?: (fraccion: number) => void): Promise<ResultadoAnadir> {
+  // Discos con número de un juego que ya está (v0.47.0): se le añaden en lugar de ser otro juego
+  const mismoJuego = g.base ? (await listarJuegos()).find((j) => j.disco && !j.disco.principal.endsWith('.pbp') && numerosDeDisco(j.disco, j.nombreFichero)?.base === g.base) : undefined
+  if (mismoJuego && !g.datos.some((f) => /\.pbp$/i.test(f.name))) return juntarDiscos(mismoJuego, g, alProgreso)
   const { disco, sha1: id, tam } = await copiarDisco(g, alProgreso)
   const existente = await leerJuego(id)
   if (existente) {
@@ -57,7 +62,26 @@ export async function anadirDisco(g: GrupoDisco, alProgreso?: (fraccion: number)
     await borrarCarpetaDisco(disco.carpeta).catch(() => undefined)
     throw e
   }
-  return { tipo: 'nuevo', juego }
+  const faltan = g.base ? discosQueFaltan(g.numeros, g.total) : []
+  return faltan.length ? { tipo: 'nuevo', juego, faltan } : { tipo: 'nuevo', juego }
+}
+
+/**
+ * Añade a un juego de PlayStation los discos que faltaban (v0.47.0). El juego conserva su
+ * identificador (su tarjeta de memoria y sus estados) y su nombre, salvo el que puso la app con el
+ * número de disco dentro («Juego (Disc 1)»), que pasa a ser el del juego.
+ */
+async function juntarDiscos(j: Juego, g: GrupoDisco, alProgreso?: (fraccion: number) => void): Promise<ResultadoAnadir> {
+  const plan = planJuntar(j.disco!, j.nombreFichero, g)
+  if (!plan) return { tipo: 'repetido', juego: j }
+  const { tam } = await copiarPlanJuntar(plan, alProgreso)
+  // La ficha de ahora, por si ha cambiado mientras se copiaba
+  const ficha = (await leerJuego(j.id)) ?? j
+  const nombre = ficha.nombre === nombreDesdeFichero(ficha.nombreFichero) ? g.nombre : ficha.nombre
+  const juego: Juego = { ...ficha, nombre, tam: ficha.tam + tam, disco: { ...plan.disco, actual: plan.disco.actual } }
+  await guardarJuego(juego)
+  registrar('info', 'Discos juntados con su juego', { anadidos: plan.anadidos.length, discos: plan.disco.discos })
+  return { tipo: 'juntado', juego, anadidos: plan.anadidos, faltan: discosQueFaltan(plan.disco.numeros!, Math.max(g.total ?? 0, numeroDeDisco(j.nombreFichero).de ?? 0) || null) }
 }
 
 /** Lo que se espera para borrar el disco de un juego quitado: el aviso con «Deshacer» dura 4 segundos */

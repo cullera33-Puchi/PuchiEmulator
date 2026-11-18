@@ -288,7 +288,7 @@ test('comprobación en el iPhone: marcar, recordar y enviar con el registro (v0.
   // Se recuerda al volver a abrir la app
   await page.reload()
   await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
-  await expect(page.getByRole('button', { name: /^Comprobación en el iPhone/ })).toContainText('2 de 16')
+  await expect(page.getByRole('button', { name: /^Comprobación en el iPhone/ })).toContainText('2 de 17')
   await page.getByRole('button', { name: /^Comprobación en el iPhone/ }).click()
   await expect(page.getByRole('radiogroup', { name: /^Abre un juego donde lo dejaste/ }).getByRole('radio', { name: 'Bien' })).toHaveAttribute('aria-checked', 'true')
   await expect(page.getByRole('textbox', { name: 'Notas de la comprobación' })).toHaveValue('Se para a los 3 segundos')
@@ -2361,6 +2361,69 @@ test('PlayStation: un juego de dos discos, juntos por el nombre, y cambio de dis
   await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
   await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
   await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('amarillo')
+})
+
+test('PlayStation: los discos de otro día se juntan con su juego y cada estado recuerda su disco (v0.47.0)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', SIN_OPFS)
+  await page.goto('/')
+  // Un día, el disco 1 de 2: el aviso dice que falta el 2
+  await selector(page).setInputFiles({ name: 'Dias (Disc 1 of 2).bin', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba-psx.bin')) })
+  await expect(page.getByText(/a «Dias» le falta el disco 2: añádelos cuando quieras/)).toBeVisible({ timeout: 15_000 })
+  await page.getByRole('button', { name: 'Vale' }).click()
+  // Otro día, el disco 2: se junta con el juego, que no se repite
+  await selector(page).setInputFiles({ name: 'Dias (Disc 2 of 2).bin', mimeType: 'application/octet-stream', buffer: readFileSync(rom('prueba-psx-2.bin')) })
+  await expect(page.getByText('Disco 2 añadido a «Dias»')).toBeVisible({ timeout: 15_000 })
+  await entrar(page, 'PlayStation')
+  await expect(page.getByRole('button', { name: /^Dias, PlayStation/ })).toHaveCount(1)
+  await page.getByRole('button', { name: /^Dias, PlayStation/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('azul')
+
+  // Estado guardado con el disco 2 puesto
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await page.getByRole('button', { name: /^Disco 1 de 2/ }).click()
+  await page.getByRole('radio', { name: 'Disco 2' }).click()
+  await expect(page.getByText('Disco 2 puesto')).toBeVisible()
+  await page.getByRole('button', { name: 'Estados guardados' }).click()
+  await page.getByRole('button', { name: 'Guardar en la ranura 1', exact: true }).click()
+  await expect(page.getByText('Guardado en «Ranura 1»')).toBeVisible()
+  await expect(page.getByText(/, disco 2$/)).toBeVisible()
+  await page.getByRole('button', { name: 'Volver al menú' }).click()
+  // Se vuelve al disco 1 y se carga el estado: el disco 2 vuelve a estar puesto
+  await page.getByRole('button', { name: /^Disco 2 de 2/ }).click()
+  await page.getByRole('radio', { name: 'Disco 1' }).click()
+  await expect(page.getByText('Disco 1 puesto')).toBeVisible()
+  await page.getByRole('button', { name: 'Estados guardados' }).click()
+  await page.getByRole('button', { name: 'Cargar la ranura 1', exact: true }).click()
+  await expect(page.getByText('«Ranura 1» cargado')).toBeVisible()
+  await page.getByRole('button', { name: 'Menú' }).click()
+  await expect(page.getByRole('button', { name: /^Disco 2 de 2/ })).toBeVisible()
+  // Desde el principio arranca con el disco 2 (amarillo), el añadido otro día
+  await page.getByRole('button', { name: 'Salir' }).click()
+  await page.getByRole('button', { name: /Opciones de Dias/ }).click()
+  await page.getByRole('button', { name: /^(Jugar|Arrancar el juego desde el principio)$/ }).click()
+  await expect(page.getByText('Cargando…')).toBeHidden({ timeout: 30_000 })
+  await expect.poll(() => tono(page), { timeout: 15_000 }).toBe('amarillo')
+})
+
+test('PlayStation: un disco que no parece de PlayStation se pregunta antes de copiarlo (v0.47.0)', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', SIN_OPFS)
+  await page.goto('/')
+  // El disco de prueba con el descriptor de otra consola
+  const otra = Buffer.from(readFileSync(rom('prueba-psx.bin')))
+  otra.write('SEGA SEGASATURN'.padEnd(32), 16 * 2352 + 24 + 8, 'latin1')
+  await selector(page).setInputFiles({ name: 'Otra consola.bin', mimeType: 'application/octet-stream', buffer: otra })
+  await expect(page.getByText('No parece un disco de PlayStation', { exact: false })).toBeVisible({ timeout: 15_000 })
+  await page.waitForTimeout(500)
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancelar' }).click()
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  // No se ha copiado nada: PlayStation sigue sin juegos
+  await expect(page.getByRole('button', { name: 'PlayStation, sin juegos' })).toBeVisible()
+  // Añadirlo igualmente
+  await selector(page).setInputFiles({ name: 'Otra consola.bin', mimeType: 'application/octet-stream', buffer: otra })
+  await page.waitForTimeout(500)
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Añadir igualmente' }).click()
+  await expect(page.getByText(/Juego añadido/)).toBeVisible({ timeout: 15_000 })
 })
 
 test('PlayStation: palancas analógicas por juego, con L3 al tocar la palanca (v0.38.0)', async ({ page, browserName }) => {

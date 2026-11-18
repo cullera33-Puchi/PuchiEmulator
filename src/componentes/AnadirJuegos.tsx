@@ -14,8 +14,16 @@ import { registrar } from '../lib/registro'
 import { CONSOLAS_APP, consolaDe, type Consola } from '../lib/sistemas'
 import { useInterfaz } from './Interfaz'
 
+/** «2», «2 y 3», «2, 3 y 4» */
+function enumerar(n: number[]): string {
+  return n.length < 2 ? String(n[0] ?? '') : `${n.slice(0, -1).join(', ')} y ${n[n.length - 1]}`
+}
+
+/** «disco 3», «discos 2 y 3» */
+const discosTexto = (n: number[]) => `${n.length === 1 ? 'el disco' : 'los discos'} ${enumerar(n)}`
+
 export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: Consola) {
-  const { avisar } = useInterfaz()
+  const { avisar, confirmar } = useInterfaz()
   const selector = useRef<HTMLInputElement>(null)
   const [anadiendo, setAnadiendo] = useState<string | null>(null)
 
@@ -26,10 +34,17 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
     const fallidos: string[] = []
     const consolas = new Set<Consola>()
     let sinEspacio = false
+    // PlayStation (v0.47.0): discos añadidos a un juego que ya estaba y discos que faltan
+    const juntados: string[] = []
+    const faltan: string[] = []
     const contar = (r: ResultadoAnadir, nombre: string) => {
       if (r.tipo === 'nuevo') {
         nuevos++
         consolas.add(consolaDe(r.juego.sistema))
+        if (r.faltan?.length) faltan.push(`a «${r.juego.nombre}» le ${r.faltan.length === 1 ? 'falta' : 'faltan'} ${discosTexto(r.faltan)}`)
+      } else if (r.tipo === 'juntado') {
+        juntados.push(`${r.anadidos.length === 1 ? 'Disco' : 'Discos'} ${enumerar(r.anadidos)} ${r.anadidos.length === 1 ? 'añadido' : 'añadidos'} a «${r.juego.nombre}»`)
+        if (r.faltan.length) faltan.push(`le ${r.faltan.length === 1 ? 'falta' : 'faltan'} ${discosTexto(r.faltan)}`)
       } else if (r.tipo === 'repetido') repetidos++
       else fallidos.push(nombre)
     }
@@ -51,6 +66,22 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
       if (selector.current) selector.current.value = ''
       avisar('No se han podido leer los ficheros elegidos')
       return
+    }
+    // Un disco que no parece de PlayStation se pregunta antes de copiarlo (v0.47.0): pueden ser cientos
+    // de megas para un juego que no va a arrancar
+    const dudosos = discos.filter((g) => g.noPsx.length)
+    if (dudosos.length) {
+      setAnadiendo(null)
+      for (const g of dudosos) {
+        const ok = await confirmar({
+          titulo: `¿Añadir «${g.nombre}»?`,
+          mensaje: 'No parece un disco de PlayStation: puede ser de otra consola, y entonces no arrancará.',
+          aceptar: 'Añadir igualmente',
+        })
+        registrar('aviso', 'Disco que no parece de PlayStation', { anadido: ok })
+        if (!ok) discos = discos.filter((x) => x !== g)
+      }
+      setAnadiendo('Añadiendo…')
     }
     if (discos.length) await pedirPersistencia().catch(() => false)
     const total = discos.length + resto.length
@@ -81,7 +112,7 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
     }
     setAnadiendo(null)
     if (selector.current) selector.current.value = ''
-    registrar('info', 'Juegos añadidos', { nuevos, repetidos, fallidos: fallidos.length, discos: discos.length })
+    registrar('info', 'Juegos añadidos', { nuevos, repetidos, fallidos: fallidos.length, discos: discos.length, juntados: juntados.length })
     await alTerminar()
     const partes: string[] = []
     if (nuevos) {
@@ -90,11 +121,18 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
       const destino = otra && otra !== desde ? ` a ${CONSOLAS_APP[otra].nombre}` : consolas.size > 1 ? ' a sus consolas' : ''
       partes.push((nuevos === 1 ? 'Juego añadido' : plural(nuevos, 'juego añadido', 'juegos añadidos')) + destino)
     }
+    partes.push(...juntados)
     if (repetidos) partes.push(repetidos === 1 ? 'uno ya estaba en la biblioteca' : `${repetidos} ya estaban en la biblioteca`)
     if (sinEspacio) partes.push('no queda espacio en el iPhone para el disco')
     else if (fallidos.length) partes.push(fallidos.length === 1 ? `«${fallidos[0]}» no es un juego que se pueda abrir` : `${fallidos.length} ficheros no se han reconocido`)
+    if (faltan.length) partes.push(`${faltan.join(', ')}: añádelos cuando quieras y se juntan`)
     const texto = partes.join(', ')
-    avisar(texto.charAt(0).toUpperCase() + texto.slice(1))
+    if (!texto) {
+      setAnadiendo(null)
+      return
+    }
+    // Con discos que faltan, el aviso dura más (12 s) y se cierra con «Vale»
+    avisar(texto.charAt(0).toUpperCase() + texto.slice(1), faltan.length ? { texto: 'Vale', fn: () => undefined } : undefined)
     // Carátulas de los nuevos, por detrás
     if (nuevos && leerAjustes().caratulasAuto) {
       const r = await buscarCaratulasPendientes()
