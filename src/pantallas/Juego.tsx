@@ -40,7 +40,10 @@ interface Props {
 
 export function Juego({ id, reanudar, alSalir }: Props) {
   const ajustes = useAjustes()
-  const { avisar, confirmar } = useInterfaz()
+  const { avisar, confirmar, quitarAviso } = useInterfaz()
+  // Al entrar, fuera el aviso de la biblioteca (v0.46.0): su «Deshacer» (de importar una partida, de quitar
+  // un juego) no vale con el juego en marcha, que pisaría lo deshecho al guardar
+  useEffect(() => quitarAviso(), [quitarAviso])
   const lienzo = useRef<HTMLCanvasElement>(null)
   const zona = useRef<HTMLDivElement>(null)
   const imagen = useRef<HTMLSpanElement>(null)

@@ -2287,18 +2287,8 @@ test('partida como fichero: importar un .sav, arrancar con ella, exportarla y de
   await page.getByRole('alertdialog').getByRole('button', { name: 'Importar' }).click()
   await expect(page.getByText('Partida importada')).toBeVisible()
   await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
-  // Sonda temporal (v0.46.0): en WebKit la página deja de responder aquí
-  if (test.info().project.name === 'webkit')
-    for (let i = 0; i < 16; i++) {
-      const t = Date.now()
-      const r = await Promise.race([
-        page.evaluate(() => `${document.body.innerText.replace(/\s+/g, ' ').slice(0, 160)} | registro: ${(localStorage.getItem('puchiemulator-registro') ?? '').slice(-700)}`),
-        new Promise<string>((ok) => setTimeout(() => ok('NO RESPONDE'), 1500)),
-      ]).catch((e: Error) => `fallo: ${e.message}`)
-      eventosDe.get(page)?.push(`sonda ${i} (${Date.now() - t} ms): ${r}`)
-      writeFileSync(test.info().outputPath('sonda.txt'), (eventosDe.get(page) ?? []).join('\n'))
-      await page.waitForTimeout(250)
-    }
+  // El aviso con «Deshacer» de la biblioteca se quita al entrar en el juego (v0.46.0)
+  await expect(page.getByText('Partida importada')).toBeHidden()
   await expect(page.getByText('Cargando…')).toBeHidden()
   await expect.poll(() => tono(page), { timeout: 10_000 }).toBe('rojo')
   await page.getByRole('button', { name: 'Guardar rápido' }).click()
@@ -2545,44 +2535,4 @@ test('ahorrar batería en todos los juegos, y el avance rápido en el registro (
   expect(r.avanceSeg).toBeGreaterThanOrEqual(3)
   const cerrado = JSON.parse((await registro()).filter((e) => e.m === 'Juego cerrado').at(-1)!.x!)
   expect(cerrado.avanceSeg).toBeGreaterThanOrEqual(3)
-})
-
-// Sonda temporal (v0.46.0): qué paso de importar una partida cuelga WebKit al abrir el juego
-test.describe('zz sonda', () => {
-  const sondear = async (page: Page) => {
-    const info = test.info()
-    for (let i = 0; i < 8; i++) {
-      const t = Date.now()
-      const r = await Promise.race([
-        page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 120)),
-        new Promise<string>((ok) => setTimeout(() => ok('NO RESPONDE'), 1500)),
-      ]).catch((e: Error) => `fallo: ${e.message}`)
-      eventosDe.get(page)?.push(`sonda ${i} (${Date.now() - t} ms): ${r}`)
-      writeFileSync(info.outputPath('sonda.txt'), (eventosDe.get(page) ?? []).join('\n'))
-      await page.waitForTimeout(250).catch(() => undefined)
-    }
-  }
-  const importar = async (page: Page) => {
-    const sav = Buffer.alloc(32 * 1024)
-    sav[0] = 0x5a
-    await page.getByRole('button', { name: /Opciones de/ }).click()
-    await page.getByRole('button', { name: 'Importar una partida desde Archivos' }).click()
-    await page.getByTestId('selector-partida').setInputFiles({ name: 'De otro emulador.sav', mimeType: 'application/octet-stream', buffer: sav })
-    await page.waitForTimeout(500)
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Importar' }).click()
-    await expect(page.getByText('Partida importada')).toBeVisible()
-  }
-  const abrirConAviso = async (page: Page, estilo?: string) => {
-    await page.goto('/')
-    if (estilo) await page.addStyleTag({ content: estilo })
-    await anadir(page, 'prueba.gba')
-    await importar(page)
-    await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
-    await sondear(page)
-  }
-  test('zz sonda E: como ahora', async ({ page }) => abrirConAviso(page))
-  test('zz sonda F: con el desenfoque de antes', async ({ page }) =>
-    abrirConAviso(page, 'body.en-juego .aviso { -webkit-backdrop-filter: blur(24px) !important; backdrop-filter: blur(24px) !important; background: rgb(39 39 42 / 0.9) !important }'))
-  test('zz sonda G: sin desenfoque desde el principio', async ({ page }) =>
-    abrirConAviso(page, '.aviso { -webkit-backdrop-filter: none !important; backdrop-filter: none !important }'))
 })

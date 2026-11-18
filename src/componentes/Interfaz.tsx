@@ -29,6 +29,8 @@ interface Confirmacion {
 interface ValorInterfaz {
   avisar: (texto: string, accion?: Accion) => void
   confirmar: (o: Omit<Confirmacion, 'resolver'>) => Promise<boolean>
+  /** Quita el aviso que haya en pantalla (v0.46.0) */
+  quitarAviso: () => void
 }
 
 const Contexto = createContext<ValorInterfaz | null>(null)
@@ -55,6 +57,11 @@ export function ProveedorInterfaz({ children }: { children: ReactNode }) {
     temporizador.current = window.setTimeout(() => setAviso(null), ms)
   }, [])
 
+  const quitarAviso = useCallback(() => {
+    clearTimeout(temporizador.current)
+    setAviso(null)
+  }, [])
+
   const confirmar = useCallback(
     (o: Omit<Confirmacion, 'resolver'>) =>
       new Promise<boolean>((resolver) => {
@@ -65,7 +72,7 @@ export function ProveedorInterfaz({ children }: { children: ReactNode }) {
   )
 
   // El mismo objeto siempre (v0.43.2): si no, cada aviso que salía o se iba redibujaba todo el juego
-  const valor = useMemo(() => ({ avisar, confirmar }), [avisar, confirmar])
+  const valor = useMemo(() => ({ avisar, confirmar, quitarAviso }), [avisar, confirmar, quitarAviso])
 
   const responder = (si: boolean) => {
     if (Date.now() - abiertaDesde.current < GUARDIA_MS) return
