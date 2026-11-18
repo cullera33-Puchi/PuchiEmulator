@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.48.3",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "Prueba para quitar el hueco que iOS deja a veces abajo en vertical (se nota sobre todo en la DS)."
+    ]
+  },
+  {
     "version": "0.48.2",
     "fecha": "18/11/2026",
     "cambios": [

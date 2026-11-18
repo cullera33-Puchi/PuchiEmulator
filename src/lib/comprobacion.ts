@@ -35,7 +35,7 @@ export const COMPROBACION: GrupoComprobacion[] = [
     minutos: 3,
     puntos: [
       { id: 'fila-centrada', texto: 'En vertical, la fila de guardar, cargar, menú y avance rápido está centrada.' },
-      { id: 'ds-vertical', texto: 'Nintendo DS en vertical: los botones van debajo de las pantallas, sin taparlas, y no sobra espacio abajo.' },
+      { id: 'ds-vertical-2', texto: 'Nintendo DS en vertical (gira el iPhone un par de veces): no queda hueco abajo y la fila de guardar, Select, Start y menú se ve entera y responde.' },
       { id: 'botones-movidos', texto: 'Los botones que has movido no pisan la fila de abajo.' },
       { id: 'menu-fondo', texto: 'Con el menú del juego abierto, no asoma otro color por debajo.' },
     ],

@@ -72,12 +72,7 @@ function altos(): Record<string, number | boolean> {
   const grande = medir('height:100lvh')
   const vertical = window.innerWidth <= window.innerHeight
   const pantalla = vertical ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height)
-  let instalada = false
-  try {
-    instalada = matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
-  } catch {
-    // sin matchMedia
-  }
+  const instalada = esInstalada()
   // Más medidas (v0.48.1): iOS 26 da a veces el alto corto (812) con la app a pantalla completa y otras
   // con la franja de abajo fuera de la app; con innerHeight y lvh no se distinguen
   return {
@@ -91,6 +86,7 @@ function altos(): Record<string, number | boolean> {
     visual: Math.round(window.visualViewport?.height ?? 0),
     exterior: window.outerHeight,
     cliente: document.documentElement.clientHeight,
+    usado: altoUsado(),
   }
 }
 
@@ -100,10 +96,33 @@ function orientacion(): Orientacion {
 
 let ultimaRegistrada = ''
 
+/** La app va instalada en la pantalla de inicio */
+function esInstalada(): boolean {
+  try {
+    return matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * El alto que usa el juego (v0.48.3). iOS 26, en la app instalada, a veces encoge la página 62 puntos
+ * un instante después de girar (`innerHeight` 812) aunque la ventana sigue entera (`outerHeight` 874), y
+ * abajo queda un hueco. Entonces se usa el de la ventana, sin pasar del de la pantalla.
+ */
+export function altoUsado(): number {
+  const dentro = window.innerHeight
+  if (!esInstalada()) return dentro
+  const vertical = window.innerWidth <= window.innerHeight
+  const pantalla = vertical ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height)
+  const fuera = window.outerHeight
+  return fuera > dentro && fuera <= pantalla ? fuera : dentro
+}
+
 /** Alto y ancho de la ventana de verdad para el CSS, solo si han cambiado (v0.42.1; v0.43.0) */
 function ponerTamanoVentana(): void {
   const raiz = document.documentElement.style
-  const alto = `${window.innerHeight}px`
+  const alto = `${altoUsado()}px`
   const ancho = `${window.innerWidth}px`
   if (raiz.getPropertyValue('--alto-ventana') !== alto) raiz.setProperty('--alto-ventana', alto)
   if (raiz.getPropertyValue('--ancho-ventana') !== ancho) raiz.setProperty('--ancho-ventana', ancho)

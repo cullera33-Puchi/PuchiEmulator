@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.48.3 (18/11/2026)
+
+A partir del registro del usuario con las medidas nuevas de la v0.48.1 (DS en vertical, girando): justo al girar a vertical todo mide 874; un segundo después iOS 26 encoge la página a 812 (`innerHeight`, `dvh`, lo fijado, `visualViewport`), pero la ventana sigue midiendo 874 (`outerHeight`) y el alto grande también. El hueco de 62 puntos de abajo es esa diferencia.
+
+- En la app instalada, el juego usa el alto de la ventana (`outerHeight`) cuando es mayor que el de la página, sin pasar del de la pantalla (`altoUsado` en `zonaSegura.ts`). «Zona segura» lleva `usado`.
+- Riesgo: en la v0.42.1, con el alto grande, la fila de abajo de la DS salía cortada. Si en ese caso la ventana también dice 874, se repetiría; el registro lo dirá.
+
 ## 0.48.2 (18/11/2026)
 
 - DS en vertical con el tema «Ocho bits»: la franja oscura del tema iba fija al 62 % del alto y caía debajo de la pantalla táctil. Ahora va justo entre las pantallas y los botones, como una bisagra, y el tono de abajo empieza ahí (`--fondo-liso` y `--fondo-bisagra` del tema, `--alto-pantallas` en el CSS de la DS). Elegido por el usuario entre quitarla o moverla. Con el resto de temas no cambia nada.
