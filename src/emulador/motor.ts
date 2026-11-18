@@ -88,6 +88,12 @@ export interface ResultadoFotogramas {
   msPintar: number
   /** Si el núcleo ha cambiado de ritmo o de frecuencia de sonido */
   tiempos?: { fps: number; frecuencia: number }
+  /**
+   * Para el registro (v0.43.1): si la imagen del núcleo ha cambiado respecto a la anterior y si ha
+   * sonado algo. Con el juego parado de verdad, la imagen no cambia aunque se hagan fotogramas
+   */
+  distinta?: boolean
+  conSonido?: boolean
 }
 
 /**
@@ -218,6 +224,21 @@ export class Motor {
    * Pinta el último fotograma del núcleo. Si la tarjeta gráfica falla, se sigue con el 2D. En Nintendo
    * 64 la imagen ya está dibujada en el lienzo del núcleo: se entrega tal cual, una vez por fotograma.
    */
+  /** Si la imagen del núcleo es otra que la última vez: 64 puntos repartidos (v0.43.1, para el registro) */
+  private imagenCambiada(): boolean {
+    const v = this.nucleo.video()
+    if (!v) return true
+    const px = v.datos.length >> 2
+    if (!px) return false
+    const datos = new Uint32Array(v.datos.buffer, v.datos.byteOffset, px)
+    let firma = 2166136261 ^ px
+    for (let i = 0; i < 64; i++) firma = Math.imul(firma ^ datos[Math.floor(((i + 0.5) * px) / 64)], 16777619)
+    const cambia = firma !== this.ultimaFirma
+    this.ultimaFirma = firma
+    return cambia
+  }
+  private ultimaFirma = 0
+
   private pintar(): Imagenes | null {
     const gl = this.nucleo.lienzoGL
     if (gl) {
@@ -272,6 +293,14 @@ export class Motor {
     if (hayImagen) this.imagenPendiente = true
     const imagenes = this.imagenPendiente && !p.sinImagen ? this.pintar() : null
     if (imagenes) this.imagenPendiente = false
+    const distinta = hayImagen ? this.imagenCambiada() : false
+    let conSonido = false
+    for (let i = 0; i < muestras; i += 16) {
+      if (this.audio[i] > 64 || this.audio[i] < -64) {
+        conSonido = true
+        break
+      }
+    }
     const t2 = performance.now()
     const cambio = this.nucleo.avCambiado()
     return {
@@ -281,6 +310,8 @@ export class Motor {
       rebobinado,
       msTrabajo: t2 - t0,
       msPintar: t2 - t1,
+      distinta,
+      conSonido,
       tiempos: cambio ? { fps: this.nucleo.fps, frecuencia: this.nucleo.frecuenciaAudio } : undefined,
     }
   }

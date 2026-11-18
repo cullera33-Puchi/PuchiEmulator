@@ -45,6 +45,9 @@ export interface MedidaRitmo {
   perdidos: number
   /** Tandas hechas al pulso de la pantalla (v0.41.0); el resto, con el reloj del hilo */
   pulsos: number
+  /** Tandas con la imagen del núcleo cambiada y con sonido (v0.43.1, para ver si el juego se para) */
+  distintas: number
+  conSonido: number
 }
 
 /** Una tanda que tarda más que esto se nota como un parón */
@@ -105,7 +108,7 @@ export class SonidoHilo {
   }
 }
 
-const medidaVacia = (): MedidaRitmo => ({ ms: 0, tandas: 0, fotogramas: 0, imagenes: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, parones: 0, perdidos: 0, pulsos: 0 })
+const medidaVacia = (): MedidaRitmo => ({ ms: 0, tandas: 0, fotogramas: 0, imagenes: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, parones: 0, perdidos: 0, pulsos: 0, distintas: 0, conSonido: 0 })
 
 export class RitmoPropio {
   private activo = false
@@ -303,6 +306,8 @@ export class RitmoPropio {
     const m = this.medida
     m.tandas++
     if (porPulso) m.pulsos++
+    if (r.distinta) m.distintas++
+    if (r.conSonido) m.conSonido++
     m.fotogramas += n
     m.trabajo += r.msTrabajo
     m.pintar += r.msPintar

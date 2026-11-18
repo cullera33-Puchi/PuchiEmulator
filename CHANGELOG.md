@@ -1,5 +1,20 @@
 # Cambios
 
+## 0.43.1 (18/11/2026)
+
+A partir del registro del usuario con la v0.43.0: «cuando cargo partidas se queda congelado a los 2 o 3 segundos» (Super Nintendo, abierta donde se dejó). En el registro, el hilo hace los 60 fotogramas por segundo, manda las 60 imágenes y la página las recibe todas (si no, el freno de la v0.43.0 las habría bajado a una por segundo). El juego seguía en marcha: lo que no se sabe es si lo que se para es la imagen del juego, lo que se ve o los botones. Con las ROMs de prueba no se reproduce (cargar rápido y seguir donde se dejó, con los botones respondiendo a los 1, 3 y 6 segundos, en GBA y Super Nintendo).
+
+Para saberlo, el registro lleva ahora en «Rendimiento»:
+- `distintasSeg`: tandas por segundo en las que la imagen del núcleo ha cambiado (64 puntos repartidos, en el hilo). Si el juego se para de verdad, baja a 0 aunque se hagan fotogramas.
+- `sonidoSeg`: tandas por segundo con sonido.
+- `mostradasSeg`: imágenes que la página enseña por segundo.
+- `entradas`: cambios de botones que la página ha mandado al hilo.
+- `cambiosTamano` y `tamano`: cuántas veces ha cambiado de resolución la imagen y la de ahora.
+
+Además, «Estado cargado» (ranura y tamaño) al cargar un estado y la primera medida a los 10 segundos de abrir el juego o de cargar un estado, no a los 30: si se congela, suele cerrarse antes, a veces a la fuerza y sin la medida del cierre.
+
+190 pruebas unitarias y 77 de navegador.
+
 ## 0.43.0 (18/11/2026)
 
 Revisión independiente y a fondo de la v0.40.0 a la v0.42.5, pedida por el usuario («has perdido la finura») tras una Super Nintendo congelada: tres revisiones en paralelo (motor y ritmo de los fotogramas; pantalla e interfaz; núcleos, almacenamiento y pruebas), cada hallazgo comprobado antes de corregirlo.

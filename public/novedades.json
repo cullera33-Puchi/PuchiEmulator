@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.43.1",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "El registro anota más detalles para encontrar por qué algunos juegos se quedan congelados al cargar una partida."
+    ]
+  },
+  {
     "version": "0.43.0",
     "fecha": "18/11/2026",
     "cambios": [

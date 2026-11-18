@@ -221,7 +221,7 @@ export class Sesion {
   private readonly refresco = new Refresco()
   private refrescos = 0
   // Medidas de rendimiento: se acumulan aunque se abra el menú (antes se perdían en cada pausa)
-  private medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '' }
+  private medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0 }
   /** Tiempo jugado en esta sesión (sin pausas ni inactividad) */
   private msJugados = 0
   private inicioSesion = 0
@@ -344,7 +344,9 @@ export class Sesion {
       return
     }
     const lienzo = this.o.lienzo
+    this.medida.mostradas++
     if (this.tamano.ancho !== imagenes.ancho || this.tamano.alto !== imagenes.alto) {
+      this.medida.cambiosTamano++
       this.tamano = { ancho: imagenes.ancho, alto: imagenes.alto }
       lienzo.width = imagenes.ancho
       lienzo.height = imagenes.alto
@@ -419,6 +421,7 @@ export class Sesion {
     const clave = `${e.mascara}|${e.turbo}|${e.correr}|${e.extra}|${e.palanca?.[0] ?? 0}|${e.palanca?.[1] ?? 0}|${e.palancaDer?.[0] ?? 0}|${e.palancaDer?.[1] ?? 0}`
     if (clave === this.entradaEnviada) return
     this.entradaEnviada = clave
+    this.medida.entradas++
     this.motor.ritmo?.entrada(e)
   }
 
@@ -596,7 +599,7 @@ export class Sesion {
     this.medida.tiempo += dt
     this.medida.refrescos++
     this.medida.modo = plan.modo
-    if (this.medida.tiempo >= 30_000) this.anotarRendimiento()
+    if (this.medida.tiempo >= (this.medidaCorta ? 10_000 : 30_000)) this.anotarRendimiento()
     if (this.enVuelo || this.porHacer === 0) return
     let n = Math.min(this.porHacer, MAX_FOTOGRAMAS_SEGUIDOS * this.velocidad)
     // No recuperar de golpe más de lo que cabe en un ciclo (v0.24.1)
@@ -635,7 +638,7 @@ export class Sesion {
     this.medida.tiempo += dt
     this.medida.refrescos++
     this.medida.modo = 'propio'
-    if (this.medida.tiempo >= 30_000) this.anotarRendimiento()
+    if (this.medida.tiempo >= (this.medidaCorta ? 10_000 : 30_000)) this.anotarRendimiento()
   }
 
   /**
@@ -703,9 +706,16 @@ export class Sesion {
     )
   }
 
+  /**
+   * La primera medida tras abrir el juego o cargar un estado, a los 10 s y no a los 30 (v0.43.1): si se
+   * congela poco después, suele cerrarse antes de los 30 s y a veces a la fuerza, sin la medida del cierre
+   */
+  private medidaCorta = true
+
   private anotarRendimiento(): void {
     const m = this.medida
     if (m.refrescos === 0) return
+    this.medidaCorta = false
     if (this.propio) {
       this.anotarRendimientoPropio()
       return
@@ -732,14 +742,14 @@ export class Sesion {
       imagenesSeg: Math.round((m.imagenes / m.tiempo) * 10_000) / 10,
       juegoSeg: Math.round((m.fotogramas / m.tiempo) * 10_000) / 10,
     })
-    this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '' }
+    this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0 }
     this.msAvance = 0
   }
 
   /** Rendimiento del ritmo propio: lo mide el hilo; aquí, los refrescos de la página. */
   private anotarRendimientoPropio(): void {
     const m = this.medida
-    this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '' }
+    this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0 }
     const avance = this.msAvance
     this.msAvance = 0
     const ritmo = this.motor.ritmo
@@ -775,6 +785,15 @@ export class Sesion {
           refrescosSeg: Math.round((m.refrescos / (m.tiempo / 1000 || 1)) * 10) / 10,
           imagenesSeg: Math.round((h.imagenes / seg) * 10) / 10,
           juegoSeg: Math.round((h.fotogramas / seg) * 10) / 10,
+          // Para ver qué se para si el juego se congela (v0.43.1): tandas con la imagen del núcleo
+          // distinta y con sonido (en el hilo), y en la página las imágenes enseñadas, los cambios de
+          // botones mandados al hilo, los cambios de tamaño de la imagen y el tamaño de ahora
+          distintasSeg: Math.round((h.distintas / seg) * 10) / 10,
+          sonidoSeg: Math.round((h.conSonido / seg) * 10) / 10,
+          mostradasSeg: Math.round((m.mostradas / (m.tiempo / 1000 || 1)) * 10) / 10,
+          entradas: m.entradas,
+          cambiosTamano: m.cambiosTamano,
+          tamano: `${this.tamano.ancho}x${this.tamano.alto}`,
         })
       },
       () => undefined,
@@ -994,6 +1013,12 @@ export class Sesion {
     const r = await this.motor.cargarEstado(new Uint8Array(estado.datos))
     // El motor ya ha vuelto a como estaba (v0.43.0)
     if (!r.ok) registrar('aviso', 'El núcleo no ha aceptado el estado', { sistema: this.o.juego.sistema, ranura })
+    else {
+      registrar('info', 'Estado cargado', { sistema: this.o.juego.sistema, ranura, kb: Math.round(estado.datos.byteLength / 1024) })
+      // Lo que se mida hasta ahora va a su línea, y la siguiente sale a los 10 s
+      if (this.medida.tiempo >= 5000) this.anotarRendimiento()
+      this.medidaCorta = true
+    }
     this.altavoz.vaciar()
     if (this.propio) this.motor.ritmo?.vaciarSonido()
     this.porHacer = 0
