@@ -2546,3 +2546,67 @@ test('ahorrar batería en todos los juegos, y el avance rápido en el registro (
   const cerrado = JSON.parse((await registro()).filter((e) => e.m === 'Juego cerrado').at(-1)!.x!)
   expect(cerrado.avanceSeg).toBeGreaterThanOrEqual(3)
 })
+
+// Sonda temporal (v0.46.0): qué paso de importar una partida cuelga WebKit al abrir el juego
+test.describe('zz sonda', () => {
+  const sondear = async (page: Page) => {
+    const info = test.info()
+    for (let i = 0; i < 8; i++) {
+      const t = Date.now()
+      const r = await Promise.race([
+        page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ').slice(0, 120)),
+        new Promise<string>((ok) => setTimeout(() => ok('NO RESPONDE'), 1500)),
+      ]).catch((e: Error) => `fallo: ${e.message}`)
+      eventosDe.get(page)?.push(`sonda ${i} (${Date.now() - t} ms): ${r}`)
+      writeFileSync(info.outputPath('sonda.txt'), (eventosDe.get(page) ?? []).join('\n'))
+      await page.waitForTimeout(250).catch(() => undefined)
+    }
+  }
+  const importar = async (page: Page) => {
+    const sav = Buffer.alloc(32 * 1024)
+    sav[0] = 0x5a
+    await page.getByRole('button', { name: /Opciones de/ }).click()
+    await page.getByRole('button', { name: 'Importar una partida desde Archivos' }).click()
+    await page.getByTestId('selector-partida').setInputFiles({ name: 'De otro emulador.sav', mimeType: 'application/octet-stream', buffer: sav })
+    await page.waitForTimeout(500)
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Importar' }).click()
+    await expect(page.getByText('Partida importada')).toBeVisible()
+  }
+  test('zz sonda A: solo la hoja de opciones', async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, 'prueba.gba')
+    await page.getByRole('button', { name: /Opciones de/ }).click()
+    await page.waitForTimeout(800)
+    await page.keyboard.press('Escape')
+    await page.mouse.click(5, 5)
+    await page.waitForTimeout(800)
+    await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+    await sondear(page)
+  })
+  test('zz sonda B: importar y recargar', async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, 'prueba.gba')
+    await importar(page)
+    await page.reload()
+    await entrar(page, 'Game Boy Advance')
+    await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+    await sondear(page)
+  })
+  test('zz sonda C: importar y esperar a que se vaya el aviso', async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, 'prueba.gba')
+    await importar(page)
+    await expect(page.getByText('Partida importada')).toBeHidden({ timeout: 10_000 })
+    await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+    await sondear(page)
+  })
+  test('zz sonda D: partida en el almacén sin importar (copia de partidas)', async ({ page }) => {
+    await page.goto('/')
+    await anadir(page, 'prueba.gba')
+    await importar(page)
+    await page.getByRole('button', { name: 'Deshacer' }).click()
+    await page.waitForTimeout(1000)
+    await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
+    await sondear(page)
+  })
+})
