@@ -2,7 +2,7 @@
  * Piezas comunes de la interfaz (guía de usabilidad, apartados 6 y 9): avisos con «Deshacer»,
  * confirmaciones como hoja de acciones y hojas que suben desde abajo y se cierran arrastrando.
  */
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { registrar } from '../lib/registro'
 
@@ -64,6 +64,9 @@ export function ProveedorInterfaz({ children }: { children: ReactNode }) {
     [],
   )
 
+  // El mismo objeto siempre (v0.43.2): si no, cada aviso que salía o se iba redibujaba todo el juego
+  const valor = useMemo(() => ({ avisar, confirmar }), [avisar, confirmar])
+
   const responder = (si: boolean) => {
     if (Date.now() - abiertaDesde.current < GUARDIA_MS) return
     confirmacion?.resolver(si)
@@ -71,7 +74,7 @@ export function ProveedorInterfaz({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Contexto.Provider value={{ avisar, confirmar }}>
+    <Contexto.Provider value={valor}>
       {children}
       {aviso &&
         createPortal(

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { agruparDiscos, cueParaBin, esChd, esPbp, esSectorCd, ficherosDeGrupo, ficherosDelCue, numeroDeDisco, reescribirCue } from './discos'
+import { agruparDiscos, cueParaBin, esChd, esPbp, esSectorCd, ficherosDeGrupo, ficherosDelCue, numeroDeDisco, reescribirCue, seLeeEntero } from './discos'
 import { Sha1 } from './sha1'
 
 const fixture = (n: string) => new Uint8Array(readFileSync(new URL(`../../tests/fixtures/${n}`, import.meta.url)))
@@ -77,6 +77,34 @@ describe('discos de PlayStation', () => {
     const { discos, incompletos } = await agruparDiscos([fichero('Solo.cue', 'FILE "falta.bin" BINARY\r\n  TRACK 01 MODE2/2352\r\n')])
     expect(discos).toEqual([])
     expect(incompletos).toEqual(['Solo.cue'])
+  })
+
+  it('si falta una pista, las que sí están no entran como otro juego (v0.43.2)', async () => {
+    const cue = fichero('Juego.cue', 'FILE "Juego (Track 1).bin" BINARY\r\n  TRACK 01 MODE2/2352\r\nFILE "Juego (Track 2).bin" BINARY\r\n  TRACK 02 AUDIO\r\n')
+    const pista1 = fichero('Juego (Track 1).bin', fixture('prueba-psx.bin'))
+    const r = await agruparDiscos([cue, pista1])
+    expect(r.discos).toEqual([])
+    expect(r.resto).toEqual([])
+    expect(r.incompletos).toEqual(['Juego.cue'])
+    // Y una pista sin su hoja no es un juego: falta el .cue
+    const sola = await agruparDiscos([pista1])
+    expect(sola.discos).toEqual([])
+    expect(sola.sinHoja).toEqual(['Juego (Track 1).bin'])
+  })
+
+  it('encuentra el BIN aunque las tildes vengan en otra forma (v0.43.2)', async () => {
+    const cue = fichero('Pokémon.cue', `FILE "${'Pokémon.bin'.normalize('NFC')}" BINARY\r\n  TRACK 01 MODE2/2352\r\n    INDEX 01 00:00:00\r\n`)
+    const bin = fichero('Pokémon.bin'.normalize('NFD'), fixture('prueba-psx.bin'))
+    const r = await agruparDiscos([cue, bin])
+    expect(r.incompletos).toEqual([])
+    expect(r.discos.length).toBe(1)
+  })
+
+  it('no se leen enteras las imágenes de disco que la app no abre ni los .bin enormes (v0.43.2)', () => {
+    expect(seLeeEntero('juego.iso', 700 * 1024 * 1024)).toBe(false)
+    expect(seLeeEntero('pista2.bin', 300 * 1024 * 1024)).toBe(false)
+    expect(seLeeEntero('Sega.bin', 4 * 1024 * 1024)).toBe(true)
+    expect(seLeeEntero('juego.nds', 256 * 1024 * 1024)).toBe(true)
   })
 
   it('número de disco en el nombre', () => {

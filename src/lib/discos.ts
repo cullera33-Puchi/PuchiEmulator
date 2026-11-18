@@ -150,19 +150,26 @@ function montarGrupo(partes: DiscoSuelto[]): GrupoDisco {
  * disco si empieza como un sector de CD (si no, puede ser un juego de Mega Drive). Los discos de un
  * mismo juego («(Disc 1)», «(Disc 2)»…) se juntan en uno (v0.38.0).
  */
-export async function agruparDiscos(ficheros: File[]): Promise<{ discos: GrupoDisco[]; resto: File[]; incompletos: string[] }> {
+export async function agruparDiscos(ficheros: File[]): Promise<{ discos: GrupoDisco[]; resto: File[]; incompletos: string[]; sinHoja: string[] }> {
   const sueltos: DiscoSuelto[] = []
   const incompletos: string[] = []
+  const sinHoja: string[] = []
   const usados = new Set<File>()
-  const porNombre = new Map(ficheros.map((f) => [f.name.toLowerCase(), f]))
+  // Sin mayúsculas y con las tildes en la misma forma (v0.43.2): Archivos da «é» en dos caracteres y
+  // la hoja suele llevarla en uno, y el BIN de «Pokémon» no se encontraba
+  const clave = (n: string) => n.normalize('NFC').toLowerCase()
+  const porNombre = new Map(ficheros.map((f) => [clave(f.name), f]))
   for (const f of ficheros) {
     if (extensionDe(f.name) !== 'cue') continue
     usados.add(f)
     const texto = await f.text()
     const nombres = ficherosDelCue(texto)
-    const datos = nombres.map((n) => porNombre.get(n.toLowerCase()))
+    const datos = nombres.map((n) => porNombre.get(clave(n)))
     if (!nombres.length || datos.some((d) => !d)) {
       incompletos.push(f.name)
+      // Las pistas que sí están son de este disco (v0.43.2): no se añaden como otro juego con la
+      // pista 1 sola (sin música y con otra tarjeta de memoria)
+      for (const d of datos) if (d) usados.add(d)
       continue
     }
     datos.forEach((d) => usados.add(d!))
@@ -180,6 +187,12 @@ export async function agruparDiscos(ficheros: File[]): Promise<{ discos: GrupoDi
       }
       if (esPbp(b)) {
         sueltos.push({ nombreFichero: f.name, tipo: 'pbp', datos: [f] })
+        continue
+      }
+      // Una pista suelta («Juego (Track 1).bin») es parte de un disco con varias: sin su hoja no se
+      // sabe cuáles son ni en qué orden (v0.43.2; antes la pista 1 entraba sola como otro juego)
+      if (ext === 'bin' && /\(track\s*\d+\)/i.test(f.name)) {
+        sinHoja.push(f.name)
         continue
       }
       if (esSectorCd(b)) {
@@ -203,7 +216,19 @@ export async function agruparDiscos(ficheros: File[]): Promise<{ discos: GrupoDi
     juntos.get(clave)!.push({ numero, disco: d })
   }
   for (const lista of juntos.values()) discos.push(montarGrupo(lista.sort((a, b) => a.numero - b.numero).map((x) => x.disco)))
-  return { discos, resto, incompletos }
+  return { discos, resto, incompletos, sinHoja }
+}
+
+/**
+ * Si un fichero que no es un disco se puede leer entero a la memoria para ver qué juego es (v0.43.2).
+ * Las imágenes de disco que la app no abre (.iso, .img) y los .bin de más de 64 MB (un cartucho de Mega
+ * Drive no pasa de 8) no se leen: 700 MB de golpe en la memoria cerraban la app solo para decir «no reconocido».
+ */
+export function seLeeEntero(nombre: string, tam: number): boolean {
+  const ext = extensionDe(nombre)
+  if (ext === 'iso' || ext === 'img') return false
+  if (ext === 'bin') return tam <= 64 * 1024 * 1024
+  return tam <= 640 * 1024 * 1024
 }
 
 /** Ficheros con los que se guarda un disco en su carpeta, y cuál se abre */

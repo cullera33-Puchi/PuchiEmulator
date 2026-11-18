@@ -342,6 +342,36 @@ export async function estadosDe(id: string): Promise<Estado[]> {
   return esperar(indice.getAll(id)) as Promise<Estado[]>
 }
 
+/** Un estado sin sus datos: lo que hace falta para enseñarlo en la lista de ranuras */
+export type ResumenEstado = Omit<Estado, 'datos'>
+
+/**
+ * Los estados de un juego sin sus datos (v0.43.2), uno a uno. La lista de ranuras guardaba los estados
+ * enteros mientras durase el juego: hasta 11 de 16 MB en Nintendo 64, cuando solo usa nombre, fecha y captura.
+ */
+export async function resumenEstados(id: string): Promise<ResumenEstado[]> {
+  const bd = await abrir()
+  const indice = bd.transaction('estados').objectStore('estados').index('id')
+  return new Promise((resolver, rechazar) => {
+    const lista: ResumenEstado[] = []
+    const peticion = indice.openCursor(IDBKeyRange.only(id))
+    peticion.onerror = () => rechazar(peticion.error)
+    peticion.onsuccess = () => {
+      const cursor = peticion.result
+      if (!cursor) return resolver(lista)
+      const e = cursor.value as Estado
+      lista.push({ clave: e.clave, id: e.id, ranura: e.ranura, fecha: e.fecha, captura: e.captura, nombre: e.nombre })
+      cursor.continue()
+    }
+  })
+}
+
+/** Si hay un estado en esa ranura, sin leerlo (v0.43.2) */
+export async function hayEstado(id: string, ranura: Ranura): Promise<boolean> {
+  const bd = await abrir()
+  return (await esperar(bd.transaction('estados').objectStore('estados').count(claveEstado(id, ranura)))) > 0
+}
+
 export function listarEstados(): Promise<Estado[]> {
   return todos<Estado>('estados')
 }

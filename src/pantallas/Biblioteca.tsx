@@ -270,8 +270,17 @@ export function Biblioteca({ consola, alJugar, alVolver }: Props) {
       aceptar: 'Importar',
     })
     if (!ok) return
-    // Copia de seguridad de todas las partidas, como al recuperar una copia
-    await crearCopia('previa').catch(() => undefined)
+    // Copia de seguridad de todas las partidas, como al recuperar una copia. Si hay una partida que se
+    // va a sustituir y la copia falla, no se importa (v0.43.2): se había prometido hacerla antes
+    try {
+      await crearCopia('previa')
+    } catch (e) {
+      registrar('error', 'No se pudo hacer la copia de seguridad antes de importar una partida', (e as Error)?.message)
+      if (anterior) {
+        avisar('No se ha podido hacer la copia de seguridad: no se ha importado nada')
+        return
+      }
+    }
     const datos = await f.arrayBuffer()
     await guardarPartida({ id: j.id, datos, rtc: anterior?.rtc, fecha: Date.now() })
     // El estado de seguir donde se dejó lleva dentro la partida anterior: al cargarlo, el juego volvería

@@ -11,7 +11,7 @@ import { bit, TECLAS } from '../emulador/botones'
 import { cargaAutoFallida, MANDO_DUALSHOCK, Sesion } from '../emulador/sesion'
 import { aplicarTema, cambiarAjustes, COLOR_NOCHE, leerAjustes, useAjustes } from '../lib/ajustes'
 import { nombreBiosPsx } from '../lib/bios'
-import { actualizarJuego, estadosDe, leerBiosPsx, leerEstado, leerJuego, leerRomGuardada, RANURAS_USUARIO, renombrarEstado, type Estado, type Ranura } from '../lib/almacen'
+import { actualizarJuego, hayEstado, leerBiosPsx, leerJuego, leerRomGuardada, RANURAS_USUARIO, renombrarEstado, resumenEstados, type Ranura, type ResumenEstado } from '../lib/almacen'
 import { cuando } from '../lib/formato'
 import { duracion } from '../lib/estadisticas'
 import { registrar } from '../lib/registro'
@@ -68,6 +68,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   // Varios discos (PlayStation, v0.38.0): cuántos hay y cuál está puesto; se lee al abrir el menú
   const [discos, setDiscos] = useState<{ total: number; actual: number } | null>(null)
   const [verDiscos, setVerDiscos] = useState(false)
+  const [saliendo, setSaliendo] = useState(false)
 
   // DS: soplar al micrófono (mientras se mantiene) y la tapa cerrada (v0.20.0)
   const [soplando, setSoplando] = useState(false)
@@ -78,7 +79,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const orientacion: Orientacion = girada ? 'horizontal' : orientacionIPhone
   const [borrador, setBorrador] = useState<{ orientacion: Orientacion; piezas: DisposicionPiezas } | null>(null)
   const [tapaCerrada, setTapaCerrada] = useState(false)
-  const [estados, setEstados] = useState<Estado[] | null>(null)
+  const [estados, setEstados] = useState<ResumenEstado[] | null>(null)
   const [verEstados, setVerEstados] = useState(false)
   const [velocidad, setVelocidad] = useState(1)
   const [rebobinando, setRebobinando] = useState(false)
@@ -124,6 +125,11 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     setVerSueno(false)
     setPausaFondo(false)
     setVerEstados(false)
+    // También las hojas de dentro del menú (v0.43.2): si el temporizador de sueño lo cerraba con una
+    // abierta, el siguiente toque en Menú abría esa hoja y no el menú
+    setVerTemas(false)
+    setVerMando(false)
+    setVerDiscos(false)
     void sesion.current?.jugar(ajustesRef.current.sonido, ajustesRef.current.sonarEnSilencio)
   }, [])
 
@@ -219,9 +225,14 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         })
         if (creada.motivoLocal && ajustesRef.current.emulacionEnHilo !== false) registrar('aviso', 'La emulación va en el hilo principal', creada.motivoLocal)
         void actualizarJuego(alAbrir(juego))
-        void leerEstado(juego.id, 'rapida').then((e) => !cancelado && setHayRapido(!!e))
+        void hayEstado(juego.id, 'rapida').then((hay) => !cancelado && setHayRapido(hay))
         setCargando(false)
-        await creada.jugar(ajustesRef.current.sonido, ajustesRef.current.sonarEnSilencio)
+        // Si la app ha pasado a segundo plano mientras cargaba (v0.43.2), no arranca sola: el hilo
+        // seguiría con su reloj sin que nadie lo viera. Se queda en pausa, con su aviso
+        if (document.visibilityState === 'hidden') {
+          setMotivoPausa('fondo')
+          setPausaFondo(true)
+        } else await creada.jugar(ajustesRef.current.sonido, ajustesRef.current.sonarEnSilencio)
       } catch (e) {
         registrar('error', 'No se pudo abrir el juego', (e as Error).message)
         if (!cancelado) setError((e as Error).message || 'No se ha podido abrir el juego.')
@@ -271,6 +282,9 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           setPausaFondo(true)
         }
         s.pausar()
+        // «Soplar» se suelta (v0.43.2): si el dedo estaba puesto, al volver seguía soplando
+        s.ponerExtra('SOPLAR', false)
+        setSoplando(false)
         void s.guardarTodo()
       }
     }
@@ -321,7 +335,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     } else avisar('No se ha podido cambiar de disco')
   }
 
-  const cargarListaEstados = async () => setEstados(await estadosDe(id))
+  const cargarListaEstados = async () => setEstados(await resumenEstados(id))
 
   const abrirEstados = () => {
     setVerEstados(true)
@@ -331,14 +345,25 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const nombreRanura = (r: Ranura) => estadoDe(r)?.nombre ?? `Ranura ${r}`
 
   const guardarEn = async (r: Ranura) => {
-    const ok = await sesion.current?.guardarEstado(r)
+    const ok = await conAviso('guardar un estado', async () => sesion.current?.guardarEstado(r))
     registrar(ok ? 'info' : 'aviso', ok ? 'Estado guardado' : 'No se pudo guardar el estado', { ranura: r })
     avisar(ok ? `Guardado en «${nombreRanura(r)}»` : 'No se ha podido guardar el estado')
     await cargarListaEstados()
   }
 
+  // Un fallo al guardar o cargar (sin sitio en el iPhone, el hilo caído) se dice y se apunta (v0.43.2):
+  // antes no salía ningún aviso
+  const conAviso = async (que: string, f: () => Promise<boolean | undefined>): Promise<boolean> => {
+    try {
+      return !!(await f())
+    } catch (e) {
+      registrar('error', `Fallo al ${que}`, (e as Error)?.message)
+      return false
+    }
+  }
+
   const cargarDe = async (r: Ranura) => {
-    const ok = await sesion.current?.cargarEstado(r)
+    const ok = await conAviso('cargar un estado', async () => sesion.current?.cargarEstado(r))
     if (ok) {
       avisar(`«${nombreRanura(r)}» cargado`)
       seguir()
@@ -363,7 +388,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   }
 
   const guardarRapido = async () => {
-    const ok = await sesion.current?.guardarEstado('rapida')
+    const ok = await conAviso('guardar rápido', async () => sesion.current?.guardarEstado('rapida'))
     registrar(ok ? 'info' : 'aviso', ok ? 'Guardado rápido' : 'No se pudo hacer el guardado rápido')
     if (ok) setHayRapido(true)
     avisar(ok ? 'Guardado rápido' : 'No se ha podido guardar')
@@ -372,7 +397,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   const cargarRapido = async () => {
     const s = sesion.current
     if (!s) return
-    if (!(await s.cargarEstado('rapida'))) {
+    if (!(await conAviso('cargar rápido', () => s.cargarEstado('rapida')))) {
       // El botón solo se activa con un guardado rápido: si no carga, es que el núcleo no lo ha aceptado
       avisar('No se ha podido cargar el guardado rápido')
       return
@@ -523,8 +548,12 @@ export function Juego({ id, reanudar, alSalir }: Props) {
     // Con el tiempo de avance rápido de la partida (v0.42.0)
     registrar('info', 'Juego cerrado', { avanceSeg: sesion.current?.segundosAvance ?? 0 })
     setMenu(false)
-    await sesion.current?.cerrar()
+    // Mientras guarda y cierra, la pantalla no se puede tocar (v0.43.2); y como mucho 8 segundos: si el
+    // hilo no contesta, se sale igual (la partida ya se guardó al abrir el menú)
+    setSaliendo(true)
+    const s = sesion.current
     sesion.current = null
+    await Promise.race([s?.cerrar().catch(() => undefined), new Promise((r) => setTimeout(r, 8000))])
     alSalir()
   }
 
@@ -673,7 +702,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
         <div className="absolute inset-0 z-10 grid place-items-center bg-black/80 p-8 text-center">
           {error ? (
             <div>
-              <p className="text-[17px] font-semibold">No se ha podido abrir el juego</p>
+              <p className="text-[17px] font-semibold">{cargando ? 'No se ha podido abrir el juego' : 'El juego se ha parado'}</p>
               <p className="mt-2 text-[15px] text-zinc-400">{error}</p>
               <button className="boton-lleno mt-6" onClick={alSalir}>
                 Volver a la biblioteca
@@ -682,6 +711,12 @@ export function Juego({ id, reanudar, alSalir }: Props) {
           ) : (
             <p className="text-[15px] text-zinc-400">Cargando…</p>
           )}
+        </div>
+      )}
+
+      {saliendo && (
+        <div className="absolute inset-0 z-20 grid place-items-center bg-black/60" data-testid="saliendo">
+          <p className="text-[15px] text-zinc-300">Guardando…</p>
         </div>
       )}
 
@@ -968,7 +1003,7 @@ export function Juego({ id, reanudar, alSalir }: Props) {
   )
 }
 
-function Captura({ estado }: { estado?: Estado }) {
+function Captura({ estado }: { estado?: ResumenEstado }) {
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
     if (!estado?.captura) {

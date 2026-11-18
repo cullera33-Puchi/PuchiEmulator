@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.43.2",
+    "fecha": "18/11/2026",
+    "cambios": [
+      "Revisión general: unos 20 fallos corregidos.",
+      "Al salir de un juego sale «Guardando…» y ya no se puede reanudar por error mientras se cierra.",
+      "Si guardar o cargar un estado falla, ahora se avisa.",
+      "PlayStation: quitar un juego libera su espacio enseguida, y un disco al que le falta una pista ya no entra como un juego a medias.",
+      "Menos memoria usada en la lista de ranuras, sobre todo en Nintendo 64."
+    ]
+  },
+  {
     "version": "0.43.1",
     "fecha": "18/11/2026",
     "cambios": [

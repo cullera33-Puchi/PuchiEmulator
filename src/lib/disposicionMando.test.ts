@@ -36,13 +36,16 @@ describe('botones movibles', () => {
 
   it('al moverla, la guardada pasa al alto de ahora sin cambiar de sitio (v0.43.0)', () => {
     // Colocada con 874 a 100 puntos del borde de abajo; ahora el recuadro mide 812
-    const c = aAltoActual({ x: 0.3, y: (874 - 100) / 874, escala: 1, alto: 874 }, 812)
+    const c = aAltoActual({ x: 0.3, y: (874 - 100) / 874, escala: 1, alto: 874 }, 812, 'vertical')
     expect(c.alto).toBe(812)
     expect((1 - c.y) * 812).toBeCloseTo(100)
     // Una de arriba, a 200 puntos del borde de arriba
-    const d = aAltoActual({ x: 0.3, y: 200 / 874, escala: 1, alto: 874 }, 812)
+    const d = aAltoActual({ x: 0.3, y: 200 / 874, escala: 1, alto: 874 }, 812, 'vertical')
     expect(d.y * 812).toBeCloseTo(200)
     // Sin alto guardado ni dato, solo se le apunta el de ahora
-    expect(aAltoActual({ x: 0.3, y: 0.7, escala: 1 }, 812)).toEqual({ x: 0.3, y: 0.7, escala: 1, alto: 812 })
+    expect(aAltoActual({ x: 0.3, y: 0.7, escala: 1 }, 812, 'vertical')).toEqual({ x: 0.3, y: 0.7, escala: 1, alto: 812 })
+    // Una de arriba guardada sin alto sigue a su fracción, tal como se veía (v0.43.2)
+    expect(aAltoActual({ x: 0.3, y: 0.2, escala: 1 }, 812, 'vertical')).toEqual({ x: 0.3, y: 0.2, escala: 1, alto: 812 })
+    expect(estiloPieza({ x: 0.3, y: 0.2, escala: 1 }, 'vertical')).toMatchObject({ top: '20cqh' })
   })
 })

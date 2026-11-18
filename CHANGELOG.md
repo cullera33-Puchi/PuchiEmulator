@@ -1,5 +1,44 @@
 # Cambios
 
+## 0.43.2 (18/11/2026)
+
+Revisión de la aplicación pedida por el usuario, con prioridad para las últimas versiones: el motor y las v0.43.0 y v0.43.1 (que nadie había revisado) y dos revisiones independientes de lo que nunca se había repasado, los discos de PlayStation y el almacenamiento (v0.37.0 a v0.39.0) y la pantalla de juego con el mando. Cada hallazgo, comprobado en el código antes de corregirlo.
+
+Pantalla de juego:
+- Al salir, la pantalla seguía tocable mientras se guardaba: un toque en «Seguir» en ese rato dejaba el bucle del juego cerrado en marcha, mandando pulsos al juego siguiente (doble velocidad) y sumando tiempo jugado. Ahora no se reanuda una partida que se está cerrando, sale «Guardando…» y, si el hilo no contesta en 8 segundos, se sale igual.
+- La lista de ranuras guardaba los estados enteros mientras durase el juego (hasta 11 de 16 MB en Nintendo 64) cuando solo usa nombre, fecha y captura; y para saber si había guardado rápido se leía el estado entero. Ahora, `resumenEstados` y `hayEstado`.
+- Un fallo al guardar o cargar un estado (sin sitio, hilo caído) no avisaba de nada: ahora sale el aviso y queda en el registro.
+- Si la app pasaba a segundo plano mientras cargaba el juego, arrancaba sola sin que se viera: se queda en pausa.
+- Nintendo DS: el lápiz y «Soplar» se sueltan al pasar a segundo plano.
+- El temporizador de sueño, al cerrar el menú con una hoja de dentro abierta (temas, mando, discos), la dejaba marcada y el siguiente toque en Menú la abría a ella.
+- Si el juego falla en marcha, el aviso dice «El juego se ha parado» (decía «No se ha podido abrir el juego»).
+- Los avisos dentro del juego, sin desenfoque: quedan encima de la imagen, que cambia 60 veces por segundo. Y un aviso que sale o se va ya no redibuja todo el juego (el contexto de la interfaz es siempre el mismo objeto).
+- «Deshacer» una carga después de salir del juego ya no llama a un motor cerrado.
+
+Ritmo:
+- Al subir la pantalla de frecuencia (de 60 a 120 Hz), la medida del refresco tardaba medio segundo en enterarse y, mientras, se hacía un fotograma por refresco: el juego iba al doble de velocidad ese rato. `Refresco.atrasado` lo detecta a los seis refrescos cortos seguidos y se va por tiempo hasta que la medida se pone al día.
+
+Botones movidos:
+- Los de la mitad de arriba guardados antes de la v0.42.4 (sin el alto del recuadro) siguen a su fracción del alto, como se veían; la v0.43.0 les suponía el alto de la pantalla y los bajaba hasta 30 puntos en la ventana corta.
+
+Discos de PlayStation y almacenamiento:
+- Con una hoja CUE a la que le faltaba una pista, las pistas que sí estaban entraban como otro juego (la pista 1 sola, sin música y con otra tarjeta de memoria). Una pista suelta sin su hoja («Juego (Track 1).bin») tampoco es ya un juego: se dice que falta el .cue.
+- El BIN se encuentra aunque las tildes vengan en otra forma (Archivos da «é» en dos caracteres; la hoja, en uno).
+- Las imágenes que la app no abre (.iso, .img) y los .bin de más de 64 MB no se leen enteros a la memoria solo para decir «no reconocido» (`seLeeEntero`).
+- Si un fichero elegido no se dejaba leer, el velo de «Añadiendo…» se quedaba para siempre.
+- Quitar un juego de disco libera su espacio a los 30 segundos (cuando ya no hay «Deshacer»), no al volver a abrir la app.
+- Cambiar de disco guardaba la ficha del juego tal como estaba al abrirlo y deshacía «jugado hoy» y el paso de pendiente a jugando.
+- Importar una partida: si hay una partida que se va a sustituir y la copia de seguridad previa falla, no se importa.
+
+Revisado y sin cambios:
+- La memoria del núcleo se libera al cerrar cada juego (comprobado con Super Nintendo, Nintendo 64 y DS: cinco aperturas y cierres, ninguna memoria de WebAssembly viva después).
+- PlayStation «acelerada»: sin causa en el código. La región se detecta por el disco y el reloj del hilo no depende del ahorro de batería; en el registro de aquel día hubo 9 segundos de avance rápido.
+- Congelación de la Super Nintendo: sin reproducir y sin causa encontrada. El registro de la v0.43.1 dirá si se para el juego, la imagen o los botones.
+
+Pendiente, anotado: cualquier CHD se acepta como PlayStation (no se puede saber sin descomprimirlo); los discos de un juego añadidos en días distintos son juegos distintos; el disco puesto se guarda por juego y no por estado; fallo latente del núcleo de N64 al cargar estados según la disposición de la memoria.
+
+194 pruebas unitarias (nuevas: refresco atrasado, pistas sueltas, tildes, ficheros que no se leen enteros, botones de arriba sin alto) y 77 de navegador.
+
 ## 0.43.1 (18/11/2026)
 
 A partir del registro del usuario con la v0.43.0: «cuando cargo partidas se queda congelado a los 2 o 3 segundos» (Super Nintendo, abierta donde se dejó). En el registro, el hilo hace los 60 fotogramas por segundo, manda las 60 imágenes y la página las recibe todas (si no, el freno de la v0.43.0 las habría bajado a una por segundo). El juego seguía en marcha: lo que no se sabe es si lo que se para es la imagen del juego, lo que se ve o los botones. Con las ROMs de prueba no se reproduce (cargar rápido y seguir donde se dejó, con los botones respondiendo a los 1, 3 y 6 segundos, en GBA y Super Nintendo).

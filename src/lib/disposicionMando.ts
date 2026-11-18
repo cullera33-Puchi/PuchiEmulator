@@ -55,11 +55,22 @@ export function altoSinDato(orientacion: Orientacion): number | undefined {
 }
 
 /**
+ * El alto con el que se colocó una pieza. Las de la mitad de arriba guardadas sin él (antes de la
+ * v0.42.4) no lo tienen (v0.43.2): siguen a su fracción del alto, como se han visto siempre; suponerles
+ * el alto de la pantalla las movía hasta 30 puntos en la ventana corta o en una pestaña de Safari.
+ */
+export function altoDe(c: Colocacion, orientacion: Orientacion): number | undefined {
+  return c.alto ?? (c.y > 0.5 ? altoSinDato(orientacion) : undefined)
+}
+
+/**
  * La colocación llevada al alto de ahora (v0.43.0), para que no salte al empezar a moverla: las de la
  * mitad de abajo, a la misma distancia del borde de abajo; las de arriba, del de arriba.
  */
-export function aAltoActual(c: Colocacion, altoActual: number, alto = c.alto): Colocacion {
-  if (!alto || !altoActual || alto === altoActual) return { ...c, alto: altoActual || alto }
+export function aAltoActual(c: Colocacion, altoActual: number, orientacion: Orientacion): Colocacion {
+  const alto = altoDe(c, orientacion)
+  if (!altoActual) return c
+  if (!alto || alto === altoActual) return { ...c, alto: altoActual }
   const y = c.y > 0.5 ? 1 - ((1 - c.y) * alto) / altoActual : (c.y * alto) / altoActual
   return { ...c, y: entre(y, 0.02, 0.98), alto: altoActual }
 }
@@ -70,7 +81,7 @@ export function aAltoActual(c: Colocacion, altoActual: number, alto = c.alto): C
  * desde la v0.43.0 las de arriba, a la misma del de arriba (la imagen va pegada arriba en puntos: L y R
  * sobre la pantalla táctil de la DS se movían respecto a ella). Sin alto, a su fracción del alto.
  */
-export function estiloPieza(c: Colocacion, orientacion: Orientacion, alto = c.alto ?? altoSinDato(orientacion)): Record<string, string> {
+export function estiloPieza(c: Colocacion, orientacion: Orientacion, alto = altoDe(c, orientacion)): Record<string, string> {
   const base = { left: `${c.x * 100}cqw`, right: 'auto', scale: String(c.escala) }
   if (!alto) return { ...base, top: `${c.y * 100}cqh`, bottom: 'auto', translate: '-50% -50%' }
   if (c.y > 0.5) return { ...base, top: 'auto', bottom: `${Math.round((1 - c.y) * alto)}px`, translate: '-50% 50%' }

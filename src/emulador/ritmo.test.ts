@@ -50,6 +50,27 @@ describe('Refresco', () => {
   })
 })
 
+describe('Refresco, al subir la pantalla de frecuencia', () => {
+  it('avisa de que la medida va atrasada hasta que se pone al día, y no con el vaivén normal (v0.43.2)', () => {
+    const r = new Refresco()
+    for (let i = 0; i < 90; i++) r.medir(1000 / 60)
+    expect(r.ms).toBeCloseTo(1000 / 60)
+    expect(r.atrasado).toBe(false)
+    // El vaivén normal alterna intervalos cortos y largos: no cuenta
+    for (let i = 0; i < 20; i++) r.medir(i % 2 ? 24 : 9)
+    expect(r.atrasado).toBe(false)
+    // La pantalla pasa a 120 Hz: a los seis refrescos ya se sabe
+    for (let i = 0; i < 5; i++) r.medir(1000 / 120)
+    expect(r.atrasado).toBe(false)
+    r.medir(1000 / 120)
+    expect(r.atrasado).toBe(true)
+    // Cuando la mediana se entera, deja de avisar
+    for (let i = 0; i < 90; i++) r.medir(1000 / 120)
+    expect(r.ms).toBeCloseTo(1000 / 120)
+    expect(r.atrasado).toBe(false)
+  })
+})
+
 describe('refrescosPasados', () => {
   it('cuenta los refrescos perdidos, como mucho 4', () => {
     expect(refrescosPasados(8.3, 1000 / 120)).toBe(1)

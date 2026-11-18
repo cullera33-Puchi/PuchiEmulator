@@ -12,7 +12,7 @@
  *   segundo), al pausar y al salir.
  * - Al salir o al pasar la app a segundo plano se guarda un estado «auto» para seguir donde se dejó.
  */
-import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, guardarSombreadores, leerEstado, leerPartida, leerRomGuardada, leerSombreadores, type Juego, type Ranura } from '../lib/almacen'
+import { actualizarJuego, guardarEstado, guardarPartida, guardarSesionJuego, guardarSombreadores, leerEstado, leerJuego, leerPartida, leerRomGuardada, leerSombreadores, type Juego, type Ranura } from '../lib/almacen'
 import { registrar } from '../lib/registro'
 import { SISTEMAS } from '../lib/sistemas'
 import { altavoz } from './audio'
@@ -361,7 +361,9 @@ export class Sesion {
 
   /** Arranca o reanuda. Llamar dentro de un toque para que suene. */
   async jugar(sonido: boolean, sonarEnSilencio: boolean): Promise<void> {
-    if (this.cerrada || this.roto) return
+    // Tampoco mientras se cierra (v0.43.2): el cierre guarda antes de darse por cerrada, y un toque en
+    // «Seguir» en ese rato dejaba el bucle en marcha mandando pulsos al juego siguiente
+    if (this.cerrada || this.roto || this.cierre) return
     this.altavoz.silenciar(!sonido)
     void this.altavoz.activar(sonarEnSilencio)
     if (this.corriendo) return
@@ -496,7 +498,7 @@ export class Sesion {
   }
 
   private bucle = (ahora: number) => {
-    if (!this.corriendo) return
+    if (!this.corriendo || this.cerrada) return
     this.peticion = requestAnimationFrame(this.bucle)
     try {
       this.avanzar(ahora)
@@ -548,7 +550,7 @@ export class Sesion {
     // Cuántos fotogramas tocan: fijo si la consola va casi al ritmo de la pantalla (movimiento regular),
     // o por tiempo si no. Los refrescos se cuentan en todas las llamadas
     const plan = planRitmo(1000 / this.paso, this.refresco.ms)
-    const sincronizado = plan.modo === 'sincronizado' && dtPantalla < this.refresco.ms * 4.5
+    const sincronizado = plan.modo === 'sincronizado' && dtPantalla < this.refresco.ms * 4.5 && !this.refresco.atrasado
     if (sincronizado) {
       this.acumulado = 0
       // Si se ha perdido algún refresco, se cuentan también: el juego no se frena
@@ -648,7 +650,9 @@ export class Sesion {
    */
   private mandarPulso(dt: number): void {
     const plan = planRitmo(1000 / this.paso, this.refresco.ms)
-    if (plan.modo !== 'sincronizado' || dt >= this.refresco.ms * 4.5) {
+    // Sin pulso también si la pantalla acaba de subir de frecuencia y la medida aún no lo sabe (v0.43.2):
+    // el hilo sigue con su reloj hasta que se ponga al día
+    if (plan.modo !== 'sincronizado' || dt >= this.refresco.ms * 4.5 || this.refresco.atrasado) {
       this.pulsoPendiente = 0
       this.dtPulso = 0
       return
@@ -1008,6 +1012,7 @@ export class Sesion {
   }
 
   async cargarEstado(ranura: Ranura): Promise<boolean> {
+    if (this.roto || this.cerrada || this.cierre || !this.motor) return false
     const estado = await leerEstado(this.o.juego.id, ranura)
     if (!estado) return false
     const r = await this.motor.cargarEstado(new Uint8Array(estado.datos))
@@ -1028,6 +1033,8 @@ export class Sesion {
 
   /** Vuelve al momento de antes de la última carga de un estado. */
   async deshacerCarga(): Promise<boolean> {
+    // El aviso con «Deshacer» puede seguir en pantalla después de salir del juego (v0.43.2)
+    if (this.roto || this.cerrada || this.cierre || !this.motor) return false
     const r = await this.motor.deshacerCarga()
     this.altavoz.vaciar()
     if (this.propio) this.motor.ritmo?.vaciarSonido()
@@ -1102,7 +1109,10 @@ export class Sesion {
     const disco = this.o.juego.disco
     if (ok && disco) {
       this.o.juego = { ...this.o.juego, disco: { ...disco, actual: indice } }
-      await actualizarJuego(this.o.juego)
+      // Sobre la ficha de ahora (v0.43.2): la de esta sesión se leyó antes de apuntar «jugado hoy», y
+      // guardarla tal cual deshacía la última vez jugado y el paso de «pendiente» a «jugando»
+      const ficha = await leerJuego(this.o.juego.id)
+      if (ficha?.disco) await actualizarJuego({ ...ficha, disco: { ...ficha.disco, actual: indice } })
     }
     registrar(ok ? 'info' : 'aviso', ok ? 'Disco cambiado' : 'No se pudo cambiar de disco', { disco: indice + 1 })
     return ok

@@ -44,9 +44,13 @@ export class Refresco {
   private readonly ultimos: number[] = []
   private valor = 0
   private cuenta = 0
+  private cortos = 0
 
   medir(dt: number): void {
     if (dt < 4 || dt > 60) return
+    // Refrescos seguidos mucho más cortos que el medido (v0.43.2): la pantalla ha subido de frecuencia
+    // (de 60 a 120 Hz) y la mediana tarda medio segundo en enterarse
+    this.cortos = this.valor > 0 && dt < this.valor * 0.6 ? this.cortos + 1 : 0
     this.ultimos.push(dt)
     if (this.ultimos.length > 90) this.ultimos.shift()
     // Se recalcula cada 15 medidas: ordenar 90 números en cada refresco no hace falta
@@ -56,6 +60,15 @@ export class Refresco {
   /** Duración del refresco en ms, o 0 si aún no hay medidas suficientes. */
   get ms(): number {
     return this.valor
+  }
+
+  /**
+   * La pantalla va bastante más rápido que lo medido (seis refrescos cortos seguidos; el vaivén normal
+   * de los intervalos alterna cortos y largos). Mientras dure no se puede contar un fotograma por
+   * refresco: el juego iría al doble de velocidad hasta que la mediana se pusiera al día (v0.43.2)
+   */
+  get atrasado(): boolean {
+    return this.cortos >= 6
   }
 }
 

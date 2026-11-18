@@ -4,7 +4,7 @@
  */
 import { Minus, Plus } from 'lucide-react'
 import { useRef, useState, type PointerEvent as EventoPuntero } from 'react'
-import { aAltoActual, altoSinDato, escalar, mover, type Colocacion, type DisposicionPiezas, type Orientacion, type Pieza } from '../lib/disposicionMando'
+import { aAltoActual, escalar, mover, type Colocacion, type DisposicionPiezas, type Orientacion, type Pieza } from '../lib/disposicionMando'
 import { giroDe, vectorJuego } from '../lib/giro'
 
 interface Props {
@@ -51,7 +51,7 @@ export function EditorMando({ colocaciones, orientacion, alCambiar, alRestablece
     const guardada = colocaciones[p]
     if (guardada) {
       const alto = document.querySelector<HTMLElement>('.mando')?.clientHeight ?? 0
-      return aAltoActual(guardada, alto, guardada.alto ?? altoSinDato(orientacion))
+      return aAltoActual(guardada, alto, orientacion)
     }
     // Las del mando y, desde la v0.35.0, las herramientas, que están fuera de él (mismo recuadro)
     const el = document.querySelector<HTMLElement>(`.juego [data-pieza="${p}"]`)

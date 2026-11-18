@@ -60,15 +60,32 @@ export async function anadirDisco(g: GrupoDisco, alProgreso?: (fraccion: number)
   return { tipo: 'nuevo', juego }
 }
 
+/** Lo que se espera para borrar el disco de un juego quitado: el aviso con «Deshacer» dura 4 segundos */
+const MS_DISCO_QUITADO = 30_000
+
 /**
  * Quita un juego de la biblioteca (su ROM y su carátula; la partida y los estados se conservan) y
- * devuelve cómo deshacerlo. El disco de un juego de PlayStation se queda hasta la siguiente apertura.
+ * devuelve cómo deshacerlo. El disco de un juego de PlayStation se queda medio minuto, para «Deshacer».
  */
 export async function quitarDeLaBiblioteca(j: Juego): Promise<() => Promise<void>> {
   const [rom, caratula] = await Promise.all([leerRomGuardada(j.id), leerCaratula(j.id)])
   await quitarJuego(j.id)
   await borrarCaratula(j.id)
   registrar('info', 'Juego quitado de la biblioteca')
+  // El disco se borra cuando ya no se puede deshacer (v0.43.2): antes ocupaba sus cientos de megas
+  // hasta volver a abrir la app, y quitar un juego para hacer sitio no hacía sitio
+  const carpeta = j.disco?.carpeta
+  if (carpeta) {
+    setTimeout(() => {
+      void listarJuegos()
+        .then(async (juegos) => {
+          if (juegos.some((x) => x.disco?.carpeta === carpeta)) return
+          await borrarCarpetaDisco(carpeta)
+          registrar('info', 'Disco de un juego quitado borrado')
+        })
+        .catch(() => undefined)
+    }, MS_DISCO_QUITADO)
+  }
   return async () => {
     if (rom || j.disco) await guardarJuego(j, rom)
     if (caratula) await guardarCaratula(caratula)

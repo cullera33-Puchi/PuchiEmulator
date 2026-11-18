@@ -792,6 +792,11 @@ body.en-juego:has([data-theme='dark'] .hoja) {
 body.en-juego .aviso {
   top: calc(env(safe-area-inset-top) + 8px);
   bottom: auto !important;
+  /* Sin desenfoque dentro del juego (v0.43.2): el aviso queda encima de la imagen, que cambia 60 veces
+     por segundo, y el iPhone tenía que desenfocarla otras tantas mientras duraba */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgb(39 39 42 / 0.97);
 }
 
 /* Una mano, en vertical: todo agrupado abajo, al alcance del pulgar (derecha o izquierda).

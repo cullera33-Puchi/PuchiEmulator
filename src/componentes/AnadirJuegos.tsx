@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom'
 import { leerAjustes } from '../lib/ajustes'
 import { pedirPersistencia } from '../lib/almacen'
 import { anadirDisco, anadirFichero, type ResultadoAnadir } from '../lib/biblioteca'
-import { agruparDiscos } from '../lib/discos'
+import { agruparDiscos, seLeeEntero, type GrupoDisco } from '../lib/discos'
 import { buscarCaratulasPendientes } from '../lib/caratulasAuto'
 import { plural } from '../lib/formato'
 import { registrar } from '../lib/registro'
@@ -34,10 +34,24 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
       else fallidos.push(nombre)
     }
     setAnadiendo('Añadiendo…')
-    // Discos de PlayStation (v0.37.0): el CUE con sus BIN, el CHD o un BIN suelto. Se copian al iPhone
-    // por trozos, sin leerlos enteros a la memoria
-    const { discos, resto, incompletos } = await agruparDiscos(Array.from(ficheros))
-    for (const n of incompletos) fallidos.push(`${n} (falta su .bin: elígelos juntos)`)
+    let discos: GrupoDisco[] = []
+    let resto: File[] = []
+    try {
+      // Discos de PlayStation (v0.37.0): el CUE con sus BIN, el CHD o un BIN suelto. Se copian al iPhone
+      // por trozos, sin leerlos enteros a la memoria
+      const grupos = await agruparDiscos(Array.from(ficheros))
+      discos = grupos.discos
+      resto = grupos.resto
+      for (const n of grupos.incompletos) fallidos.push(`${n} (falta su .bin: elígelos juntos)`)
+      for (const n of grupos.sinHoja) fallidos.push(`${n} (falta su .cue: elígelos juntos)`)
+    } catch (e) {
+      // Un fichero que no se deja leer (v0.43.2): antes el velo de «Añadiendo…» se quedaba para siempre
+      registrar('error', 'No se pudieron leer los ficheros elegidos', (e as Error)?.message)
+      setAnadiendo(null)
+      if (selector.current) selector.current.value = ''
+      avisar('No se han podido leer los ficheros elegidos')
+      return
+    }
     if (discos.length) await pedirPersistencia().catch(() => false)
     const total = discos.length + resto.length
     for (const [i, g] of discos.entries()) {
@@ -55,6 +69,10 @@ export function useAnadirJuegos(alTerminar: () => void | Promise<void>, desde?: 
     for (const [i, f] of resto.entries()) {
       setAnadiendo(total > 1 ? `Añadiendo ${discos.length + i + 1} de ${total}…` : 'Añadiendo…')
       try {
+        if (!seLeeEntero(f.name, f.size)) {
+          fallidos.push(f.name)
+          continue
+        }
         contar(await anadirFichero(f.name, await f.arrayBuffer()), f.name)
       } catch (e) {
         registrar('error', 'No se pudo añadir un juego', (e as Error).message)

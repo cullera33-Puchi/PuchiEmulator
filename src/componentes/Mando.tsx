@@ -352,6 +352,8 @@ export function Mando({ hombros, cuatro, alCambiar, alToque, tactil, jrpg, cuatr
   useEffect(() => {
     const soltar = () => {
       const lados = new Set([...dedos.current.values()].flatMap((d) => (d.palanca === undefined ? [] : [d.palanca])))
+      // El lápiz de la DS también se levanta (v0.43.2): se quedaba apoyado en la pantalla táctil
+      if ([...dedos.current.values()].some((d) => d.tactil)) tactil?.alTocar(null)
       dedos.current.clear()
       for (const lado of lados) moverPalanca(lado)
       recalcular()
