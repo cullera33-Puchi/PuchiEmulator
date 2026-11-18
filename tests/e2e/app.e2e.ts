@@ -2572,41 +2572,17 @@ test.describe('zz sonda', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'Importar' }).click()
     await expect(page.getByText('Partida importada')).toBeVisible()
   }
-  test('zz sonda A: solo la hoja de opciones', async ({ page }) => {
+  const abrirConAviso = async (page: Page, estilo?: string) => {
     await page.goto('/')
-    await anadir(page, 'prueba.gba')
-    await page.getByRole('button', { name: /Opciones de/ }).click()
-    await page.waitForTimeout(800)
-    await page.keyboard.press('Escape')
-    await page.mouse.click(5, 5)
-    await page.waitForTimeout(800)
-    await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
-    await sondear(page)
-  })
-  test('zz sonda B: importar y recargar', async ({ page }) => {
-    await page.goto('/')
+    if (estilo) await page.addStyleTag({ content: estilo })
     await anadir(page, 'prueba.gba')
     await importar(page)
-    await page.reload()
-    await entrar(page, 'Game Boy Advance')
     await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
     await sondear(page)
-  })
-  test('zz sonda C: importar y esperar a que se vaya el aviso', async ({ page }) => {
-    await page.goto('/')
-    await anadir(page, 'prueba.gba')
-    await importar(page)
-    await expect(page.getByText('Partida importada')).toBeHidden({ timeout: 10_000 })
-    await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
-    await sondear(page)
-  })
-  test('zz sonda D: partida en el almacén sin importar (copia de partidas)', async ({ page }) => {
-    await page.goto('/')
-    await anadir(page, 'prueba.gba')
-    await importar(page)
-    await page.getByRole('button', { name: 'Deshacer' }).click()
-    await page.waitForTimeout(1000)
-    await page.getByRole('button', { name: /prueba.*Game Boy Advance/i }).click()
-    await sondear(page)
-  })
+  }
+  test('zz sonda E: como ahora', async ({ page }) => abrirConAviso(page))
+  test('zz sonda F: con el desenfoque de antes', async ({ page }) =>
+    abrirConAviso(page, 'body.en-juego .aviso { -webkit-backdrop-filter: blur(24px) !important; backdrop-filter: blur(24px) !important; background: rgb(39 39 42 / 0.9) !important }'))
+  test('zz sonda G: sin desenfoque desde el principio', async ({ page }) =>
+    abrirConAviso(page, '.aviso { -webkit-backdrop-filter: none !important; backdrop-filter: none !important }'))
 })
