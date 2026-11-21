@@ -48,7 +48,7 @@ export const COMPROBACION: GrupoComprobacion[] = [
       { id: 'psx-discos', texto: 'PlayStation con varios discos, si tienes alguno: añade un disco otro día y se junta con su juego; un estado guardado en el disco 2 lo vuelve a poner al cargarlo.' },
       { id: 'n64', texto: 'Nintendo 64, si tienes alguno: juega un minuto. ¿Va fluido, sin parones?' },
       { id: 'ds-seguir', texto: 'Nintendo DS: abre donde lo dejaste y no sale «El emulador ha fallado».' },
-      { id: 'sonido', texto: 'Game Boy Advance o Game Boy: el sonido se oye limpio, sin tono metálico.' },
+      { id: 'gba-fluido', texto: 'Game Boy Advance: juega cinco minutos, uno de ellos con el modo de bajo consumo del iPhone. Se mueve fluido y el sonido va limpio, sin cortes.' },
     ],
   },
   {

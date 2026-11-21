@@ -3,7 +3,7 @@
  * deja sonar sin un gesto). Con «sonar en silencio», la sesión de audio de iOS pasa a reproducción
  * y suena aunque el interruptor de silencio esté activado.
  */
-import { ControlRitmo, Remuestreador } from './remuestreo'
+import { ControlRitmo, leerAviso, Remuestreador } from './remuestreo'
 
 type SesionAudio = { type: string }
 
@@ -16,6 +16,8 @@ export class Altavoz {
   private ritmo: ControlRitmo | null = null
   private listo: Promise<void> | null = null
   silenciado = false
+  /** Veces que la cola se ha quedado vacía, sin el ritmo propio (v0.49.0); se lee y se pone a 0 */
+  cortes = 0
   /** Volumen de 0 a 1 (v0.22.0) */
   volumen = 1
 
@@ -39,7 +41,9 @@ export class Altavoz {
         .then(() => {
           this.nodo = new AudioWorkletNode(ctx, 'procesador-audio', { numberOfInputs: 0, outputChannelCount: [2] })
           this.nodo.port.onmessage = (e) => {
-            this.ritmo?.aviso(e.data as number, performance.now())
+            const { lleno, cortes } = leerAviso(e.data)
+            this.ritmo?.aviso(lleno, performance.now())
+            this.cortes += cortes
           }
           this.nodo.port.postMessage({ tipo: 'maximo', pares: this.objetivo * 4 })
           this.ganancia = ctx.createGain()

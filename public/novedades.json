@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.49.0",
+    "fecha": "21/11/2026",
+    "cambios": [
+      "Game Boy Advance y el resto de consolas más fluidas: el juego ya no pierde fotogramas cuando la pantalla se retrasa un instante.",
+      "Sonido sin cortes ni chasquidos, también con el modo de bajo consumo del iPhone.",
+      "El registro dice si se corta el sonido, para afinarlo si hace falta."
+    ]
+  },
+  {
     "version": "0.48.4",
     "fecha": "19/11/2026",
     "cambios": [

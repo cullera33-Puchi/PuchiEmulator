@@ -242,7 +242,7 @@ export class Sesion {
   private readonly refresco = new Refresco()
   private refrescos = 0
   // Medidas de rendimiento: se acumulan aunque se abra el menú (antes se perdían en cada pausa)
-  private medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0 }
+  private medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0, sinPulso: 0 }
   /** Tiempo jugado en esta sesión (sin pausas ni inactividad) */
   private msJugados = 0
   private inicioSesion = 0
@@ -681,6 +681,7 @@ export class Sesion {
     if (plan.modo !== 'sincronizado' || dt >= this.refresco.ms * 4.5 || this.refresco.atrasado) {
       this.pulsoPendiente = 0
       this.dtPulso = 0
+      this.medida.sinPulso++
       return
     }
     const antes = Math.floor(this.refrescos / plan.cadaRefrescos)
@@ -782,15 +783,24 @@ export class Sesion {
       // Imágenes que se ven y fotogramas que avanza el juego, por segundo (v0.24.1)
       imagenesSeg: Math.round((m.imagenes / m.tiempo) * 10_000) / 10,
       juegoSeg: Math.round((m.fotogramas / m.tiempo) * 10_000) / 10,
+      // Veces que la cola del sonido se quedó vacía (v0.49.0)
+      cortesSonido: this.tomarCortes(),
     })
-    this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0 }
+    this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0, sinPulso: 0 }
     this.msAvance = 0
+  }
+
+  /** Cortes del sonido que ha visto el altavoz de la página desde la última medida (v0.49.0) */
+  private tomarCortes(): number {
+    const c = this.altavoz.cortes
+    this.altavoz.cortes = 0
+    return c
   }
 
   /** Rendimiento del ritmo propio: lo mide el hilo; aquí, los refrescos de la página. */
   private anotarRendimientoPropio(): Promise<void> {
     const m = this.medida
-    this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0 }
+    this.medida = { tiempo: 0, refrescos: 0, envios: 0, imagenes: 0, fotogramas: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, modo: '', mostradas: 0, entradas: 0, cambiosTamano: 0, sinPulso: 0 }
     const avance = this.msAvance
     this.msAvance = 0
     const ritmo = this.motor.ritmo
@@ -832,6 +842,13 @@ export class Sesion {
           distintasSeg: Math.round((h.distintas / seg) * 10) / 10,
           sonidoSeg: Math.round((h.conSonido / seg) * 10) / 10,
           mostradasSeg: Math.round((m.mostradas / (m.tiempo / 1000 || 1)) * 10) / 10,
+          // v0.49.0: refrescos de la página sin pulso (la pantalla no iba sincronizada o hubo un salto),
+          // pulsos descartados por viejos, veces que siguió el reloj del hilo, cortes de sonido y cola media
+          sinPulso: m.sinPulso,
+          viejos: h.viejos,
+          relevos: h.relevos,
+          cortesSonido: h.cortesSonido + this.tomarCortes(),
+          colaMs: h.colaMs,
           entradas: m.entradas,
           cambiosTamano: m.cambiosTamano,
           tamano: `${this.tamano.ancho}x${this.tamano.alto}`,

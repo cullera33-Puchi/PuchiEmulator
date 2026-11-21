@@ -86,6 +86,19 @@ function mediana(valores: number[]): number {
 export function estimarRefresco(intervalos: number[]): number {
   let m = mediana(intervalos)
   for (let i = 0; i < 2; i++) m = mediana(intervalos.map((dt) => dt / Math.max(1, Math.round(dt / m))))
+  // Después, el tiempo total entre los refrescos que caben en él (v0.49.0). Con la pantalla a 60 Hz,
+  // iOS entrega a veces los refrescos a destiempo (uno corto y otro largo) y la mediana se iba a 53 o
+  // 56 Hz: el juego dejaba de ir sincronizado aunque pasaban 59 refrescos por segundo. Un intervalo
+  // muy corto (la mitad de lo medido) no cuenta como refresco: es el que llegó a destiempo
+  for (let i = 0; i < 2; i++) {
+    let tiempo = 0
+    let refrescos = 0
+    for (const dt of intervalos) {
+      tiempo += dt
+      refrescos += Math.round(dt / m)
+    }
+    if (refrescos > intervalos.length / 2) m = tiempo / refrescos
+  }
   const hz = 1000 / m
   for (const f of FRECUENCIAS) if (Math.abs(hz / f - 1) < 0.03) return 1000 / f
   return m

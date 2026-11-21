@@ -45,6 +45,23 @@ describe('Refresco', () => {
     expect(planRitmo(60.0988, r.ms)).toEqual({ modo: 'sincronizado', cadaRefrescos: 2, porRefresco: 1 })
   })
 
+  it('a 60 Hz con los refrescos entregados con un retraso que crece y se recupera, sigue midiendo 60 Hz (v0.49.0)', () => {
+    // Lo que daba 53 Hz en el registro de GBA: tres refrescos con 2 ms más cada uno y uno corto que
+    // vuelve a su sitio. La mediana se quedaba con los largos (18,7 ms)
+    const intervalos: number[] = []
+    for (let i = 0; i < 90; i++) intervalos.push(i % 4 === 3 ? 1000 / 60 - 6 : 1000 / 60 + 2)
+    expect(1000 / estimarRefresco(intervalos)).toBeCloseTo(60, 6)
+    // Y con alguno perdido de vez en cuando
+    const conPerdidos = intervalos.map((dt, i) => (i % 13 === 0 ? dt + 1000 / 60 : dt))
+    expect(1000 / estimarRefresco(conPerdidos)).toBeCloseTo(60, 6)
+  })
+
+  it('a 60 Hz con refrescos a destiempo (uno muy corto y otro muy largo) sigue en 60 Hz (v0.49.0)', () => {
+    const intervalos: number[] = []
+    for (let i = 0; i < 90; i++) intervalos.push(i % 6 === 0 ? 7 : i % 6 === 1 ? 1000 / 30 - 7 : 1000 / 60)
+    expect(1000 / estimarRefresco(intervalos)).toBeCloseTo(60, 6)
+  })
+
   it('una pantalla poco habitual se mide tal cual', () => {
     expect(1000 / estimarRefresco(new Array(40).fill(1000 / 75))).toBeCloseTo(75)
   })

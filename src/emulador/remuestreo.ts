@@ -140,6 +140,25 @@ export function factorRitmo(lleno: number, objetivo: number): number {
 }
 
 /**
+ * Aviso del procesador de audio: lo que le queda en cola (pares) y, desde la v0.49.0, las veces que
+ * se ha quedado vacía desde el aviso anterior (`[lleno, cortes]`).
+ */
+export function leerAviso(d: unknown): { lleno: number; cortes: number } {
+  if (Array.isArray(d)) return { lleno: Number(d[0]) || 0, cortes: Number(d[1]) || 0 }
+  return { lleno: Number(d) || 0, cortes: 0 }
+}
+
+/**
+ * Cola que se busca según cada cuánto llegan las muestras (v0.49.0): con la pantalla a 30 Hz (modo
+ * de bajo consumo) llegan cada 33 ms y un refresco perdido son 33 ms más sin muestras; con los 70 ms
+ * de siempre se quedaba vacía y sonaba raro. Al menos la base; si no, dos intervalos más 30 ms.
+ */
+export function objetivoCola(base: number, intervaloMs: number, frecuenciaSalida: number): number {
+  if (!(intervaloMs > 0)) return base
+  return Math.max(base, Math.round(((intervaloMs * 2 + 30) / 1000) * frecuenciaSalida))
+}
+
+/**
  * Control del ritmo del sonido. El procesador de audio avisa de lo que le queda en cola cada 50 ms;
  * entre aviso y aviso se estima restando lo que ya ha sonado por el tiempo pasado (si solo se
  * sumara lo enviado, el tono subiría y bajaría 20 veces por segundo: suena metálico). El factor se
@@ -151,6 +170,8 @@ export class ControlRitmo {
   private enviados = 0
   private factor = 1
   private ultimo = 0
+  /** Cada cuánto llegan los bloques, de media (v0.49.0) */
+  private intervalo = 0
   private readonly frecuenciaSalida: number
   private readonly objetivo: number
 
@@ -176,13 +197,23 @@ export class ControlRitmo {
     return Math.max(0, this.reportado + this.enviados - ((t - this.momento) / 1000) * this.frecuenciaSalida)
   }
 
+  /** La cola que se busca ahora, en pares (v0.49.0) */
+  get objetivoActual(): number {
+    return objetivoCola(this.objetivo, this.intervalo, this.frecuenciaSalida)
+  }
+
   /** Factor de ritmo para el bloque que se va a enviar en `t`, suavizado. */
   siguiente(t: number): number {
+    const desde = this.ultimo ? t - this.ultimo : 0
+    if (desde > 0 && desde < 100) this.intervalo = this.intervalo ? this.intervalo + (desde - this.intervalo) * 0.05 : desde
     // Tras reiniciar, hasta el primer aviso no se sabe lo que hay en cola: ritmo normal (v0.36.0)
-    if (this.momento === 0) return this.factor
+    if (this.momento === 0) {
+      this.ultimo = t
+      return this.factor
+    }
     const dt = this.ultimo ? Math.min(t - this.ultimo, 100) : 0
     this.ultimo = t
-    const meta = factorRitmo(this.estimado(t), this.objetivo)
+    const meta = factorRitmo(this.estimado(t), this.objetivoActual)
     this.factor += (meta - this.factor) * Math.min(1, dt / 1000)
     return this.factor
   }
@@ -193,5 +224,6 @@ export class ControlRitmo {
     this.enviados = 0
     this.factor = 1
     this.ultimo = 0
+    this.intervalo = 0
   }
 }

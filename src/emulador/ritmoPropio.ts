@@ -17,7 +17,7 @@
  */
 import type { Motor, PeticionFotogramas } from './motor'
 import type { Imagenes } from './pintor'
-import { ControlRitmo, Remuestreador } from './remuestreo'
+import { ControlRitmo, leerAviso, Remuestreador } from './remuestreo'
 
 /** Botones de ahora: lo que la página manda en cuanto cambia */
 export type EntradaRitmo = Omit<PeticionFotogramas, 'n'>
@@ -49,6 +49,13 @@ export interface MedidaRitmo {
   /** Tandas con la imagen del núcleo cambiada y con sonido (v0.43.1, para ver si el juego se para) */
   distintas: number
   conSonido: number
+  /** Veces que el pulso de la pantalla no llegó a tiempo y siguió el reloj del hilo (v0.49.0) */
+  relevos: number
+  /** Pulsos descartados por llegar tarde (v0.49.0) */
+  viejos: number
+  /** Veces que la cola del sonido se ha quedado vacía y lo que tenía de media, en ms (v0.49.0) */
+  cortesSonido: number
+  colaMs: number
 }
 
 /** Una tanda que tarda más que esto se nota como un parón */
@@ -57,8 +64,31 @@ const MS_PARON = 50
 /** Como mucho, fotogramas seguidos para recuperar (por velocidad); lo que pase se pierde */
 const MAX_SEGUIDOS = 4
 
-/** Sin pulso de la pantalla en este tiempo, el hilo vuelve a su reloj (v0.41.0) */
+/**
+ * Con un núcleo que va sobrado (GBA, 1 ms por fotograma), se recuperan más de golpe, hasta lo que
+ * quepa en estos milisegundos y como mucho `MAX_RECUPERAR` (v0.49.0): perder fotogramas frena el juego
+ * y deja la cola del sonido vacía, y eso se oye.
+ */
+const MS_RECUPERAR = 12
+const MAX_RECUPERAR = 10
+
+/** Un pulso con más retraso que esto (frente al menor visto) es viejo y se descarta (v0.43.0) */
 export const MS_SIN_PULSO = 100
+
+/**
+ * Sin pulso en este número de intervalos de pulso, el hilo sigue con su reloj (v0.49.0). Antes esperaba
+ * 100 ms y miraba cada 50: entre 100 y 150 ms sin imagen ni sonido (la cola del sonido es de 70 ms) y,
+ * al recuperar como mucho 4 fotogramas, el resto se perdía. Con 2,5, un refresco perdido no basta (el
+ * siguiente pulso lleva dos fotogramas); dos seguidos, sí.
+ */
+const PULSOS_DE_ESPERA = 2.5
+const MS_ESPERA_MINIMA = 25
+
+/**
+ * Fotogramas hechos con el reloj que un pulso puede traer aún (v0.49.0). Si son más, la página no los
+ * contó (la pantalla no iba sincronizada o hubo un salto largo) y no se descuentan de los pulsos.
+ */
+const MAX_DESCONTAR = 3
 
 /**
  * Imágenes mandadas a la página que aún no ha recibido (v0.43.0). Si la página se atasca (al girar el
@@ -84,8 +114,25 @@ export class SonidoHilo {
     this.puerto = puerto
     this.frecuenciaSalida = frecuenciaSalida
     this.ritmo = new ControlRitmo(frecuenciaSalida, objetivo)
-    // El procesador avisa cada 50 ms de lo que le queda en la cola
-    puerto.onmessage = (e) => this.ritmo.aviso(e.data as number, performance.now())
+    // El procesador avisa cada 50 ms de lo que le queda en la cola y de las veces que se ha quedado vacía
+    puerto.onmessage = (e) => {
+      const { lleno, cortes } = leerAviso(e.data)
+      this.ritmo.aviso(lleno, performance.now())
+      this.cortes += cortes
+      this.sumaCola += lleno
+      this.avisos++
+    }
+  }
+
+  private cortes = 0
+  private sumaCola = 0
+  private avisos = 0
+
+  /** Cortes y cola media desde la última vez (v0.49.0) */
+  tomarMedida(): { cortes: number; colaMs: number } {
+    const r = { cortes: this.cortes, colaMs: this.avisos ? Math.round((this.sumaCola / this.avisos / this.frecuenciaSalida) * 1000) : 0 }
+    this.cortes = this.sumaCola = this.avisos = 0
+    return r
   }
 
   enviar(muestras: Int16Array, frecuencia: number): void {
@@ -109,7 +156,7 @@ export class SonidoHilo {
   }
 }
 
-const medidaVacia = (): MedidaRitmo => ({ ms: 0, tandas: 0, fotogramas: 0, imagenes: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, parones: 0, perdidos: 0, pulsos: 0, distintas: 0, conSonido: 0 })
+const medidaVacia = (): MedidaRitmo => ({ ms: 0, tandas: 0, fotogramas: 0, imagenes: 0, trabajo: 0, pintar: 0, maximo: 0, largos: 0, parones: 0, perdidos: 0, pulsos: 0, distintas: 0, conSonido: 0, relevos: 0, viejos: 0, cortesSonido: 0, colaMs: 0 })
 
 export class RitmoPropio {
   private activo = false
@@ -129,6 +176,13 @@ export class RitmoPropio {
   /** Último pulso de la pantalla y cuánto más rápido va el juego con él (para el sonido) */
   private ultimoPulso = -Infinity
   private ritmoPulso = 1
+  /** Intervalo entre pulsos, de media (v0.49.0): de él sale cuánto se espera antes de seguir con el reloj */
+  private intervaloPulso = 1000 / 60
+  /** Con pulsos (true) o con el reloj; y fotogramas que el reloj ha hecho desde el último pulso (v0.49.0) */
+  private conPulsos = false
+  private hechosReloj = 0
+  /** Lo que tarda un fotograma, de media reciente (v0.49.0) */
+  private coste = 0
   /** Imágenes mandadas que la página aún no ha confirmado, y cuándo se mandó la última (v0.43.0) */
   private enVuelo = 0
   private ultimaEnviada = 0
@@ -167,6 +221,8 @@ export class RitmoPropio {
     if (this.activo) this.msActivos += performance.now() - this.desdeActivo
     this.activo = false
     this.ultimoPulso = -Infinity
+    this.conPulsos = false
+    this.hechosReloj = 0
     clearTimeout(this.temporizador)
     this.sonido?.vaciar()
   }
@@ -209,13 +265,31 @@ export class RitmoPropio {
       // no coinciden del todo. Los descartados no se cuentan aquí: si faltan, los pone el reloj
       const retraso = horaComun() - hora
       if (retraso < this.menorRetraso) this.menorRetraso = retraso
-      if (retraso - this.menorRetraso > MS_SIN_PULSO) return
+      if (retraso - this.menorRetraso > MS_SIN_PULSO) {
+        this.medida.viejos++
+        return
+      }
     }
-    this.ultimoPulso = performance.now()
+    const ahora = performance.now()
+    const desde = ahora - this.ultimoPulso
+    if (desde > 4 && desde < MS_SIN_PULSO) this.intervaloPulso += (desde - this.intervaloPulso) * 0.1
+    this.ultimoPulso = ahora
     this.ritmoPulso = ritmoReal > 0 ? ritmoReal : 1
-    const maximo = MAX_SEGUIDOS * this.velocidad
-    if (n > maximo) this.medida.perdidos += n - maximo
-    const toca = Math.min(n, maximo)
+    // Lo que el reloj ya ha hecho mientras este pulso no llegaba no se repite (v0.49.0)
+    let pendiente = n
+    if (this.hechosReloj > 0) {
+      const descontar = Math.min(pendiente, this.hechosReloj)
+      pendiente -= descontar
+      this.hechosReloj -= descontar
+      if (this.hechosReloj > MAX_DESCONTAR * this.velocidad) this.hechosReloj = 0
+    }
+    // El reloj espera al siguiente pulso; si no llega a tiempo, sigue él desde aquí
+    this.conPulsos = true
+    clearTimeout(this.temporizador)
+    this.temporizador = setTimeout(this.tick, this.espera())
+    const maximo = this.maxSeguidos()
+    if (pendiente > maximo) this.medida.perdidos += pendiente - maximo
+    const toca = Math.min(pendiente, maximo)
     if (toca <= 0) return
     try {
       this.hacer(toca, 1000 / this.fps, true)
@@ -224,6 +298,17 @@ export class RitmoPropio {
       clearTimeout(this.temporizador)
       this.emitir({ evento: 'fallo', mensaje: (e as Error)?.message ?? String(e) }, [])
     }
+  }
+
+  /** Cuánto se espera un pulso antes de seguir con el reloj (v0.49.0) */
+  private espera(): number {
+    return Math.min(MS_SIN_PULSO, Math.max(MS_ESPERA_MINIMA, this.intervaloPulso * PULSOS_DE_ESPERA))
+  }
+
+  /** Fotogramas seguidos que se pueden hacer para recuperar (v0.49.0) */
+  private maxSeguidos(): number {
+    if (this.velocidad > 1 || !(this.coste > 0)) return MAX_SEGUIDOS * this.velocidad
+    return Math.max(MAX_SEGUIDOS, Math.min(MAX_RECUPERAR, Math.floor(MS_RECUPERAR / this.coste)))
   }
 
   /** Tras cargar un estado o reiniciar: el sonido de antes ya no vale y el reloj empieza de nuevo. */
@@ -236,7 +321,8 @@ export class RitmoPropio {
   tomarMedida(): MedidaRitmo {
     const ahora = performance.now()
     const ms = this.msActivos + (this.activo ? ahora - this.desdeActivo : 0)
-    const m = { ...this.medida, ms }
+    const sonido = this.sonido?.tomarMedida()
+    const m = { ...this.medida, ms, cortesSonido: sonido?.cortes ?? 0, colaMs: sonido?.colaMs ?? 0 }
     this.medida = medidaVacia()
     this.msActivos = 0
     this.desdeActivo = ahora
@@ -259,14 +345,20 @@ export class RitmoPropio {
     const paso = 1000 / this.fps
     const ahora = performance.now()
     // La pantalla marca el ritmo: el reloj solo vigila. Si deja de marcarlo, sigue desde el último pulso
-    if (ahora - this.ultimoPulso < MS_SIN_PULSO) {
-      this.base = this.ultimoPulso
-      this.hechos = 0
-      this.temporizador = setTimeout(this.tick, MS_SIN_PULSO / 2)
+    const espera = this.espera()
+    if (ahora - this.ultimoPulso < espera) {
+      this.temporizador = setTimeout(this.tick, this.ultimoPulso + espera - ahora)
       return
     }
+    if (this.conPulsos) {
+      this.conPulsos = false
+      this.base = this.ultimoPulso
+      this.hechos = 0
+      this.hechosReloj = 0
+      this.medida.relevos++
+    }
     let toca = Math.floor(((ahora - this.base) * this.velocidad) / paso) - this.hechos
-    const maximo = MAX_SEGUIDOS * this.velocidad
+    const maximo = this.maxSeguidos()
     if (toca > maximo) {
       // El motor no llega: se salta ese tiempo (el juego va más lento) en lugar de ir a trompicones
       this.medida.perdidos += toca - maximo
@@ -274,6 +366,8 @@ export class RitmoPropio {
       toca = maximo
     }
     if (toca > 0) {
+      // Lo que haga el reloj tras un pulso puede venir también en el siguiente: se descuenta
+      if (this.ultimoPulso > -Infinity) this.hechosReloj += toca
       try {
         this.hacer(toca, paso, false)
       } catch (e) {
@@ -298,6 +392,10 @@ export class RitmoPropio {
     const sinSonido = this.velocidad > 1
     const r = this.motor.fotogramas({ n, ...this.entrada, sinImagen: !quiereImagen, sinSonido })
     this.hechos += n
+    if (r.hechos > 0 && !sinSonido) {
+      const c = r.msTrabajo / r.hechos
+      this.coste = this.coste ? this.coste * 0.9 + c * 0.1 : c
+    }
     if (r.tiempos) {
       const fps = r.tiempos.fps > 0 ? r.tiempos.fps : this.fps
       // Con otro ritmo de la consola, el reloj empieza de nuevo: si no, lo que toca saldría mal (v0.36.0)

@@ -1,5 +1,17 @@
 # Cambios
 
+## 0.49.0 (21/11/2026)
+
+A partir del registro del usuario con Game Boy Advance: el núcleo va sobrado (menos de 1 ms por fotograma), pero el juego perdía de 16 a 61 fotogramas cada 30 s (57,6 a 59,3 por segundo en lugar de 59,7) y el sonido se cortaba, más con el modo de bajo consumo (pantalla a 30 Hz).
+
+- Relevo entre el pulso de la pantalla y el reloj del hilo (`ritmoPropio.ts`): si el pulso no llegaba, el hilo esperaba 100 ms y miraba cada 50, así que pasaban entre 100 y 150 ms sin imagen ni sonido (la cola del sonido es de 70 ms) y al volver recuperaba como mucho 4 fotogramas; el resto se perdía. Ahora espera 2,5 intervalos de pulso (unos 42 ms a 60 Hz, `espera`), sigue con su reloj desde el último pulso y, cuando el pulso vuelve, descuenta lo que ya ha hecho el reloj (`hechosReloj`), para no hacerlo dos veces.
+- Un salto de la página de 75 a 100 ms (cinco refrescos) se perdía entero sin contarse: la página no manda pulso tras un salto tan largo y el reloj aún no había tomado el relevo. Ahora lo cubre el reloj.
+- Con un núcleo que va sobrado, se recuperan hasta 10 fotogramas seguidos, lo que quepa en 12 ms según lo que tarda cada uno (`maxSeguidos`); con N64, DS y PlayStation siguen siendo 4.
+- Medida del refresco (`estimarRefresco`): con la pantalla a 60 Hz y los refrescos entregados con un retraso que crece y se recupera, la mediana daba 53 o 56 Hz y el juego dejaba de ir sincronizado con la pantalla (en el registro, 59 refrescos por segundo con «pantallaHz» 53 y 56). Ahora, tras la mediana, se divide el tiempo total entre los refrescos que caben en él.
+- Sonido: la cola que se busca crece si las muestras llegan más espaciadas (`objetivoCola`: 70 ms a 60 Hz, unos 97 a 30 Hz). Si la cola se vacía, el procesador apaga el sonido en 64 muestras desde la última en lugar de caer a cero de golpe, que es el chasquido, y vuelve igual de suave.
+- Registro: «Rendimiento» lleva `sinPulso` (refrescos de la página sin pulso), `viejos` (pulsos descartados por llegar tarde), `relevos` (veces que siguió el reloj), `cortesSonido` (veces que se vació la cola del sonido) y `colaMs` (cola media).
+- Comprobación en el iPhone: el punto del sonido de GBA pasa a «Game Boy Advance: juega cinco minutos, uno de ellos con el modo de bajo consumo» (`gba-fluido`).
+
 ## 0.48.4 (19/11/2026)
 
 - Vuelta atrás de la v0.48.3: con el alto de la ventana (`outerHeight`), la fila de abajo de la DS en vertical salía cortada (captura del usuario con Dragon Quest V), igual que en la v0.42.1. Cuando iOS 26 encoge la página a 812, los 62 puntos de abajo quedan fuera de ella: iOS los pinta con el color de fondo, pero la app no puede dibujar ni recibir toques ahí. El juego vuelve a medir la página (`innerHeight`). El hueco que se ve a veces abajo es de iOS y no se puede usar desde la web.

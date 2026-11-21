@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ControlRitmo, factorRitmo, Remuestreador } from './remuestreo'
+import { ControlRitmo, factorRitmo, leerAviso, objetivoCola, Remuestreador } from './remuestreo'
 
 const estereo = (valores: number[]) => new Int16Array(valores.flatMap((v) => [v, -v]))
 
@@ -142,6 +142,21 @@ describe('ControlRitmo', () => {
     c.aviso(3000, 1000)
     c.enviado(800)
     expect(c.estimado(1000 + 1000 / 60)).toBeCloseTo(3000)
+  })
+
+  it('con las muestras cada 33 ms (pantalla a 30 Hz), busca más cola; a 60 Hz, la de siempre (v0.49.0)', () => {
+    const base = Math.round(48000 * 0.07)
+    expect(objetivoCola(base, 1000 / 60, 48000)).toBe(base)
+    expect(objetivoCola(base, 1000 / 30, 48000)).toBe(Math.round(48000 * (66.67 + 30) / 1000))
+    expect(objetivoCola(base, 0, 48000)).toBe(base)
+    const c = new ControlRitmo(48000, base)
+    for (let t = 1000; t < 3000; t += 1000 / 30) c.siguiente(t)
+    expect(c.objetivoActual).toBeGreaterThan(base * 1.3)
+  })
+
+  it('lee el aviso del procesador, el de antes (solo la cola) y el nuevo con los cortes (v0.49.0)', () => {
+    expect(leerAviso(3000)).toEqual({ lleno: 3000, cortes: 0 })
+    expect(leerAviso([2500, 2])).toEqual({ lleno: 2500, cortes: 2 })
   })
 
   it('tras reiniciar va a ritmo normal hasta el primer aviso', () => {

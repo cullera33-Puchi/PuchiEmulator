@@ -139,6 +139,67 @@ describe('ritmo propio del hilo', () => {
     r.cerrar()
   })
 
+  it('si la página se salta varios refrescos, el reloj sigue enseguida y no se pierde ningún fotograma (v0.49.0)', () => {
+    const { motor, total } = motorDePrueba()
+    const r = new RitmoPropio(motor, 60, 48000, () => undefined)
+    r.arrancar(entrada, 1, false)
+    for (let i = 0; i < 30; i++) {
+      vi.advanceTimersByTime(1000 / 60)
+      r.pulso(1, 1)
+    }
+    const antes = total()
+    // Cinco refrescos sin pulso (83 ms): la página no los cuenta y sigue con uno
+    vi.advanceTimersByTime((1000 / 60) * 6)
+    r.pulso(1, 1)
+    for (let i = 0; i < 30; i++) {
+      vi.advanceTimersByTime(1000 / 60)
+      r.pulso(1, 1)
+    }
+    // 36 refrescos en total, uno arriba o abajo; antes se perdían los cinco
+    expect(total() - antes).toBeGreaterThanOrEqual(35)
+    expect(total() - antes).toBeLessThanOrEqual(37)
+    const m = r.tomarMedida()
+    expect(m.relevos).toBe(1)
+    expect(m.perdidos).toBe(0)
+    r.cerrar()
+  })
+
+  it('los pulsos que llegan tarde, después de que el reloj haya seguido, no se hacen dos veces (v0.49.0)', () => {
+    const { motor, total } = motorDePrueba()
+    const r = new RitmoPropio(motor, 60, 48000, () => undefined)
+    r.arrancar(entrada, 1, false)
+    for (let i = 0; i < 30; i++) {
+      vi.advanceTimersByTime(1000 / 60)
+      r.pulso(1, 1)
+    }
+    const antes = total()
+    // Tres refrescos cuyos pulsos llegan juntos, tarde: el reloj ya ha hecho esos fotogramas
+    vi.advanceTimersByTime(50)
+    const delReloj = total() - antes
+    expect(delReloj).toBeGreaterThanOrEqual(2)
+    r.pulso(1, 1)
+    r.pulso(1, 1)
+    r.pulso(1, 1)
+    expect(total() - antes).toBe(Math.max(delReloj, 3))
+    r.cerrar()
+  })
+
+  it('con un núcleo que va sobrado, recupera más de 4 fotogramas seguidos sin perderlos (v0.49.0)', () => {
+    const { motor, peticiones } = motorDePrueba()
+    const r = new RitmoPropio(motor, 60, 48000, () => undefined)
+    r.arrancar(entrada, 1, false)
+    // Unos cuantos pulsos para medir lo que tarda: 1 ms por fotograma
+    for (let i = 0; i < 10; i++) {
+      vi.advanceTimersByTime(1000 / 60)
+      r.pulso(1, 1)
+    }
+    r.tomarMedida()
+    r.pulso(8, 1)
+    expect(peticiones.at(-1)?.n).toBe(8)
+    expect(r.tomarMedida().perdidos).toBe(0)
+    r.cerrar()
+  })
+
   it('parado, los pulsos no hacen nada', () => {
     const { motor, total } = motorDePrueba()
     const r = new RitmoPropio(motor, 60, 48000, () => undefined)
